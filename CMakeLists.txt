@@ -1,0 +1,219 @@
+cmake_minimum_required(VERSION 3.11)
+project(alias_q2 LANGUAGES C)
+
+add_subdirectory(../alias ${CMAKE_BINARY_DIR}/alias)
+
+# add_library(tools-common STATIC
+#     ext/Quake-2-Tools/common/bspfile.c
+#     ext/Quake-2-Tools/common/cmdlib.c
+#     ext/Quake-2-Tools/common/l3dslib.c
+#     ext/Quake-2-Tools/common/lbmlib.c
+#     ext/Quake-2-Tools/common/mathlib.c
+#     ext/Quake-2-Tools/common/mdfour.c
+#     ext/Quake-2-Tools/common/polylib.c
+#     ext/Quake-2-Tools/common/scriplib.c
+#     ext/Quake-2-Tools/common/threads.c
+#     ext/Quake-2-Tools/common/trilib.c
+# )
+# target_include_directories(tools-common
+#     INTERFACE ext/Quake-2-Tools/common
+# )
+
+# add_executable(bspinfo3
+#     ext/Quake-2-Tools/bsp/bspinfo3/bspinfo3.c
+# )
+# target_link_libraries(bspinfo3 tools-common)
+
+# add_executable(qbsp3
+#     ext/Quake-2-Tools/bsp/qbsp3/brushbsp.c
+#     ext/Quake-2-Tools/bsp/qbsp3/csg.c
+#     ext/Quake-2-Tools/bsp/qbsp3/faces.c
+#     #ext/Quake-2-Tools/bsp/qbsp3/gldraw.c
+#     ext/Quake-2-Tools/bsp/qbsp3/glfile.c
+#     ext/Quake-2-Tools/bsp/qbsp3/leakfile.c
+#     ext/Quake-2-Tools/bsp/qbsp3/map.c
+#     ext/Quake-2-Tools/bsp/qbsp3/nodraw.c
+#     ext/Quake-2-Tools/bsp/qbsp3/portals.c
+#     ext/Quake-2-Tools/bsp/qbsp3/prtfile.c
+#     ext/Quake-2-Tools/bsp/qbsp3/qbsp3.c
+#     ext/Quake-2-Tools/bsp/qbsp3/textures.c
+#     ext/Quake-2-Tools/bsp/qbsp3/tree.c
+#     ext/Quake-2-Tools/bsp/qbsp3/writebsp.c
+# )
+# target_link_libraries(qbsp3 tools-common)
+
+# add_executable(qrad3
+#     ext/Quake-2-Tools/bsp/qrad3/lightmap.c
+#     ext/Quake-2-Tools/bsp/qrad3/patches.c
+#     ext/Quake-2-Tools/bsp/qrad3/qrad3.c
+#     ext/Quake-2-Tools/bsp/qrad3/trace.c
+# )
+# target_link_libraries(qrad3 tools-common)
+
+# add_executable(qvis3
+#     ext/Quake-2-Tools/bsp/qvis3/flow.c
+#     ext/Quake-2-Tools/bsp/qvis3/qvis3.c
+# )
+# target_link_libraries(qvis3 tools-common)
+
+add_library(shared STATIC
+    game/q_shared.c
+    game/m_flash.c
+)
+target_include_directories(shared INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(shared alias)
+
+add_library(game STATIC
+    game/g_ai.c
+    game/g_chase.c
+    game/g_cmds.c
+    game/g_combat.c
+    game/g_func.c
+    game/g_items.c
+    game/g_main.c
+    game/g_misc.c
+    game/g_save.c
+    game/m_boss2.c
+    game/m_gladiator.c
+    game/m_supertank.c
+    game/g_spawn.c
+    game/m_boss3.c
+    game/m_gunner.c
+    game/m_tank.c
+    game/g_svcmds.c
+    game/m_boss31.c
+    game/m_hover.c
+    game/p_client.c
+    game/g_target.c
+    game/m_boss32.c
+    game/m_infantry.c
+    game/p_hud.c
+    game/g_trigger.c
+    game/m_brain.c
+    game/m_insane.c
+    game/p_trail.c
+    game/g_turret.c
+    game/m_chick.c
+    game/m_medic.c
+    game/p_view.c
+    game/g_utils.c
+    game/m_move.c
+    game/p_weapon.c
+    game/g_weapon.c
+    game/m_flipper.c
+    game/m_mutant.c
+    game/q_shared.c
+    game/g_monster.c
+    game/m_actor.c
+    game/m_float.c
+    game/m_parasite.c
+    game/g_phys.c
+    game/m_berserk.c
+    game/m_flyer.c
+    game/m_soldier.c
+)
+target_link_libraries(game shared)
+target_compile_definitions(game PRIVATE GAME_HARD_LINKED=1)
+
+add_library(common STATIC
+    qcommon/cmd.c
+    qcommon/cmodel.c
+    qcommon/common.c
+    qcommon/crc.c
+    qcommon/cvar.c
+    qcommon/files.c
+    qcommon/md4.c
+    qcommon/net_chan.c
+    qcommon/pmove.c
+)
+target_link_libraries(common shared)
+
+add_library(client STATIC
+    client/cl_cin.C
+    client/cl_ents.c
+    client/cl_fx.c
+    client/cl_input.c
+    client/cl_inv.c
+    client/cl_main.c
+    client/cl_newfx.c
+    client/cl_parse.c
+    client/cl_pred.c
+    client/cl_scrn.c
+    client/cl_tent.c
+    client/cl_view.c
+    client/console.c
+    client/keys.c
+    client/menu.c
+    client/qmenu.c
+    client/snd_dma.c
+    client/snd_mem.c
+    client/snd_mix.c
+    client/x86.c
+)
+target_link_libraries(client common)
+
+add_library(server STATIC
+    server/sv_ccmds.c
+    server/sv_ents.c
+    server/sv_game.c
+    server/sv_init.c
+    server/sv_main.c
+    # server/sv_null.c
+    server/sv_send.c
+    server/sv_user.c
+    server/sv_world.c
+)
+target_link_libraries(server common)
+
+add_library(refresh STATIC
+    ref_gl/gl_draw.c
+    ref_gl/gl_light.c
+    ref_gl/gl_model.c
+    ref_gl/gl_rmisc.c
+    ref_gl/gl_warp.c
+    ref_gl/gl_image.c
+    ref_gl/gl_mesh.c
+    ref_gl/gl_rmain.c
+    ref_gl/gl_rsurf.c
+)
+target_link_libraries(refresh common)
+target_compile_definitions(refresh PRIVATE REF_HARD_LINKED=1)
+
+add_executable(quake2)
+target_link_libraries(quake2
+    client server
+    refresh
+    game
+)
+
+if(WIN32)
+    target_sources(quake2
+        PRIVATE
+            # win32/cd_win.c
+            win32/conproc.c
+            win32/glw_imp.c
+            win32/in_win.c
+            win32/net_wins.c
+            win32/q_shwin.c
+            win32/qgl_win.c
+            # win32/rw_ddraw.c
+            # win32/rw_dib.c
+            # win32/rw_imp.c
+            win32/snd_win.c
+            win32/sys_win.c
+            win32/vid_dll.c
+            win32/vid_menu.c
+    )
+
+    target_link_libraries(quake2 dsound winmm wsock32)
+endif()
+
+# add_executable(quake2
+#     # shared between engine,game,refresh
+#     game/q_shared.c
+
+#     # engine
+#     qcommon/cmd.c
+#     qcommon/cmodel.c
+#     qcommon/common.c
+# )

@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -108,14 +108,14 @@ void WinError (void)
 {
 	LPVOID lpMsgBuf;
 
-	FormatMessage( 
+	FormatMessage(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 		NULL,
 		GetLastError(),
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
 		(LPTSTR) &lpMsgBuf,
 		0,
-		NULL 
+		NULL
 	);
 
 	// Display the string.
@@ -134,48 +134,48 @@ Sys_ScanForCD
 
 ================
 */
-char *Sys_ScanForCD (void)
-{
-	static char	cddir[MAX_OSPATH];
-	static qboolean	done;
-#ifndef DEMO
-	char		drive[4];
-	FILE		*f;
-	char		test[MAX_QPATH];
+// char *Sys_ScanForCD (void)
+// {
+// 	static char	cddir[MAX_OSPATH];
+// 	static qboolean	done;
+// #ifndef DEMO
+// 	char		drive[4];
+// 	FILE		*f;
+// 	char		test[MAX_QPATH];
 
-	if (done)		// don't re-check
-		return cddir;
+// 	if (done)		// don't re-check
+// 		return cddir;
 
-	// no abort/retry/fail errors
-	SetErrorMode (SEM_FAILCRITICALERRORS);
+// 	// no abort/retry/fail errors
+// 	SetErrorMode (SEM_FAILCRITICALERRORS);
 
-	drive[0] = 'c';
-	drive[1] = ':';
-	drive[2] = '\\';
-	drive[3] = 0;
+// 	drive[0] = 'c';
+// 	drive[1] = ':';
+// 	drive[2] = '\\';
+// 	drive[3] = 0;
 
-	done = true;
+// 	done = true;
 
-	// scan the drives
-	for (drive[0] = 'c' ; drive[0] <= 'z' ; drive[0]++)
-	{
-		// where activision put the stuff...
-		sprintf (cddir, "%sinstall\\data", drive);
-		sprintf (test, "%sinstall\\data\\quake2.exe", drive);
-		f = fopen(test, "r");
-		if (f)
-		{
-			fclose (f);
-			if (GetDriveType (drive) == DRIVE_CDROM)
-				return cddir;
-		}
-	}
-#endif
+// 	// scan the drives
+// 	for (drive[0] = 'c' ; drive[0] <= 'z' ; drive[0]++)
+// 	{
+// 		// where activision put the stuff...
+// 		sprintf (cddir, "%sinstall\\data", drive);
+// 		sprintf (test, "%sinstall\\data\\quake2.exe", drive);
+// 		f = fopen(test, "r");
+// 		if (f)
+// 		{
+// 			fclose (f);
+// 			if (GetDriveType (drive) == DRIVE_CDROM)
+// 				return cddir;
+// 		}
+// 	}
+// #endif
 
-	cddir[0] = 0;
-	
-	return NULL;
-}
+// 	cddir[0] = 0;
+
+// 	return NULL;
+// }
 
 /*
 ================
@@ -183,16 +183,16 @@ Sys_CopyProtect
 
 ================
 */
-void	Sys_CopyProtect (void)
-{
-#ifndef DEMO
-	char	*cddir;
+// void	Sys_CopyProtect (void)
+// {
+// #ifndef DEMO
+// 	char	*cddir;
 
-	cddir = Sys_ScanForCD();
-	if (!cddir[0])
-		Com_Error (ERR_FATAL, "You must have the Quake2 CD in the drive to play.");
-#endif
-}
+// 	cddir = Sys_ScanForCD();
+// 	if (!cddir[0])
+// 		Com_Error (ERR_FATAL, "You must have the Quake2 CD in the drive to play.");
+// #endif
+// }
 
 
 //================================================================
@@ -247,7 +247,7 @@ void Sys_Init (void)
 			Sys_Error ("Couldn't create dedicated server console");
 		hinput = GetStdHandle (STD_INPUT_HANDLE);
 		houtput = GetStdHandle (STD_OUTPUT_HANDLE);
-	
+
 		// let QHOST hook in
 		InitConProc (argc, argv);
 	}
@@ -265,8 +265,10 @@ Sys_ConsoleInput
 char *Sys_ConsoleInput (void)
 {
 	INPUT_RECORD	recs[1024];
-	int		dummy;
-	int		ch, numread, numevents;
+	DWORD		dummy;
+	int		ch;
+	DWORD numread;
+	DWORD numevents;
 
 	if (!dedicated || !dedicated->value)
 		return NULL;
@@ -295,7 +297,7 @@ char *Sys_ConsoleInput (void)
 				switch (ch)
 				{
 					case '\r':
-						WriteFile(houtput, "\r\n", 2, &dummy, NULL);	
+						WriteFile(houtput, "\r\n", 2, &dummy, NULL);
 
 						if (console_textlen)
 						{
@@ -309,7 +311,7 @@ char *Sys_ConsoleInput (void)
 						if (console_textlen)
 						{
 							console_textlen--;
-							WriteFile(houtput, "\b \b", 3, &dummy, NULL);	
+							WriteFile(houtput, "\b \b", 3, &dummy, NULL);
 						}
 						break;
 
@@ -318,7 +320,7 @@ char *Sys_ConsoleInput (void)
 						{
 							if (console_textlen < sizeof(console_text)-2)
 							{
-								WriteFile(houtput, &ch, 1, &dummy, NULL);	
+								WriteFile(houtput, &ch, 1, &dummy, NULL);
 								console_text[console_textlen] = ch;
 								console_textlen++;
 							}
@@ -344,7 +346,7 @@ Print text to the dedicated console
 */
 void Sys_ConsoleOutput (char *string)
 {
-	int		dummy;
+	DWORD																							dummy;
 	char	text[256];
 
 	if (!dedicated || !dedicated->value)
@@ -386,7 +388,7 @@ void Sys_SendKeyEvents (void)
       	DispatchMessage (&msg);
 	}
 
-	// grab frame time 
+	// grab frame time
 	sys_frame_time = timeGetTime();	// FIXME: should this be at start?
 }
 
@@ -409,7 +411,7 @@ char *Sys_GetClipboardData( void )
 
 		if ( ( hClipboardData = GetClipboardData( CF_TEXT ) ) != 0 )
 		{
-			if ( ( cliptext = GlobalLock( hClipboardData ) ) != 0 ) 
+			if ( ( cliptext = GlobalLock( hClipboardData ) ) != 0 )
 			{
 				data = malloc( GlobalSize( hClipboardData ) + 1 );
 				strcpy( data, cliptext );
@@ -471,77 +473,62 @@ Loads the game dll
 */
 void *Sys_GetGameAPI (void *parms)
 {
-	void	*(*GetGameAPI) (void *);
-	char	name[MAX_OSPATH];
-	char	*path;
-	char	cwd[MAX_OSPATH];
-#if defined _M_IX86
-	const char *gamename = "gamex86.dll";
+	// void	*(*GetGameAPI) (void *);
+	// char	name[MAX_OSPATH];
+	// char	*path;
+	// char	cwd[MAX_OSPATH];
 
-#ifdef NDEBUG
-	const char *debugdir = "release";
-#else
-	const char *debugdir = "debug";
-#endif
+	// const char *gamename = "gamex86.dll";
+	// const char *debugdir = "debug";
 
-#elif defined _M_ALPHA
-	const char *gamename = "gameaxp.dll";
+	// if (game_library)
+	// 	Com_Error (ERR_FATAL, "Sys_GetGameAPI without Sys_UnloadingGame");
 
-#ifdef NDEBUG
-	const char *debugdir = "releaseaxp";
-#else
-	const char *debugdir = "debugaxp";
-#endif
+	// // check the current debug directory first for development purposes
+	// _getcwd (cwd, sizeof(cwd));
+	// Com_sprintf (name, sizeof(name), "%s/%s/%s", cwd, debugdir, gamename);
+	// game_library = LoadLibrary ( name );
+	// if (game_library)
+	// {
+	// 	Com_DPrintf ("LoadLibrary (%s)\n", name);
+	// }
+	// else
+	// {
+	// 	// check the current directory for other development purposes
+	// 	Com_sprintf (name, sizeof(name), "%s/%s", cwd, gamename);
+	// 	game_library = LoadLibrary ( name );
+	// 	if (game_library)
+	// 	{
+	// 		Com_DPrintf ("LoadLibrary (%s)\n", name);
+	// 	}
+	// 	else
+	// 	{
+	// 		// now run through the search paths
+	// 		path = NULL;
+	// 		while (1)
+	// 		{
+	// 			path = FS_NextPath (path);
+	// 			if (!path)
+	// 				return NULL;		// couldn't find one anywhere
+	// 			Com_sprintf (name, sizeof(name), "%s/%s", path, gamename);
+	// 			game_library = LoadLibrary (name);
+	// 			if (game_library)
+	// 			{
+	// 				Com_DPrintf ("LoadLibrary (%s)\n",name);
+	// 				break;
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-#endif
+	// // GetGameAPI = (void *)GetProcAddress (game_library, "GetGameAPI");
+	// if (!GetGameAPI)
+	// {
+	// 	Sys_UnloadGame ();
+	// 	return NULL;
+	// }
 
-	if (game_library)
-		Com_Error (ERR_FATAL, "Sys_GetGameAPI without Sys_UnloadingGame");
-
-	// check the current debug directory first for development purposes
-	_getcwd (cwd, sizeof(cwd));
-	Com_sprintf (name, sizeof(name), "%s/%s/%s", cwd, debugdir, gamename);
-	game_library = LoadLibrary ( name );
-	if (game_library)
-	{
-		Com_DPrintf ("LoadLibrary (%s)\n", name);
-	}
-	else
-	{
-		// check the current directory for other development purposes
-		Com_sprintf (name, sizeof(name), "%s/%s", cwd, gamename);
-		game_library = LoadLibrary ( name );
-		if (game_library)
-		{
-			Com_DPrintf ("LoadLibrary (%s)\n", name);
-		}
-		else
-		{
-			// now run through the search paths
-			path = NULL;
-			while (1)
-			{
-				path = FS_NextPath (path);
-				if (!path)
-					return NULL;		// couldn't find one anywhere
-				Com_sprintf (name, sizeof(name), "%s/%s", path, gamename);
-				game_library = LoadLibrary (name);
-				if (game_library)
-				{
-					Com_DPrintf ("LoadLibrary (%s)\n",name);
-					break;
-				}
-			}
-		}
-	}
-
-	GetGameAPI = (void *)GetProcAddress (game_library, "GetGameAPI");
-	if (!GetGameAPI)
-	{
-		Sys_UnloadGame ();		
-		return NULL;
-	}
-
+	extern void * GetGameAPI(void *);
 	return GetGameAPI (parms);
 }
 
@@ -577,7 +564,7 @@ void ParseCommandLine (LPSTR lpCmdLine)
 				*lpCmdLine = 0;
 				lpCmdLine++;
 			}
-			
+
 		}
 	}
 
@@ -606,22 +593,22 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	ParseCommandLine (lpCmdLine);
 
 	// if we find the CD, add a +set cddir xxx command line
-	cddir = Sys_ScanForCD ();
-	if (cddir && argc < MAX_NUM_ARGVS - 3)
-	{
-		int		i;
+	// cddir = Sys_ScanForCD ();
+	// if (cddir && argc < MAX_NUM_ARGVS - 3)
+	// {
+	// 	int		i;
 
-		// don't override a cddir on the command line
-		for (i=0 ; i<argc ; i++)
-			if (!strcmp(argv[i], "cddir"))
-				break;
-		if (i == argc)
-		{
-			argv[argc++] = "+set";
-			argv[argc++] = "cddir";
-			argv[argc++] = cddir;
-		}
-	}
+	// 	// don't override a cddir on the command line
+	// 	for (i=0 ; i<argc ; i++)
+	// 		if (!strcmp(argv[i], "cddir"))
+	// 			break;
+	// 	if (i == argc)
+	// 	{
+	// 		argv[argc++] = "+set";
+	// 		argv[argc++] = "cddir";
+	// 		argv[argc++] = cddir;
+	// 	}
+	// }
 
 	Qcommon_Init (argc, argv);
 	oldtime = Sys_Milliseconds ();

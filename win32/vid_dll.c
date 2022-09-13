@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -33,7 +33,7 @@ refexport_t	re;
 cvar_t *win_noalttab;
 
 #ifndef WM_MOUSEWHEEL
-#define WM_MOUSEWHEEL (WM_MOUSELAST+1)  // message that will be supported by the OS 
+#define WM_MOUSEWHEEL (WM_MOUSELAST+1)  // message that will be supported by the OS
 #endif
 
 static UINT MSH_MOUSEWHEEL;
@@ -47,7 +47,7 @@ cvar_t		*vid_fullscreen;
 
 // Global variables used internally by this module
 viddef_t	viddef;				// global video state; used by other modules
-HINSTANCE	reflib_library;		// Handle to refresh DLL 
+HINSTANCE	reflib_library;		// Handle to refresh DLL
 qboolean	reflib_active = 0;
 
 HWND        cl_hwnd;            // Main window handle for life of program
@@ -118,7 +118,7 @@ void VID_Printf (int print_level, char *fmt, ...)
 	va_list		argptr;
 	char		msg[MAXPRINTMSG];
 	static qboolean	inupdate;
-	
+
 	va_start (argptr,fmt);
 	vsprintf (msg,fmt,argptr);
 	va_end (argptr);
@@ -143,7 +143,7 @@ void VID_Error (int err_level, char *fmt, ...)
 	va_list		argptr;
 	char		msg[MAXPRINTMSG];
 	static qboolean	inupdate;
-	
+
 	va_start (argptr,fmt);
 	vsprintf (msg,fmt,argptr);
 	va_end (argptr);
@@ -153,27 +153,27 @@ void VID_Error (int err_level, char *fmt, ...)
 
 //==========================================================================
 
-byte        scantokey[128] = 
-					{ 
-//  0           1       2       3       4       5       6       7 
-//  8           9       A       B       C       D       E       F 
-	0  ,    27,     '1',    '2',    '3',    '4',    '5',    '6', 
-	'7',    '8',    '9',    '0',    '-',    '=',    K_BACKSPACE, 9, // 0 
-	'q',    'w',    'e',    'r',    't',    'y',    'u',    'i', 
-	'o',    'p',    '[',    ']',    13 ,    K_CTRL,'a',  's',      // 1 
-	'd',    'f',    'g',    'h',    'j',    'k',    'l',    ';', 
-	'\'' ,    '`',    K_SHIFT,'\\',  'z',    'x',    'c',    'v',      // 2 
-	'b',    'n',    'm',    ',',    '.',    '/',    K_SHIFT,'*', 
-	K_ALT,' ',   0  ,    K_F1, K_F2, K_F3, K_F4, K_F5,   // 3 
-	K_F6, K_F7, K_F8, K_F9, K_F10,  K_PAUSE,    0  , K_HOME, 
-	K_UPARROW,K_PGUP,K_KP_MINUS,K_LEFTARROW,K_KP_5,K_RIGHTARROW, K_KP_PLUS,K_END, //4 
-	K_DOWNARROW,K_PGDN,K_INS,K_DEL,0,0,             0,              K_F11, 
+byte        scantokey[128] =
+					{
+//  0           1       2       3       4       5       6       7
+//  8           9       A       B       C       D       E       F
+	0  ,    27,     '1',    '2',    '3',    '4',    '5',    '6',
+	'7',    '8',    '9',    '0',    '-',    '=',    K_BACKSPACE, 9, // 0
+	'q',    'w',    'e',    'r',    't',    'y',    'u',    'i',
+	'o',    'p',    '[',    ']',    13 ,    K_CTRL,'a',  's',      // 1
+	'd',    'f',    'g',    'h',    'j',    'k',    'l',    ';',
+	'\'' ,    '`',    K_SHIFT,'\\',  'z',    'x',    'c',    'v',      // 2
+	'b',    'n',    'm',    ',',    '.',    '/',    K_SHIFT,'*',
+	K_ALT,' ',   0  ,    K_F1, K_F2, K_F3, K_F4, K_F5,   // 3
+	K_F6, K_F7, K_F8, K_F9, K_F10,  K_PAUSE,    0  , K_HOME,
+	K_UPARROW,K_PGUP,K_KP_MINUS,K_LEFTARROW,K_KP_5,K_RIGHTARROW, K_KP_PLUS,K_END, //4
+	K_DOWNARROW,K_PGDN,K_INS,K_DEL,0,0,             0,              K_F11,
 	K_F12,0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0,        // 5
-	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0, 
-	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0,        // 6 
-	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0, 
-	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0         // 7 
-}; 
+	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0,
+	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0,        // 6
+	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0,
+	0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0  ,    0         // 7
+};
 
 /*
 =======
@@ -255,7 +255,7 @@ void AppActivate(BOOL fActive, BOOL minimize)
 	if (!ActiveApp)
 	{
 		IN_Activate (false);
-		CDAudio_Activate (false);
+		// CDAudio_Activate (false);
 		S_Activate (false);
 
 		if ( win_noalttab->value )
@@ -266,7 +266,7 @@ void AppActivate(BOOL fActive, BOOL minimize)
 	else
 	{
 		IN_Activate (true);
-		CDAudio_Activate (true);
+		// CDAudio_Activate (true);
 		S_Activate (true);
 		if ( win_noalttab->value )
 		{
@@ -330,7 +330,7 @@ LONG WINAPI MainWndProc (
 	case WM_CREATE:
 		cl_hwnd = hWnd;
 
-		MSH_MOUSEWHEEL = RegisterWindowMessage("MSWHEEL_ROLLMSG"); 
+		MSH_MOUSEWHEEL = RegisterWindowMessage("MSWHEEL_ROLLMSG");
         return DefWindowProc (hWnd, uMsg, wParam, lParam);
 
 	case WM_PAINT:
@@ -365,8 +365,8 @@ LONG WINAPI MainWndProc (
 
 			if (!vid_fullscreen->value)
 			{
-				xPos = (short) LOWORD(lParam);    // horizontal position 
-				yPos = (short) HIWORD(lParam);    // vertical position 
+				xPos = (short) LOWORD(lParam);    // horizontal position
+				yPos = (short) HIWORD(lParam);    // vertical position
 
 				r.left   = 0;
 				r.top    = 0;
@@ -436,12 +436,12 @@ LONG WINAPI MainWndProc (
 		Key_Event( MapKey( lParam ), false, sys_msg_time);
 		break;
 
-	case MM_MCINOTIFY:
-		{
-			LONG CDAudio_MessageHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-			lRet = CDAudio_MessageHandler (hWnd, uMsg, wParam, lParam);
-		}
-		break;
+	// case MM_MCINOTIFY:
+	// 	{
+	// 		LONG CDAudio_MessageHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+	// 		lRet = CDAudio_MessageHandler (hWnd, uMsg, wParam, lParam);
+	// 	}
+	// 	break;
 
 	default:	// pass all unhandled messages to DefWindowProc
         return DefWindowProc (hWnd, uMsg, wParam, lParam);
@@ -549,30 +549,10 @@ void VID_FreeReflib (void)
 	reflib_active  = false;
 }
 
-/*
-==============
-VID_LoadRefresh
-==============
-*/
-qboolean VID_LoadRefresh( char *name )
-{
-	refimport_t	ri;
-	GetRefAPI_t	GetRefAPI;
-	
-	if ( reflib_active )
-	{
-		re.Shutdown();
-		VID_FreeReflib ();
-	}
+static bool load_refresh_api(GetRefAPI_t get_api, const char * name) {
+		refimport_t	ri;
 
 	Com_Printf( "------- Loading %s -------\n", name );
-
-	if ( ( reflib_library = LoadLibrary( name ) ) == 0 )
-	{
-		Com_Printf( "LoadLibrary(\"%s\") failed\n", name );
-
-		return false;
-	}
 
 	ri.Cmd_AddCommand = Cmd_AddCommand;
 	ri.Cmd_RemoveCommand = Cmd_RemoveCommand;
@@ -591,16 +571,7 @@ qboolean VID_LoadRefresh( char *name )
 	ri.Vid_MenuInit = VID_MenuInit;
 	ri.Vid_NewWindow = VID_NewWindow;
 
-	if ( ( GetRefAPI = (void *) GetProcAddress( reflib_library, "GetRefAPI" ) ) == 0 )
-		Com_Error( ERR_FATAL, "GetProcAddress failed on %s", name );
-
-	re = GetRefAPI( ri );
-
-	if (re.api_version != API_VERSION)
-	{
-		VID_FreeReflib ();
-		Com_Error (ERR_FATAL, "%s has incompatible api_version", name);
-	}
+	re = get_api( ri );
 
 	if ( re.Init( global_hInstance, MainWndProc ) == -1 )
 	{
@@ -614,14 +585,14 @@ qboolean VID_LoadRefresh( char *name )
 
 //======
 //PGM
-	vidref_val = VIDREF_OTHER;
-	if(vid_ref)
-	{
-		if(!strcmp (vid_ref->string, "gl"))
-			vidref_val = VIDREF_GL;
-		else if(!strcmp(vid_ref->string, "soft"))
-			vidref_val = VIDREF_SOFT;
-	}
+	// vidref_val = VIDREF_OTHER;
+	// if(vid_ref)
+	// {
+	// 	if(!strcmp (vid_ref->string, "gl"))
+	// 		vidref_val = VIDREF_GL;
+	// 	else if(!strcmp(vid_ref->string, "soft"))
+	// 		vidref_val = VIDREF_SOFT;
+	// }
 //PGM
 //======
 
@@ -629,11 +600,40 @@ qboolean VID_LoadRefresh( char *name )
 }
 
 /*
+==============
+VID_LoadRefresh
+==============
+*/
+qboolean VID_LoadRefresh( char *name )
+{
+
+	GetRefAPI_t	GetRefAPI;
+
+	if ( reflib_active )
+	{
+		re.Shutdown();
+		VID_FreeReflib ();
+	}
+
+	if ( ( reflib_library = LoadLibrary( name ) ) == 0 )
+	{
+		Com_Printf( "LoadLibrary(\"%s\") failed\n", name );
+
+		return false;
+	}
+
+	if ( ( GetRefAPI = (void *) GetProcAddress( reflib_library, "GetRefAPI" ) ) == 0 )
+		Com_Error( ERR_FATAL, "GetProcAddress failed on %s", name );
+
+	return load_refresh_api(GetRefAPI, name);
+}
+
+/*
 ============
 VID_CheckChanges
 
 This function gets called once just before drawing each frame, and it's sole purpose in life
-is to check to see if any of the video mode parameters have changed, and if they have to 
+is to check to see if any of the video mode parameters have changed, and if they have to
 update the rendering DLL and/or video mode to match.
 ============
 */
@@ -669,21 +669,26 @@ void VID_CheckChanges (void)
 		cl.refresh_prepped = false;
 		cls.disable_screen = true;
 
-		Com_sprintf( name, sizeof(name), "ref_%s.dll", vid_ref->string );
-		if ( !VID_LoadRefresh( name ) )
-		{
-			if ( strcmp (vid_ref->string, "soft") == 0 )
-				Com_Error (ERR_FATAL, "Couldn't fall back to software refresh!");
-			Cvar_Set( "vid_ref", "soft" );
+		if ( strcmp (vid_ref->string, "internal") == 0 ) {
+			extern refexport_t GetRefAPI (refimport_t rimp );
 
-			/*
-			** drop the console if we fail to load a refresh
-			*/
-			if ( cls.key_dest != key_console )
+			load_refresh_api(GetRefAPI, "internal");
+		} else {
+			Com_sprintf( name, sizeof(name), "ref_%s.dll", vid_ref->string );
+			if ( !VID_LoadRefresh( name ) )
 			{
-				Con_ToggleConsole_f();
+				Cvar_Set( "vid_ref", "internal" );
+
+				/*
+				** drop the console if we fail to load a refresh
+				*/
+				if ( cls.key_dest != key_console )
+				{
+					Con_ToggleConsole_f();
+				}
 			}
 		}
+
 		cls.disable_screen = false;
 	}
 
@@ -738,7 +743,7 @@ void VID_Init (void)
 
 	/* Disable the 3Dfx splash screen */
 	putenv("FX_GLIDE_NO_SPLASH=0");
-		
+
 	/* Start the graphics mode and load refresh DLL */
 	VID_CheckChanges();
 }

@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -35,7 +35,8 @@ extern LPDIRECTSOUNDBUFFER pDSBuf;
 extern DWORD gSndBufSize;
 
 extern HWND			cl_hwnd;
-extern qboolean		ActiveApp, Minimized;
+extern int		ActiveApp;
+extern qboolean		Minimized;
 
 void IN_Activate (qboolean active);
 void IN_MouseEvent (int mstate);
