@@ -31,7 +31,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <io.h>
 #include <stdio.h>
 
-
 #define MINIMUM_WIN_MEMORY 0x0a00000
 #define MAXIMUM_WIN_MEMORY 0x1000000
 
@@ -527,10 +526,38 @@ WinMain
 */
 HINSTANCE global_hInstance;
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+uv_loop_t global_uv_loop;
+
+static void windows_uv_idle_cb(uv_idle_t *handle) {
+  (void)handle;
   MSG msg;
-  int time, oldtime, newtime;
-  char *cddir;
+
+  while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+    if(!GetMessage(&msg, NULL, 0, 0)) {
+      Com_Quit();
+      // uv_stop(&global_uv_loop);
+    }
+    sys_msg_time = msg.time;
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+  }
+}
+
+static void frame_uv_timer_cb(uv_timer_t *timer) {
+  static uint64_t old_time;
+  (void)timer;
+
+  uint64_t time = uv_now(&global_uv_loop);
+  uint64_t delta = time - old_time;
+  old_time = time;
+
+  Qcommon_Frame((int)delta);
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+  // MSG msg;
+  // int time, oldtime, newtime;
+  // char *cddir;
 
   /* previous instances do not exist in Win32 */
   if(hPrevInstance)
@@ -559,35 +586,52 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
   // }
 
   Qcommon_Init(argc, argv);
-  oldtime = Sys_Milliseconds();
 
-  /* main window message loop */
-  while(1) {
-    // if at a full screen console, don't update unless needed
-    if(Minimized || (dedicated && dedicated->value)) {
-      Sleep(1);
-    }
+  { // Qcommon_Init would init libuv
+    uv_loop_init(&global_uv_loop);
 
-    while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-      if(!GetMessage(&msg, NULL, 0, 0))
-        Com_Quit();
-      sys_msg_time = msg.time;
-      TranslateMessage(&msg);
-      DispatchMessage(&msg);
-    }
-
-    do {
-      newtime = Sys_Milliseconds();
-      time = newtime - oldtime;
-    } while(time < 1);
-    //			Con_Printf ("time:%5.2f - %5.2f = %5.2f\n", newtime, oldtime, time);
-
-    //	_controlfp( ~( _EM_ZERODIVIDE /*| _EM_INVALID*/ ), _MCW_EM );
-    _controlfp(_PC_24, _MCW_PC);
-    Qcommon_Frame(time);
-
-    oldtime = newtime;
+    uv_timer_t frame_uv_timer;
+    uv_timer_init(&global_uv_loop, &frame_uv_timer);
+    uv_timer_start(&frame_uv_timer, frame_uv_timer_cb, 0, 16); // up to 60fps
   }
+
+  uv_idle_t windows_uv_idle;
+  uv_idle_init(&global_uv_loop, &windows_uv_idle);
+  uv_idle_start(&windows_uv_idle, windows_uv_idle_cb);
+
+  { // Qcommon_RunFrames()
+    return uv_run(&global_uv_loop, UV_RUN_DEFAULT);
+  }
+
+  // oldtime = Sys_Milliseconds();
+
+  // /* main window message loop */
+  // while(1) {
+  //   // if at a full screen console, don't update unless needed
+  //   if(Minimized || (dedicated && dedicated->value)) {
+  //     Sleep(1);
+  //   }
+
+  //   while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+  //     if(!GetMessage(&msg, NULL, 0, 0))
+  //       Com_Quit();
+  //     sys_msg_time = msg.time;
+  //     TranslateMessage(&msg);
+  //     DispatchMessage(&msg);
+  //   }
+
+  //   do {
+  //     newtime = Sys_Milliseconds();
+  //     time = newtime - oldtime;
+  //   } while(time < 1);
+  //   //			Con_Printf ("time:%5.2f - %5.2f = %5.2f\n", newtime, oldtime, time);
+
+  //   //	_controlfp( ~( _EM_ZERODIVIDE /*| _EM_INVALID*/ ), _MCW_EM );
+  //   _controlfp(_PC_24, _MCW_PC);
+  //   Qcommon_Frame(time);
+
+  //   oldtime = newtime;
+  // }
 
   // never gets here
   return TRUE;
