@@ -327,8 +327,8 @@ void ExitLevel(void) {
     ent = g_edicts + 1 + i;
     if(!ent->inuse)
       continue;
-    if(ent->health > ent->client->pers.max_health)
-      ent->health = ent->client->pers.max_health;
+    if(ent_read_health(ent)->value > ent->client->pers.max_health)
+      dv_set(ent_write_health(ent), ent->client->pers.max_health);
   }
 }
 

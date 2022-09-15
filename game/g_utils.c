@@ -433,7 +433,7 @@ void G_TouchTriggers(edict_t *ent) {
   edict_t *touch[MAX_EDICTS], *hit;
 
   // dead things don't activate triggers!
-  if((ent->client || (ent->svflags & SVF_MONSTER)) && (ent->health <= 0))
+  if((ent->client || (ent->svflags & SVF_MONSTER)) && (ent_read_health(ent)->value <= 0))
     return;
 
   num = gi.BoxEdicts(ent->absmin, ent->absmax, touch, MAX_EDICTS, AREA_TRIGGERS);

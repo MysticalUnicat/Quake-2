@@ -206,6 +206,80 @@ typedef struct {
 #define WEAP_RAILGUN 10
 #define WEAP_BFG 11
 
+typedef struct {
+  float value;
+  float minimum_time; // time since last at minimum
+  float maximum_time; // time since last at maximum
+} DynamicValue;
+
+static inline void dv_set(DynamicValue *dv, float value) {
+  memset(dv, sizeof(*dv), 0);
+  dv->value = value;
+}
+
+static inline void dv_adjust(DynamicValue *dv, float time, float amount, float maximum) {
+  bool pre_at_min = dv->value <= 0.0f;
+  bool pre_at_max = dv->value >= maximum;
+  dv->value += amount;
+  if(dv->value <= 0.0f) {
+    if(!pre_at_min) {
+      dv->minimum_time = time;
+    }
+    // Quake 2 logic is not yet ready
+    // dv->value = 0.0f;
+  }
+  if(dv->value >= maximum) {
+    if(!pre_at_max) {
+      dv->maximum_time = time;
+    }
+    // Quake 2 logic is not yet ready
+    // dv->value = maximum;
+  }
+}
+
+typedef struct {
+  float a;
+  float b;
+  float c;
+  float d;
+  union {
+    uint32_t ru;
+    float rf;
+  };
+} ComputedValue;
+
+static inline void cv_initialize(ComputedValue *cv, float base) {
+  memset(cv, sizeof(*cv), 0);
+  cv->a = base;
+  cv->d = 1.0;
+}
+
+static inline void cv_add(ComputedValue *cv, float amount) {
+  cv->b += amount;
+  cv->ru = UINT32_MAX;
+}
+
+static inline void cv_increase(ComputedValue *cv, float amount) {
+  cv->c += amount;
+  cv->ru = UINT32_MAX;
+}
+
+static inline void cv_more(ComputedValue *cv, float amount) {
+  cv->d *= (amount / 100.0f);
+  cv->ru = UINT32_MAX;
+}
+static inline void cv_less(ComputedValue *cv, float amount) {
+  cv->d /= (100.f / amount);
+  cv->ru = UINT32_MAX;
+}
+
+static inline float cv_get(const ComputedValue *cv) {
+  if(cv->ru == UINT32_MAX) {
+    *(float *)&cv->rf = (cv->a + cv->b) * (1.0f + cv->c) * cv->d;
+  }
+  return cv->rf;
+}
+
 typedef struct gitem_s {
   char *classname; // spawning name
   qboolean (*pickup)(struct edict_s *ent, struct edict_s *other);
@@ -525,7 +599,7 @@ extern cvar_t *sv_maplist;
 #define FFL_SPAWNTEMP 1
 #define FFL_NOSPAWN 2
 
-typedef enum {
+typedef enum field_type {
   F_INT,
   F_FLOAT,
   F_LSTRING, // string on disk, pointer in memory, TAG_LEVEL
@@ -540,11 +614,31 @@ typedef enum {
   F_IGNORE
 } fieldtype_t;
 
+struct field_value {
+  enum field_type type;
+  union {
+    intmax_t integer;
+    double floating;
+    char *string;
+    vec3_t vector;
+    edict_t *edict;
+    gitem_t *item;
+    gclient_t *client;
+    void *function;
+    int mmove;
+  };
+};
+
 typedef struct {
   char *name;
-  int ofs;
+  // int ofs;
   fieldtype_t type;
   int flags;
+
+  void (*set)(edict_t *ent, struct field_value value);
+  struct field_value (*get)(const edict_t *ent);
+
+  void (*set_temp)(spawn_temp_t *ent, struct field_value value);
 } field_t;
 
 extern field_t fields[];
@@ -1005,8 +1099,11 @@ struct edict_s {
   float fly_sound_debounce_time; // move to clientinfo
   float last_move_time;
 
-  int health;
-  int max_health;
+  DynamicValue ___health;
+  ComputedValue ___max_health;
+  // int health;
+  // int max_health;
+
   int gib_health;
   int deadflag;
   qboolean show_hostile;
@@ -1036,7 +1133,6 @@ struct edict_s {
   edict_t *mynoise2;
 
   int noise_index;
-  int noise_index2;
   float volume;
   float attenuation;
 
@@ -1058,10 +1154,13 @@ struct edict_s {
 
   int style; // also used as areaportal number
 
-  gitem_t *item; // for bonus items
+  // used by: g_items.c
+  gitem_t *item;
 
-  // common data blocks
+  // used by: g_func.c, g_misc.c
   moveinfo_t moveinfo;
+
+  // used by: g_ai.c, g_combat.c, g_misc.c, g_save.c, m_boss2.c, m_gladiator.c
   monsterinfo_t monsterinfo;
 
   // things will move into this
@@ -1092,3 +1191,9 @@ static inline alias_ecs_ComponentHandle GAME_EDICT_COMPONENT_HANDLE(void) {
                                  &game_global_ecs_edict_component);
   }
 }
+
+static inline const ComputedValue *ent_read_max_health(const edict_t *e) { return &e->___max_health; }
+static inline ComputedValue *ent_write_max_health(edict_t *e) { return &e->___max_health; }
+
+static inline const DynamicValue *ent_read_health(const edict_t *e) { return &e->___health; }
+static inline DynamicValue *ent_write_health(edict_t *e) { return &e->___health; }
