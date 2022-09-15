@@ -592,7 +592,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     uv_timer_t frame_uv_timer;
     uv_timer_init(&global_uv_loop, &frame_uv_timer);
-    uv_timer_start(&frame_uv_timer, frame_uv_timer_cb, 0, 16); // up to 60fps
+    uv_timer_start(&frame_uv_timer, frame_uv_timer_cb, 0, 10); // just above 90fps
   }
 
   uv_idle_t windows_uv_idle;

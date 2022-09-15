@@ -37,11 +37,11 @@ typedef struct {
 
 cvar_t *net_shownet;
 static cvar_t *noudp;
-static cvar_t *noipx;
+// static cvar_t *noipx;
 
 loopback_t loopbacks[2];
 int ip_sockets[2];
-int ipx_sockets[2];
+// int ipx_sockets[2];
 
 char *NET_ErrorString(void);
 
@@ -58,16 +58,16 @@ void NetadrToSockadr(netadr_t *a, struct sockaddr *s) {
     ((struct sockaddr_in *)s)->sin_family = AF_INET;
     ((struct sockaddr_in *)s)->sin_addr.s_addr = *(int *)&a->ip;
     ((struct sockaddr_in *)s)->sin_port = a->port;
-  } else if(a->type == NA_IPX) {
-    ((struct sockaddr_ipx *)s)->sa_family = AF_IPX;
-    memcpy(((struct sockaddr_ipx *)s)->sa_netnum, &a->ipx[0], 4);
-    memcpy(((struct sockaddr_ipx *)s)->sa_nodenum, &a->ipx[4], 6);
-    ((struct sockaddr_ipx *)s)->sa_socket = a->port;
-  } else if(a->type == NA_BROADCAST_IPX) {
-    ((struct sockaddr_ipx *)s)->sa_family = AF_IPX;
-    memset(((struct sockaddr_ipx *)s)->sa_netnum, 0, 4);
-    memset(((struct sockaddr_ipx *)s)->sa_nodenum, 0xff, 6);
-    ((struct sockaddr_ipx *)s)->sa_socket = a->port;
+    // } else if(a->type == NA_IPX) {
+    //   ((struct sockaddr_ipx *)s)->sa_family = AF_IPX;
+    //   memcpy(((struct sockaddr_ipx *)s)->sa_netnum, &a->ipx[0], 4);
+    //   memcpy(((struct sockaddr_ipx *)s)->sa_nodenum, &a->ipx[4], 6);
+    //   ((struct sockaddr_ipx *)s)->sa_socket = a->port;
+    // } else if(a->type == NA_BROADCAST_IPX) {
+    //   ((struct sockaddr_ipx *)s)->sa_family = AF_IPX;
+    //   memset(((struct sockaddr_ipx *)s)->sa_netnum, 0, 4);
+    //   memset(((struct sockaddr_ipx *)s)->sa_nodenum, 0xff, 6);
+    //   ((struct sockaddr_ipx *)s)->sa_socket = a->port;
   }
 }
 
@@ -76,11 +76,11 @@ void SockadrToNetadr(struct sockaddr *s, netadr_t *a) {
     a->type = NA_IP;
     *(int *)&a->ip = ((struct sockaddr_in *)s)->sin_addr.s_addr;
     a->port = ((struct sockaddr_in *)s)->sin_port;
-  } else if(s->sa_family == AF_IPX) {
-    a->type = NA_IPX;
-    memcpy(&a->ipx[0], ((struct sockaddr_ipx *)s)->sa_netnum, 4);
-    memcpy(&a->ipx[4], ((struct sockaddr_ipx *)s)->sa_nodenum, 6);
-    a->port = ((struct sockaddr_ipx *)s)->sa_socket;
+    // } else if(s->sa_family == AF_IPX) {
+    //   a->type = NA_IPX;
+    //   memcpy(&a->ipx[0], ((struct sockaddr_ipx *)s)->sa_netnum, 4);
+    //   memcpy(&a->ipx[4], ((struct sockaddr_ipx *)s)->sa_nodenum, 6);
+    //   a->port = ((struct sockaddr_ipx *)s)->sa_socket;
   }
 }
 
@@ -97,11 +97,13 @@ qboolean NET_CompareAdr(netadr_t a, netadr_t b) {
     return false;
   }
 
-  if(a.type == NA_IPX) {
-    if((memcmp(a.ipx, b.ipx, 10) == 0) && a.port == b.port)
-      return true;
-    return false;
-  }
+  // if(a.type == NA_IPX) {
+  //   if((memcmp(a.ipx, b.ipx, 10) == 0) && a.port == b.port)
+  //     return true;
+  //   return false;
+  // }
+
+  return false;
 }
 
 /*
@@ -124,11 +126,13 @@ qboolean NET_CompareBaseAdr(netadr_t a, netadr_t b) {
     return false;
   }
 
-  if(a.type == NA_IPX) {
-    if((memcmp(a.ipx, b.ipx, 10) == 0))
-      return true;
-    return false;
-  }
+  // if(a.type == NA_IPX) {
+  //   if((memcmp(a.ipx, b.ipx, 10) == 0))
+  //     return true;
+  //   return false;
+  // }
+
+  return false;
 }
 
 char *NET_AdrToString(netadr_t a) {
@@ -138,9 +142,9 @@ char *NET_AdrToString(netadr_t a) {
     Com_sprintf(s, sizeof(s), "loopback");
   else if(a.type == NA_IP)
     Com_sprintf(s, sizeof(s), "%i.%i.%i.%i:%i", a.ip[0], a.ip[1], a.ip[2], a.ip[3], ntohs(a.port));
-  else
-    Com_sprintf(s, sizeof(s), "%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x:%i", a.ipx[0], a.ipx[1], a.ipx[2], a.ipx[3],
-                a.ipx[4], a.ipx[5], a.ipx[6], a.ipx[7], a.ipx[8], a.ipx[9], ntohs(a.port));
+  // else
+  //   Com_sprintf(s, sizeof(s), "%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x:%i", a.ipx[0], a.ipx[1], a.ipx[2], a.ipx[3],
+  //               a.ipx[4], a.ipx[5], a.ipx[6], a.ipx[7], a.ipx[8], a.ipx[9], ntohs(a.port));
 
   return s;
 }
@@ -300,10 +304,10 @@ qboolean NET_GetPacket(netsrc_t sock, netadr_t *net_from, sizebuf_t *net_message
     return true;
 
   for(protocol = 0; protocol < 2; protocol++) {
-    if(protocol == 0)
-      net_socket = ip_sockets[sock];
-    else
-      net_socket = ipx_sockets[sock];
+    // if(protocol == 0)
+    net_socket = ip_sockets[sock];
+    // else
+    //   net_socket = ipx_sockets[sock];
 
     if(!net_socket)
       continue;
@@ -356,14 +360,14 @@ void NET_SendPacket(netsrc_t sock, int length, void *data, netadr_t to) {
     net_socket = ip_sockets[sock];
     if(!net_socket)
       return;
-  } else if(to.type == NA_IPX) {
-    net_socket = ipx_sockets[sock];
-    if(!net_socket)
-      return;
-  } else if(to.type == NA_BROADCAST_IPX) {
-    net_socket = ipx_sockets[sock];
-    if(!net_socket)
-      return;
+    // } else if(to.type == NA_IPX) {
+    //   net_socket = ipx_sockets[sock];
+    //   if(!net_socket)
+    //     return;
+    // } else if(to.type == NA_BROADCAST_IPX) {
+    //   net_socket = ipx_sockets[sock];
+    //   if(!net_socket)
+    //     return;
   } else
     Com_Error(ERR_FATAL, "NET_SendPacket: bad address type");
 
@@ -378,7 +382,7 @@ void NET_SendPacket(netsrc_t sock, int length, void *data, netadr_t to) {
       return;
 
     // some PPP links dont allow broadcasts
-    if((err == WSAEADDRNOTAVAIL) && ((to.type == NA_BROADCAST) || (to.type == NA_BROADCAST_IPX)))
+    if((err == WSAEADDRNOTAVAIL) && ((to.type == NA_BROADCAST) /* || (to.type == NA_BROADCAST_IPX)*/))
       return;
 
     if(dedicated->value) // let dedicated servers continue after errors
@@ -404,7 +408,7 @@ NET_Socket
 int NET_IPSocket(char *net_interface, int port) {
   int newsocket;
   struct sockaddr_in address;
-  qboolean _true = true;
+  u_long _true = true;
   int i = 1;
   int err;
 
@@ -500,7 +504,7 @@ IPX_Socket
 int NET_IPXSocket(int port) {
   int newsocket;
   struct sockaddr_ipx address;
-  int _true = 1;
+  u_long _true = 1;
   int err;
 
   if((newsocket = socket(PF_IPX, SOCK_DGRAM, NSPROTO_IPX)) == -1) {
@@ -544,39 +548,39 @@ int NET_IPXSocket(int port) {
 NET_OpenIPX
 ====================
 */
-void NET_OpenIPX(void) {
-  int port;
-  int dedicated;
+// void NET_OpenIPX(void) {
+//   int port;
+//   int dedicated;
 
-  dedicated = Cvar_VariableValue("dedicated");
+//   dedicated = Cvar_VariableValue("dedicated");
 
-  if(!ipx_sockets[NS_SERVER]) {
-    port = Cvar_Get("ipx_hostport", "0", CVAR_NOSET)->value;
-    if(!port) {
-      port = Cvar_Get("hostport", "0", CVAR_NOSET)->value;
-      if(!port) {
-        port = Cvar_Get("port", va("%i", PORT_SERVER), CVAR_NOSET)->value;
-      }
-    }
-    ipx_sockets[NS_SERVER] = NET_IPXSocket(port);
-  }
+//   if(!ipx_sockets[NS_SERVER]) {
+//     port = Cvar_Get("ipx_hostport", "0", CVAR_NOSET)->value;
+//     if(!port) {
+//       port = Cvar_Get("hostport", "0", CVAR_NOSET)->value;
+//       if(!port) {
+//         port = Cvar_Get("port", va("%i", PORT_SERVER), CVAR_NOSET)->value;
+//       }
+//     }
+//     ipx_sockets[NS_SERVER] = NET_IPXSocket(port);
+//   }
 
-  // dedicated servers don't need client ports
-  if(dedicated)
-    return;
+//   // dedicated servers don't need client ports
+//   if(dedicated)
+//     return;
 
-  if(!ipx_sockets[NS_CLIENT]) {
-    port = Cvar_Get("ipx_clientport", "0", CVAR_NOSET)->value;
-    if(!port) {
-      port = Cvar_Get("clientport", va("%i", PORT_CLIENT), CVAR_NOSET)->value;
-      if(!port)
-        port = PORT_ANY;
-    }
-    ipx_sockets[NS_CLIENT] = NET_IPXSocket(port);
-    if(!ipx_sockets[NS_CLIENT])
-      ipx_sockets[NS_CLIENT] = NET_IPXSocket(PORT_ANY);
-  }
-}
+//   if(!ipx_sockets[NS_CLIENT]) {
+//     port = Cvar_Get("ipx_clientport", "0", CVAR_NOSET)->value;
+//     if(!port) {
+//       port = Cvar_Get("clientport", va("%i", PORT_CLIENT), CVAR_NOSET)->value;
+//       if(!port)
+//         port = PORT_ANY;
+//     }
+//     ipx_sockets[NS_CLIENT] = NET_IPXSocket(port);
+//     if(!ipx_sockets[NS_CLIENT])
+//       ipx_sockets[NS_CLIENT] = NET_IPXSocket(PORT_ANY);
+//   }
+// }
 
 /*
 ====================
@@ -600,16 +604,16 @@ void NET_Config(qboolean multiplayer) {
         closesocket(ip_sockets[i]);
         ip_sockets[i] = 0;
       }
-      if(ipx_sockets[i]) {
-        closesocket(ipx_sockets[i]);
-        ipx_sockets[i] = 0;
-      }
+      // if(ipx_sockets[i]) {
+      //   closesocket(ipx_sockets[i]);
+      //   ipx_sockets[i] = 0;
+      // }
     }
   } else { // open sockets
     if(!noudp->value)
       NET_OpenIP();
-    if(!noipx->value)
-      NET_OpenIPX();
+    // if(!noipx->value)
+    //   NET_OpenIPX();
   }
 }
 
@@ -629,11 +633,11 @@ void NET_Sleep(int msec) {
     FD_SET(ip_sockets[NS_SERVER], &fdset); // network socket
     i = ip_sockets[NS_SERVER];
   }
-  if(ipx_sockets[NS_SERVER]) {
-    FD_SET(ipx_sockets[NS_SERVER], &fdset); // network socket
-    if(ipx_sockets[NS_SERVER] > i)
-      i = ipx_sockets[NS_SERVER];
-  }
+  // if(ipx_sockets[NS_SERVER]) {
+  //   FD_SET(ipx_sockets[NS_SERVER], &fdset); // network socket
+  //   if(ipx_sockets[NS_SERVER] > i)
+  //     i = ipx_sockets[NS_SERVER];
+  // }
   timeout.tv_sec = msec / 1000;
   timeout.tv_usec = (msec % 1000) * 1000;
   select(i + 1, &fdset, NULL, NULL, &timeout);
@@ -662,7 +666,7 @@ void NET_Init(void) {
   Com_Printf("Winsock Initialized\n");
 
   noudp = Cvar_Get("noudp", "0", CVAR_NOSET);
-  noipx = Cvar_Get("noipx", "0", CVAR_NOSET);
+  // noipx = Cvar_Get("noipx", "0", CVAR_NOSET);
 
   net_shownet = Cvar_Get("net_shownet", "0", 0);
 }

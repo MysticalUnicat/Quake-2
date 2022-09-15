@@ -4,6 +4,7 @@
         "ref.h": "c",
         "wsipx.h": "c",
         "winsock.h": "c",
-        "qcommon.h": "c"
+        "qcommon.h": "c",
+        "gl_local.h": "c"
     }
 }

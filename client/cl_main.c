@@ -731,7 +731,7 @@ void CL_PingServers_f(void) {
   char name[32];
   char *adrstring;
   cvar_t *noudp;
-  cvar_t *noipx;
+  // cvar_t *noipx;
 
   NET_Config(true); // allow remote
 
@@ -745,12 +745,12 @@ void CL_PingServers_f(void) {
     Netchan_OutOfBandPrint(NS_CLIENT, adr, va("info %i", PROTOCOL_VERSION));
   }
 
-  noipx = Cvar_Get("noipx", "0", CVAR_NOSET);
-  if(!noipx->value) {
-    adr.type = NA_BROADCAST_IPX;
-    adr.port = BigShort(PORT_SERVER);
-    Netchan_OutOfBandPrint(NS_CLIENT, adr, va("info %i", PROTOCOL_VERSION));
-  }
+  // noipx = Cvar_Get("noipx", "0", CVAR_NOSET);
+  // if(!noipx->value) {
+  //   adr.type = NA_BROADCAST_IPX;
+  //   adr.port = BigShort(PORT_SERVER);
+  //   Netchan_OutOfBandPrint(NS_CLIENT, adr, va("info %i", PROTOCOL_VERSION));
+  // }
 
   // send a packet to each address book entry
   for(i = 0; i < 16; i++) {
