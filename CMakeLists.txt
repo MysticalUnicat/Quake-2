@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 project(alias_q2 LANGUAGES C)
 
 add_subdirectory(../alias ${CMAKE_BINARY_DIR}/alias)
+add_subdirectory(../libuv ${CMAKE_BINARY_DIR}/libuv)
 
 # add_library(tools-common STATIC
 #     ext/Quake-2-Tools/common/bspfile.c
@@ -126,7 +127,7 @@ add_library(common STATIC
     qcommon/net_chan.c
     qcommon/pmove.c
 )
-target_link_libraries(common shared)
+target_link_libraries(common shared uv_a)
 
 add_library(client STATIC
     client/cl_cin.C

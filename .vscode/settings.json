@@ -1,5 +1,9 @@
 {
     "files.associations": {
-        "tabula.h": "c"
+        "tabula.h": "c",
+        "ref.h": "c",
+        "wsipx.h": "c",
+        "winsock.h": "c",
+        "qcommon.h": "c"
     }
 }
