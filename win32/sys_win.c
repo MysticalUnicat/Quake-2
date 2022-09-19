@@ -225,8 +225,9 @@ void Sys_Init(void) {
     s_win95 = true;
 
   if(dedicated->value) {
-    if(!AllocConsole())
-      Sys_Error("Couldn't create dedicated server console");
+    // if(!AllocConsole())
+    //   Sys_Error("Couldn't create dedicated server console");
+    AllocConsole();
     hinput = GetStdHandle(STD_INPUT_HANDLE);
     houtput = GetStdHandle(STD_OUTPUT_HANDLE);
 

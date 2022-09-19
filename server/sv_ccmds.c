@@ -264,7 +264,7 @@ void SV_WriteLevelFile(void) {
     return;
   }
   fwrite(sv.configstrings, sizeof(sv.configstrings), 1, f);
-  CM_WritePortalState(f);
+  CM_WritePortalState(CMODEL_A, f);
   fclose(f);
 
   Com_sprintf(name, sizeof(name), "%s/save/current/%s.sav", FS_Gamedir(), sv.name);
@@ -290,7 +290,7 @@ void SV_ReadLevelFile(void) {
     return;
   }
   FS_Read(sv.configstrings, sizeof(sv.configstrings), f);
-  CM_ReadPortalState(f);
+  CM_ReadPortalState(CMODEL_A, f);
   fclose(f);
 
   Com_sprintf(name, sizeof(name), "%s/save/current/%s.sav", FS_Gamedir(), sv.name);

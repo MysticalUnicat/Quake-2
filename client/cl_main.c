@@ -1197,7 +1197,7 @@ void CL_RequestNextDownload(void) {
   if(precache_check == ENV_CNT) {
     precache_check = ENV_CNT + 1;
 
-    CM_LoadMap(cl.configstrings[CS_MODELS + 1], true, &map_checksum);
+    CM_LoadMap(CMODEL_A, cl.configstrings[CS_MODELS + 1], true, &map_checksum);
 
     if(map_checksum != atoi(cl.configstrings[CS_MAPCHECKSUM])) {
       Com_Error(ERR_DROP, "Local map version differs from server: %i != '%s'\n", map_checksum,
@@ -1229,15 +1229,11 @@ void CL_RequestNextDownload(void) {
 
   // confirm existance of textures, download any that don't exist
   if(precache_check == TEXTURE_CNT + 1) {
-    // from qcommon/cmodel.c
-    extern int numtexinfo;
-    extern mapsurface_t map_surfaces[];
-
     if(allow_download->value && allow_download_maps->value) {
-      while(precache_tex < numtexinfo) {
+      while(precache_tex < CM_NumTextures(CMODEL_A)) {
         char fn[MAX_OSPATH];
 
-        sprintf(fn, "textures/%s.wal", map_surfaces[precache_tex++].rname);
+        sprintf(fn, "textures/%s.wal", CM_GetTexturePrecacheName(CMODEL_A, precache_tex++));
         if(!CL_CheckOrDownloadFile(fn))
           return; // started a download
       }
@@ -1267,7 +1263,7 @@ void CL_Precache_f(void) {
   if(Cmd_Argc() < 2) {
     unsigned map_checksum; // for detecting cheater maps
 
-    CM_LoadMap(cl.configstrings[CS_MODELS + 1], true, &map_checksum);
+    CM_LoadMap(CMODEL_A, cl.configstrings[CS_MODELS + 1], true, &map_checksum);
     CL_RegisterSounds();
     CL_PrepRefresh();
     return;

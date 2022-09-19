@@ -609,45 +609,52 @@ CMODEL
 
 #include "../qcommon/qfiles.h"
 
-cmodel_t *CM_LoadMap(char *name, qboolean clientload, unsigned *checksum);
-cmodel_t *CM_InlineModel(char *name); // *1, *2, etc
+enum cmodel_index { CMODEL_START, CMODEL_A = CMODEL_START, CMODEL_B, CMODEL_C, CMODEL_COUNT };
 
-int CM_NumClusters(void);
-int CM_NumInlineModels(void);
-char *CM_EntityString(void);
+cmodel_t *CM_LoadMap(int cmodel_index, char *name, qboolean clientload, unsigned *checksum);
+cmodel_t *CM_InlineModel(int cmodel_index, char *name); // *1, *2, etc
+
+int CM_NumClusters(int cmodel_index);
+int CM_NumInlineModels(int cmodel_index);
+char *CM_EntityString(int cmodel_index);
 
 // creates a clipping hull for an arbitrary box
 int CM_HeadnodeForBox(vec3_t mins, vec3_t maxs);
 
 // returns an ORed contents mask
-int CM_PointContents(vec3_t p, int headnode);
-int CM_TransformedPointContents(vec3_t p, int headnode, vec3_t origin, vec3_t angles);
+int CM_PointContents(int cmodel_index, vec3_t p, int headnode);
+int CM_TransformedPointContents(int cmodel_index, vec3_t p, int headnode, vec3_t origin, vec3_t angles);
 
-trace_t CM_BoxTrace(vec3_t start, vec3_t end, vec3_t mins, vec3_t maxs, int headnode, int brushmask);
-trace_t CM_TransformedBoxTrace(vec3_t start, vec3_t end, vec3_t mins, vec3_t maxs, int headnode, int brushmask,
-                               vec3_t origin, vec3_t angles);
+trace_t CM_BoxTrace(int cmodel_index, vec3_t start, vec3_t end, vec3_t mins, vec3_t maxs, int headnode, int brushmask);
+trace_t CM_TransformedBoxTrace(int cmodel_index, vec3_t start, vec3_t end, vec3_t mins, vec3_t maxs, int headnode,
+                               int brushmask, vec3_t origin, vec3_t angles);
 
-byte *CM_ClusterPVS(int cluster);
-byte *CM_ClusterPHS(int cluster);
+byte *CM_ClusterPVS(int cmodel_index, int cluster);
+byte *CM_ClusterPHS(int cmodel_index, int cluster);
 
-int CM_PointLeafnum(vec3_t p);
+int CM_PointLeafnum(int cmodel_index, vec3_t p);
 
 // call with topnode set to the headnode, returns with topnode
 // set to the first node that splits the box
-int CM_BoxLeafnums(vec3_t mins, vec3_t maxs, int *list, int listsize, int *topnode);
+int CM_BoxLeafnums(int cmodel_index, vec3_t mins, vec3_t maxs, int *list, int listsize, int *topnode);
 
-int CM_LeafContents(int leafnum);
-int CM_LeafCluster(int leafnum);
-int CM_LeafArea(int leafnum);
+int CM_LeafContents(int cmodel_index, int leafnum);
+int CM_LeafCluster(int cmodel_index, int leafnum);
+int CM_LeafArea(int cmodel_index, int leafnum);
 
-void CM_SetAreaPortalState(int portalnum, qboolean open);
-qboolean CM_AreasConnected(int area1, int area2);
+void CM_SetAreaPortalState(int cmodel_index, int portalnum, qboolean open);
+qboolean CM_AreasConnected(int cmodel_index, int area1, int area2);
 
-int CM_WriteAreaBits(byte *buffer, int area);
-qboolean CM_HeadnodeVisible(int headnode, byte *visbits);
+int CM_WriteAreaBits(int cmodel_index, byte *buffer, int area);
+qboolean CM_HeadnodeVisible(int cmodel_index, int headnode, byte *visbits);
 
-void CM_WritePortalState(FILE *f);
-void CM_ReadPortalState(FILE *f);
+void CM_WritePortalState(int cmodel_index, FILE *f);
+void CM_ReadPortalState(int cmodel_index, FILE *f);
+
+int CM_NumTextures(int cmodel_index);
+const char *CM_GetTexturePrecacheName(int cmodel_index, int texture);
+
+bool CM_IsActive(int cmodel_index);
 
 /*
 ==============================================================

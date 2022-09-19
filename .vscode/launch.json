@@ -17,6 +17,49 @@
                 "q2dm1"
             ],
             "cwd": "c:\\q2"
+        },
+        {
+            "name": "server",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/quake2.exe",
+            "args": [
+                "-set",
+                "basedir",
+                "c:\\q2",
+                "+set",
+                "dedicated",
+                "1",
+                "+set",
+                "deathmatch",
+                "1",
+                "+map",
+                "q2dm1"
+            ],
+            "cwd": "c:\\q2"
+        },
+        {
+            "name": "client",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/quake2.exe",
+            "args": [
+                "-set",
+                "basedir",
+                "c:\\q2",
+                "+connect",
+                "127.0.0.1"
+            ],
+            "cwd": "c:\\q2"
+        },
+    ],
+    "compounds": [
+        {
+            "name": "server / client",
+            "configurations": [
+                "server",
+                "client"
+            ]
         }
     ]
 }
