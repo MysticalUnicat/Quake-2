@@ -182,33 +182,32 @@ Sys_CopyProtect
 
 //================================================================
 
+static void windows_uv_idle_cb(uv_idle_t *handle) {
+  (void)handle;
+  MSG msg;
+
+  while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+    if(!GetMessage(&msg, NULL, 0, 0)) {
+      Com_Quit();
+      // uv_stop(&global_uv_loop);
+    }
+    sys_msg_time = msg.time;
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+  }
+}
+
 /*
 ================
 Sys_Init
 ================
 */
 void Sys_Init(void) {
+  static uv_idle_t windows_uv_idle;
+  uv_idle_init(&global_uv_loop, &windows_uv_idle);
+  uv_idle_start(&windows_uv_idle, windows_uv_idle_cb);
+
   OSVERSIONINFO vinfo;
-
-#if 0
-	// allocate a named semaphore on the client so the
-	// front end can tell if it is alive
-
-	// mutex will fail if semephore already exists
-    qwclsemaphore = CreateMutex(
-        NULL,         /* Security attributes */
-        0,            /* owner       */
-        "qwcl"); /* Semaphore name      */
-	if (!qwclsemaphore)
-		Sys_Error ("QWCL is already running on this system");
-	CloseHandle (qwclsemaphore);
-
-    qwclsemaphore = CreateSemaphore(
-        NULL,         /* Security attributes */
-        0,            /* Initial count       */
-        1,            /* Maximum count       */
-        "qwcl"); /* Semaphore name      */
-#endif
 
   timeBeginPeriod(1);
 
@@ -527,34 +526,6 @@ WinMain
 */
 HINSTANCE global_hInstance;
 
-uv_loop_t global_uv_loop;
-
-static void windows_uv_idle_cb(uv_idle_t *handle) {
-  (void)handle;
-  MSG msg;
-
-  while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-    if(!GetMessage(&msg, NULL, 0, 0)) {
-      Com_Quit();
-      // uv_stop(&global_uv_loop);
-    }
-    sys_msg_time = msg.time;
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
-  }
-}
-
-static void frame_uv_timer_cb(uv_timer_t *timer) {
-  static uint64_t old_time;
-  (void)timer;
-
-  uint64_t time = uv_now(&global_uv_loop);
-  uint64_t delta = time - old_time;
-  old_time = time;
-
-  Qcommon_Frame((int)delta);
-}
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
   // MSG msg;
   // int time, oldtime, newtime;
@@ -587,18 +558,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
   // }
 
   Qcommon_Init(argc, argv);
-
-  { // Qcommon_Init would init libuv
-    uv_loop_init(&global_uv_loop);
-
-    uv_timer_t frame_uv_timer;
-    uv_timer_init(&global_uv_loop, &frame_uv_timer);
-    uv_timer_start(&frame_uv_timer, frame_uv_timer_cb, 0, 10); // just above 90fps
-  }
-
-  uv_idle_t windows_uv_idle;
-  uv_idle_init(&global_uv_loop, &windows_uv_idle);
-  uv_idle_start(&windows_uv_idle, windows_uv_idle_cb);
+  return Qcommon_RunFrames();
 
   { // Qcommon_RunFrames()
     return uv_run(&global_uv_loop, UV_RUN_DEFAULT);

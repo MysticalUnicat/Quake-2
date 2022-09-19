@@ -24,6 +24,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <uv.h>
 
+extern uv_loop_t global_uv_loop;
+
 #define VERSION 3.19
 
 #define BASEDIRNAME "baseq2"
@@ -754,6 +756,7 @@ void Z_FreeTags(int tag);
 
 void Qcommon_Init(int argc, char **argv);
 void Qcommon_Frame(int msec);
+int Qcommon_RunFrames(void);
 void Qcommon_Shutdown(void);
 
 #define NUMVERTEXNORMALS 162

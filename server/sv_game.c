@@ -285,6 +285,10 @@ void SV_ShutdownGameProgs(void) {
   ge = NULL;
 }
 
+static void SV_SetAreaPortalState(int portal_num, bool open) { CM_SetAreaPortalState(CMODEL_A, portal_num, open); }
+
+static bool SV_AreasConnected(int area1, int area2) { return CM_AreasConnected(CMODEL_A, area1, area2); }
+
 /*
 ===============
 SV_InitGameProgs
@@ -352,8 +356,8 @@ void SV_InitGameProgs(void) {
   import.AddCommandString = Cbuf_AddText;
 
   import.DebugGraph = SCR_DebugGraph;
-  import.SetAreaPortalState = CM_SetAreaPortalState;
-  import.AreasConnected = CM_AreasConnected;
+  import.SetAreaPortalState = SV_SetAreaPortalState;
+  import.AreasConnected = SV_AreasConnected;
 
   ge = (game_export_t *)Sys_GetGameAPI(&import);
 
