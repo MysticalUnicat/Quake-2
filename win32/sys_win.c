@@ -36,11 +36,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 //#define DEMO
 
-qboolean s_win95;
+bool s_win95;
 
 int starttime;
 int ActiveApp;
-qboolean Minimized;
+bool Minimized;
 
 static HANDLE hinput, houtput;
 
@@ -123,7 +123,7 @@ Sys_ScanForCD
 // char *Sys_ScanForCD (void)
 // {
 // 	static char	cddir[MAX_OSPATH];
-// 	static qboolean	done;
+// 	static bool	done;
 // #ifndef DEMO
 // 	char		drive[4];
 // 	FILE		*f;

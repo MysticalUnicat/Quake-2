@@ -42,7 +42,7 @@ void gunner_sight(edict_t *self, edict_t *other) { gi.sound(self, CHAN_VOICE, so
 
 void gunner_search(edict_t *self) { gi.sound(self, CHAN_VOICE, sound_search, 1, ATTN_NORM, 0); }
 
-qboolean visible(edict_t *self, edict_t *other);
+bool visible(edict_t *self, edict_t *other);
 void GunnerGrenade(edict_t *self);
 void GunnerFire(edict_t *self);
 void gunner_fire_chain(edict_t *self);

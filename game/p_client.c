@@ -155,7 +155,7 @@ void player_pain(edict_t *self, edict_t *other, float kick, int damage) {
   // player pain is handled at the end of the frame in P_DamageFeedback
 }
 
-qboolean IsFemale(edict_t *ent) {
+bool IsFemale(edict_t *ent) {
   char *info;
 
   if(!ent->client)
@@ -167,7 +167,7 @@ qboolean IsFemale(edict_t *ent) {
   return false;
 }
 
-qboolean IsNeutral(edict_t *ent) {
+bool IsNeutral(edict_t *ent) {
   char *info;
 
   if(!ent->client)
@@ -183,7 +183,7 @@ void ClientObituary(edict_t *self, edict_t *inflictor, edict_t *attacker) {
   int mod;
   char *message;
   char *message2;
-  qboolean ff;
+  bool ff;
 
   if(coop->value && attacker->client)
     meansOfDeath |= MOD_FRIENDLY_FIRE;
@@ -371,7 +371,7 @@ void Touch_Item(edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *surf)
 void TossClientWeapon(edict_t *self) {
   gitem_t *item;
   edict_t *drop;
-  qboolean quad;
+  bool quad;
   float spread;
 
   if(!deathmatch->value)
@@ -602,7 +602,7 @@ void SaveClientData(void) {
 
 void FetchClientEntData(edict_t *ent) {
   dv_set(ent_write_health(ent), ent->client->pers.health);
-  cv_initialize(ent_write_health(ent), ent->client->pers.max_health);
+  cv_initialize(ent_write_max_health(ent), ent->client->pers.max_health);
   ent->flags |= ent->client->pers.savedFlags;
   if(coop->value)
     ent->client->resp.score = ent->client->pers.score;
@@ -1291,7 +1291,7 @@ Changing levels will NOT cause this to be called again, but
 loadgames will.
 ============
 */
-qboolean ClientConnect(edict_t *ent, char *userinfo) {
+bool ClientConnect(edict_t *ent, char *userinfo) {
   char *value;
 
   // check to see if they are on the banned IP list

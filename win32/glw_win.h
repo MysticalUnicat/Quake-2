@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -35,9 +35,9 @@ typedef struct
 
 	HINSTANCE hinstOpenGL;	// HINSTANCE for the OpenGL library
 
-	qboolean minidriver;
-	qboolean allowdisplaydepthchange;
-	qboolean mcd_accelerated;
+	bool minidriver;
+	bool allowdisplaydepthchange;
+	bool mcd_accelerated;
 
 	FILE *log_fp;
 } glwstate_t;

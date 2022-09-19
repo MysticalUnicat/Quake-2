@@ -452,7 +452,7 @@ void monster_death_use(edict_t *self) {
 
 //============================================================================
 
-qboolean monster_start(edict_t *self) {
+bool monster_start(edict_t *self) {
   if(deathmatch->value) {
     G_FreeEdict(self);
     return false;
@@ -507,8 +507,8 @@ void monster_start_go(edict_t *self) {
 
   // check for target to combat_point and change to combattarget
   if(self->target) {
-    qboolean notcombat;
-    qboolean fixup;
+    bool notcombat;
+    bool fixup;
     edict_t *target;
 
     target = NULL;

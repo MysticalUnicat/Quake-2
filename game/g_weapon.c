@@ -41,8 +41,8 @@ static void check_dodge(edict_t *self, vec3_t start, vec3_t dir, int speed) {
   }
   VectorMA(start, 8192, dir, end);
   tr = gi.trace(start, NULL, NULL, end, self, MASK_SHOT);
-  if((tr.ent) && (tr.ent->svflags & SVF_MONSTER) && (ent_read_health(tr.ent)->value > 0) && (tr.ent->monsterinfo.dodge) &&
-     infront(tr.ent, self)) {
+  if((tr.ent) && (tr.ent->svflags & SVF_MONSTER) && (ent_read_health(tr.ent)->value > 0) &&
+     (tr.ent->monsterinfo.dodge) && infront(tr.ent, self)) {
     VectorSubtract(tr.endpos, start, v);
     eta = (VectorLength(v) - tr.ent->maxs[0]) / speed;
     tr.ent->monsterinfo.dodge(tr.ent, self, eta);
@@ -56,7 +56,7 @@ fire_hit
 Used for all impact (hit/punch/slash) attacks
 =================
 */
-qboolean fire_hit(edict_t *self, vec3_t aim, int damage, int kick) {
+bool fire_hit(edict_t *self, vec3_t aim, int damage, int kick) {
   trace_t tr;
   vec3_t forward, right, up;
   vec3_t v;
@@ -130,7 +130,7 @@ static void fire_lead(edict_t *self, vec3_t start, vec3_t aimdir, int damage, in
   float r;
   float u;
   vec3_t water_start;
-  qboolean water = false;
+  bool water = false;
   int content_mask = MASK_SHOT | MASK_WATER;
 
   tr = gi.trace(self->s.origin, NULL, NULL, start, self, MASK_SHOT);
@@ -309,7 +309,7 @@ void blaster_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface_t *s
   G_FreeEdict(self);
 }
 
-void fire_blaster(edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, int effect, qboolean hyper) {
+void fire_blaster(edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, int effect, bool hyper) {
   edict_t *bolt;
   trace_t tr;
 
@@ -470,7 +470,7 @@ void fire_grenade(edict_t *self, vec3_t start, vec3_t aimdir, int damage, int sp
 }
 
 void fire_grenade2(edict_t *self, vec3_t start, vec3_t aimdir, int damage, int speed, float timer, float damage_radius,
-                   qboolean held) {
+                   bool held) {
   edict_t *grenade;
   vec3_t dir;
   vec3_t forward, right, up;
@@ -604,7 +604,7 @@ void fire_rail(edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick)
   trace_t tr;
   edict_t *ignore;
   int mask;
-  qboolean water;
+  bool water;
 
   VectorMA(start, 8192, aimdir, end);
   VectorCopy(start, from);

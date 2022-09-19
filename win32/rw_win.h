@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -46,10 +46,10 @@ typedef struct
 	LPDIRECTDRAWSURFACE lpddsOffScreenBuffer;	// system memory backbuffer
 	LPDIRECTDRAWPALETTE	lpddpPalette;		// DirectDraw palette
 
-	qboolean		palettized;			// true if desktop is paletted
-	qboolean		modex;
+	bool		palettized;			// true if desktop is paletted
+	bool		modex;
 
-	qboolean		initializing;
+	bool		initializing;
 } swwstate_t;
 
 extern swwstate_t sww_state;
@@ -57,11 +57,11 @@ extern swwstate_t sww_state;
 /*
 ** DIB code
 */
-qboolean DIB_Init( unsigned char **ppbuffer, int *ppitch );
+bool DIB_Init( unsigned char **ppbuffer, int *ppitch );
 void     DIB_Shutdown( void );
 void     DIB_SetPalette( const unsigned char *palette );
 
-qboolean DDRAW_Init( unsigned char **ppbuffer, int *ppitch );
+bool DDRAW_Init( unsigned char **ppbuffer, int *ppitch );
 void     DDRAW_Shutdown( void );
 void     DDRAW_SetPalette( const unsigned char *palette );
 

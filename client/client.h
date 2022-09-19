@@ -59,7 +59,7 @@ static inline alias_ecs_LayerHandle CLIENT_MAIN_LAYER(void) {
 //=============================================================================
 
 typedef struct {
-  qboolean valid; // cleared if delta parsing was invalid
+  bool valid; // cleared if delta parsing was invalid
   int serverframe;
   int servertime; // server time the message is valid for (in msec)
   int deltaframe;
@@ -109,9 +109,9 @@ typedef struct {
   int timedemo_frames;
   int timedemo_start;
 
-  qboolean refresh_prepped; // false if on new level or new ref dll
-  qboolean sound_prepped;   // ambient sounds can start
-  qboolean force_refdef;    // vid has changed, so we can't use a paused refdef
+  bool refresh_prepped; // false if on new level or new ref dll
+  bool sound_prepped;   // ambient sounds can start
+  bool force_refdef;    // vid has changed, so we can't use a paused refdef
 
   int parse_entities; // index (not anded off) into cl_parse_entities[]
 
@@ -159,12 +159,12 @@ typedef struct {
   int cinematictime; // cls.realtime for first cinematic frame
   int cinematicframe;
   char cinematicpalette[768];
-  qboolean cinematicpalette_active;
+  bool cinematicpalette_active;
 
   //
   // server state information
   //
-  qboolean attractloop; // running the attract loop, any key will menu
+  bool attractloop; // running the attract loop, any key will menu
   int servercount;      // server identification for prespawns
   char gamedir[MAX_QPATH];
   int playernum;
@@ -241,8 +241,8 @@ typedef struct {
   int downloadpercent;
 
   // demo recording info must be here, so it isn't cleared on level change
-  qboolean demorecording;
-  qboolean demowaiting; // don't record until a non-delta message is received
+  bool demorecording;
+  bool demowaiting; // don't record until a non-delta message is received
   FILE *demofile;
 } client_static_t;
 
@@ -325,7 +325,7 @@ extern sizebuf_t net_message;
 
 void DrawString(int x, int y, char *s);
 void DrawAltString(int x, int y, char *s); // toggle high bit
-qboolean CL_CheckOrDownloadFile(char *filename);
+bool CL_CheckOrDownloadFile(char *filename);
 
 void CL_AddNetgraph(void);
 

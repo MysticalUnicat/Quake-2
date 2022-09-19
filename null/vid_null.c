@@ -76,7 +76,7 @@ vidmode_t vid_modes[] =
 };
 #define VID_NUM_MODES ( sizeof( vid_modes ) / sizeof( vid_modes[0] ) )
 
-qboolean VID_GetModeInfo( int *width, int *height, int mode )
+bool VID_GetModeInfo( int *width, int *height, int mode )
 {
     if ( mode < 0 || mode >= VID_NUM_MODES )
         return false;
@@ -115,7 +115,7 @@ void	VID_Init (void)
 
     if (re.api_version != API_VERSION)
         Com_Error (ERR_FATAL, "Re has incompatible api_version");
-    
+
         // call the init function
     if (re.Init (NULL, NULL) == -1)
 		Com_Error (ERR_FATAL, "Couldn't start refresh");

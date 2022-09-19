@@ -926,8 +926,8 @@ void CL_ReadPackets(void) {
   // check timeout
   //
   if(cls.state >= ca_connected && cls.realtime - cls.netchan.last_received > cl_timeout->value * 1000) {
-    if(++cl.timeoutcount > 5) // timeoutcount saves debugger
-    {
+    // timeoutcount saves debugger
+    if(++cl.timeoutcount > 5) {
       Com_Printf("\nServer connection timed out.\n");
       CL_Disconnect();
       return;
@@ -1559,13 +1559,8 @@ void CL_Frame(int msec) {
   cls.realtime = curtime;
 
   extratime = 0;
-#if 0
-	if (cls.frametime > (1.0 / cl_minfps->value))
-		cls.frametime = (1.0 / cl_minfps->value);
-#else
   if(cls.frametime > (1.0 / 5))
     cls.frametime = (1.0 / 5);
-#endif
 
   // if in the debugger last frame, don't timeout
   if(msec > 5000)
@@ -1672,7 +1667,7 @@ to run quit through here before the final handoff to the sys code.
 ===============
 */
 void CL_Shutdown(void) {
-  static qboolean isdown = false;
+  static bool isdown = false;
 
   if(isdown) {
     printf("recursive shutdown\n");

@@ -102,7 +102,7 @@ struct cmodel {
 
   int floodvalid;
 
-  qboolean portalopen[MAX_MAP_AREAPORTALS];
+  bool portalopen[MAX_MAP_AREAPORTALS];
 };
 
 cvar_t *map_noareas;
@@ -507,7 +507,7 @@ Loads in the map and all submodels
 */
 static struct cmodel global_cmodels[3];
 
-cmodel_t *CM_LoadMap(int index, char *name, qboolean clientload, unsigned *checksum) {
+cmodel_t *CM_LoadMap(int index, char *name, bool clientload, unsigned *checksum) {
   if(index < 0 || index >= 3) {
     Com_Error(ERR_DROP, "CMod_LoadBrushModel: %i is an invalid index (must be 0, 1, or 2)", index);
   }
@@ -966,7 +966,7 @@ vec3_t trace_extents;
 
 trace_t trace_trace;
 int trace_contents;
-qboolean trace_ispoint; // optimized case
+bool trace_ispoint; // optimized case
 
 /*
 ================
@@ -981,7 +981,7 @@ void CM_ClipBoxToBrush(struct cmodel *cm, vec3_t mins, vec3_t maxs, vec3_t p1, v
   float enterfrac, leavefrac;
   vec3_t ofs;
   float d1, d2;
-  qboolean getout, startout;
+  bool getout, startout;
   float f;
   cbrushside_t *side, *leadside;
 
@@ -1393,7 +1393,7 @@ trace_t CM_TransformedBoxTrace(int index, vec3_t start, vec3_t end, vec3_t mins,
   vec3_t a;
   vec3_t forward, right, up;
   vec3_t temp;
-  qboolean rotated;
+  bool rotated;
 
   // subtract origin offset
   VectorSubtract(start, origin, start_l);
@@ -1574,7 +1574,7 @@ void FloodAreaConnections(struct cmodel *cm) {
   }
 }
 
-void CM_SetAreaPortalState(int index, int portalnum, qboolean open) {
+void CM_SetAreaPortalState(int index, int portalnum, bool open) {
   if(index < 0 || index >= 3) {
     Com_Error(ERR_DROP, "CMod_LoadBrushModel: %i is an invalid index (must be 0, 1, or 2)", index);
   }
@@ -1587,7 +1587,7 @@ void CM_SetAreaPortalState(int index, int portalnum, qboolean open) {
   FloodAreaConnections(cm);
 }
 
-qboolean CM_AreasConnected(int index, int area1, int area2) {
+bool CM_AreasConnected(int index, int area1, int area2) {
   if(index < 0 || index >= 3) {
     Com_Error(ERR_DROP, "CMod_LoadBrushModel: %i is an invalid index (must be 0, 1, or 2)", index);
   }
@@ -1683,7 +1683,7 @@ Returns true if any leaf under headnode has a cluster that
 is potentially visible
 =============
 */
-qboolean CM_HeadnodeVisible(int index, int nodenum, byte *visbits) {
+bool CM_HeadnodeVisible(int index, int nodenum, byte *visbits) {
   if(index < 0 || index >= 3) {
     Com_Error(ERR_DROP, "CMod_LoadBrushModel: %i is an invalid index (must be 0, 1, or 2)", index);
   }

@@ -163,7 +163,7 @@ void parasite_pain(edict_t *self, edict_t *other, float kick, int damage) {
   self->monsterinfo.currentmove = &parasite_move_pain1;
 }
 
-static qboolean parasite_drain_attack_ok(vec3_t start, vec3_t end) {
+static bool parasite_drain_attack_ok(vec3_t start, vec3_t end) {
   vec3_t dir, angles;
 
   // check for max distance
