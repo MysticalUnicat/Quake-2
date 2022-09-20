@@ -1177,7 +1177,7 @@ static inline alias_ecs_Instance *GAME_ECS_INSTANCE(void) {
 
 static inline alias_ecs_LayerHandle GAME_MAIN_LAYER(void) {
   extern alias_ecs_LayerHandle game_global_ecs_main_layer;
-  if(game_global_ecs_main_layer == 0) {
+  if(game_global_ecs_main_layer == ALIAS_ECS_INVALID_LAYER) {
     alias_ecs_create_layer(GAME_ECS_INSTANCE(), &(alias_ecs_LayerCreateInfo){.max_entities = 0},
                            &game_global_ecs_main_layer);
   }

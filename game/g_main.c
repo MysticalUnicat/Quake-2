@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "g_local.h"
 
 alias_ecs_Instance *game_global_ecs_instance = NULL;
-alias_ecs_LayerHandle game_global_ecs_main_layer = 0;
+alias_ecs_LayerHandle game_global_ecs_main_layer = ALIAS_ECS_INVALID_LAYER;
 alias_ecs_ComponentHandle game_global_ecs_edict_component = 0;
 
 game_locals_t game;
@@ -98,15 +98,18 @@ void ShutdownGame(void) {
   gi.FreeTags(TAG_LEVEL);
   gi.FreeTags(TAG_GAME);
 
-  if(game_global_ecs_main_layer != 0) {
+  if(game_global_ecs_main_layer != ALIAS_ECS_INVALID_LAYER) {
     alias_ecs_destroy_layer(game_global_ecs_instance, game_global_ecs_main_layer,
                             ALIAS_ECS_LAYER_DESTROY_REMOVE_ENTITIES);
-    game_global_ecs_main_layer = 0;
+    game_global_ecs_main_layer = ALIAS_ECS_INVALID_LAYER;
   }
+
   if(game_global_ecs_instance != NULL) {
     alias_ecs_destroy_instance(game_global_ecs_instance);
     game_global_ecs_instance = NULL;
   }
+
+  game_global_ecs_edict_component = 0;
 }
 
 /*

@@ -1076,6 +1076,7 @@ void R_BeginRegistration(char *model) {
   flushmap = ri.Cvar_Get("flushmap", "0", 0);
   if(strcmp(mod_known[0].name, fullname) || flushmap->value)
     Mod_Free(&mod_known[0]);
+
   r_worldmodel = Mod_ForName(fullname, true);
 
   r_viewcluster = -1;
@@ -1146,6 +1147,12 @@ Mod_Free
 ================
 */
 void Mod_Free(model_t *mod) {
+  if(mod == r_worldmodel) {
+    for(int i = 0; i < MAX_MOD_KNOWN; i++) {
+      mod_inline[i].type = mod_load;
+    }
+  }
+
   HunkAllocator_Free(mod->extradata);
   memset(mod, 0, sizeof(*mod));
 }
