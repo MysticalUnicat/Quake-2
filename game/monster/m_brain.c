@@ -25,7 +25,7 @@ brain
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_brain.h"
 
 static int sound_chest_open;

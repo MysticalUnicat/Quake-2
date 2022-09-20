@@ -59,59 +59,59 @@ add_subdirectory(../libuv ${CMAKE_BINARY_DIR}/libuv)
 
 add_library(shared STATIC
     game/q_shared.c
-    game/m_flash.c
+    game/monster/m_flash.c
 )
 target_include_directories(shared INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(shared alias)
 
 add_library(game STATIC
-    game/g_ai.c
-    game/g_chase.c
-    game/g_cmds.c
-    game/g_combat.c
-    game/g_func.c
-    game/g_items.c
-    game/g_main.c
-    game/g_misc.c
-    game/g_save.c
-    game/m_boss2.c
-    game/m_gladiator.c
-    game/m_supertank.c
-    game/g_spawn.c
-    game/m_boss3.c
-    game/m_gunner.c
-    game/m_tank.c
-    game/g_svcmds.c
-    game/m_boss31.c
-    game/m_hover.c
-    game/p_client.c
-    game/g_target.c
-    game/m_boss32.c
-    game/m_infantry.c
-    game/p_hud.c
-    game/g_trigger.c
-    game/m_brain.c
-    game/m_insane.c
-    game/p_trail.c
-    game/g_turret.c
-    game/m_chick.c
-    game/m_medic.c
-    game/p_view.c
-    game/g_utils.c
-    game/m_move.c
-    game/p_weapon.c
-    game/g_weapon.c
-    game/m_flipper.c
-    game/m_mutant.c
     game/q_shared.c
-    game/g_monster.c
-    game/m_actor.c
-    game/m_float.c
-    game/m_parasite.c
+    game/p_weapon.c
+    game/p_view.c
+    game/p_trail.c
+    game/p_hud.c
+    game/p_client.c
+    game/monster/m_tank.c
+    game/monster/m_supertank.c
+    game/monster/m_soldier.c
+    game/monster/m_parasite.c
+    game/monster/m_mutant.c
+    game/monster/m_move.c
+    game/monster/m_medic.c
+    game/monster/m_insane.c
+    game/monster/m_infantry.c
+    game/monster/m_hover.c
+    game/monster/m_gunner.c
+    game/monster/m_gladiator.c
+    game/monster/m_flyer.c
+    game/monster/m_float.c
+    game/monster/m_flipper.c
+    game/monster/m_chick.c
+    game/monster/m_brain.c
+    game/monster/m_boss32.c
+    game/monster/m_boss31.c
+    game/monster/m_boss3.c
+    game/monster/m_boss2.c
+    game/monster/m_berserk.c
+    game/monster/m_actor.c
+    game/g_weapon.c
+    game/g_utils.c
+    game/g_turret.c
+    game/g_trigger.c
+    game/g_target.c
+    game/g_svcmds.c
+    game/g_spawn.c
+    game/g_save.c
     game/g_phys.c
-    game/m_berserk.c
-    game/m_flyer.c
-    game/m_soldier.c
+    game/g_monster.c
+    game/g_misc.c
+    game/g_main.c
+    game/g_items.c
+    game/g_func.c
+    game/g_combat.c
+    game/g_cmds.c
+    game/g_chase.c
+    game/g_ai.c
 )
 target_link_libraries(game shared)
 target_compile_definitions(game PRIVATE GAME_HARD_LINKED=1)

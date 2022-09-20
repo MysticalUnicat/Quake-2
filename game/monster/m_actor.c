@@ -19,7 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // g_actor.c
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_actor.h"
 
 #define MAX_ACTOR_NAMES 8

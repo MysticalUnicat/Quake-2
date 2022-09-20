@@ -25,7 +25,7 @@ Makron -- Final Boss
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_boss32.h"
 
 bool visible(edict_t *self, edict_t *other);

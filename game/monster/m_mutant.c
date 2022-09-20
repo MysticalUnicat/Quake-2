@@ -25,7 +25,7 @@ mutant
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_mutant.h"
 
 static int sound_swing;

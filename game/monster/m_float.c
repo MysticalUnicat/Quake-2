@@ -25,7 +25,7 @@ floater
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_float.h"
 
 static int sound_attack2;

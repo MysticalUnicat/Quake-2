@@ -25,7 +25,7 @@ boss2
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_boss2.h"
 
 void BossExplode(edict_t *self);

@@ -25,7 +25,7 @@ flyer
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_flyer.h"
 
 bool visible(edict_t *self, edict_t *other);

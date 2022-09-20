@@ -25,7 +25,7 @@ GUNNER
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_gunner.h"
 
 static int sound_pain;

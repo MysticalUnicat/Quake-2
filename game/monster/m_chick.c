@@ -25,7 +25,7 @@ chick
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_chick.h"
 
 bool visible(edict_t *self, edict_t *other);

@@ -25,7 +25,7 @@ SUPERTANK
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_supertank.h"
 
 bool visible(edict_t *self, edict_t *other);

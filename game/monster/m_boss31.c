@@ -25,7 +25,7 @@ jorg
 ==============================================================================
 */
 
-#include "g_local.h"
+#include "../g_local.h"
 #include "m_boss31.h"
 
 extern int SP_monster_makron(edict_t *self);
