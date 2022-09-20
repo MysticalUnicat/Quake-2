@@ -87,8 +87,8 @@ typedef struct sizebuf_s {
 void SZ_Init(sizebuf_t *buf, byte *data, int length);
 void SZ_Clear(sizebuf_t *buf);
 void *SZ_GetSpace(sizebuf_t *buf, int length);
-void SZ_Write(sizebuf_t *buf, void *data, int length);
-void SZ_Print(sizebuf_t *buf, char *data); // strcats onto the sizebuf
+void SZ_Write(sizebuf_t *buf, const void *data, int length);
+void SZ_Print(sizebuf_t *buf, const char *data); // strcats onto the sizebuf
 
 //============================================================================
 
@@ -352,16 +352,16 @@ The game starts with a Cbuf_AddText ("exec quake.rc\n"); Cbuf_Execute ();
 void Cbuf_Init(void);
 // allocates an initial text buffer that will grow as needed
 
-void Cbuf_AddText(char *text);
+void Cbuf_AddText(const char *text);
 // as new commands are generated from the console or keybindings,
 // the text is added to the end of the command buffer.
 
-void Cbuf_InsertText(char *text);
+void Cbuf_InsertText(const char *text);
 // when a command wants to issue other commands immediately, the text is
 // inserted at the beginning of the buffer, before any remaining unexecuted
 // commands.
 
-void Cbuf_ExecuteText(int exec_when, char *text);
+void Cbuf_ExecuteText(int exec_when, const char *text);
 // this can be used in place of either Cbuf_AddText or Cbuf_InsertText
 
 void Cbuf_AddEarlyCommands(bool clear);
@@ -422,7 +422,7 @@ void Cmd_TokenizeString(char *text, bool macroExpand);
 // Takes a null terminated string.  Does not need to be /n terminated.
 // breaks the string up into arg tokens.
 
-void Cmd_ExecuteString(char *text);
+void Cmd_ExecuteString(const char *text);
 // Parses a single line of text into arguments and tries to execute it
 // as if it was typed at the console
 
@@ -454,29 +454,29 @@ interface from being ambiguous.
 
 extern cvar_t *cvar_vars;
 
-cvar_t *Cvar_Get(char *var_name, char *value, int flags);
+cvar_t *Cvar_Get(const char *var_name, const char *value, int flags);
 // creates the variable if it doesn't exist, or returns the existing one
 // if it exists, the value will not be changed, but flags will be ORed in
 // that allows variables to be unarchived without needing bitflags
 
-cvar_t *Cvar_Set(char *var_name, char *value);
+cvar_t *Cvar_Set(const char *var_name, const char *value);
 // will create the variable if it doesn't exist
 
-cvar_t *Cvar_ForceSet(char *var_name, char *value);
+cvar_t *Cvar_ForceSet(const char *var_name, const char *value);
 // will set the variable even if NOSET or LATCH
 
-cvar_t *Cvar_FullSet(char *var_name, char *value, int flags);
+cvar_t *Cvar_FullSet(const char *var_name, const char *value, int flags);
 
-void Cvar_SetValue(char *var_name, float value);
+void Cvar_SetValue(const char *var_name, float value);
 // expands value to a string and calls Cvar_Set
 
-float Cvar_VariableValue(char *var_name);
+float Cvar_VariableValue(const char *var_name);
 // returns 0 if not defined or non numeric
 
-char *Cvar_VariableString(char *var_name);
+char *Cvar_VariableString(const char *var_name);
 // returns an empty string if not defined
 
-char *Cvar_CompleteVariable(char *partial);
+char *Cvar_CompleteVariable(const char *partial);
 // attempts to match a partial variable name for command line completion
 // returns NULL if nothing fits
 
@@ -488,7 +488,7 @@ bool Cvar_Command(void);
 // command.  Returns true if the command was a variable reference that
 // was handled. (print or change)
 
-void Cvar_WriteVariables(char *path);
+void Cvar_WriteVariables(const char *path);
 // appends lines containing "set variable value" for all variables
 // with the archive flag set to true.
 
@@ -681,16 +681,16 @@ FILESYSTEM
 */
 
 void FS_InitFilesystem(void);
-void FS_SetGamedir(char *dir);
-char *FS_Gamedir(void);
-char *FS_NextPath(char *prevpath);
+void FS_SetGamedir(const char *dir);
+const char *FS_Gamedir(void);
+const char *FS_NextPath(const char *prevpath);
 void FS_ExecAutoexec(void);
 
-int FS_FOpenFile(char *filename, FILE **file);
+int FS_FOpenFile(const char *filename, FILE **file);
 void FS_FCloseFile(FILE *f);
 // note: this can't be called from another DLL, due to MS libc issues
 
-int FS_LoadFile(char *path, void **buffer);
+int FS_LoadFile(const char *path, void **buffer);
 // a null buffer will just return the file length without loading
 // a -1 length is not present
 
@@ -699,7 +699,7 @@ void FS_Read(void *buffer, int len, FILE *f);
 
 void FS_FreeFile(void *buffer);
 
-void FS_CreatePath(char *path);
+void FS_CreatePath(const char *path);
 
 int FS_LoadAsync(const char *path, void (*error)(void *ud), void (*done)(const void *, int, void *ud), void *ud);
 

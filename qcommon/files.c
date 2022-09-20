@@ -118,16 +118,26 @@ FS_CreatePath
 Creates any directories needed to store the given filename
 ============
 */
-void FS_CreatePath(char *path) {
-  char *ofs;
+void FS_CreatePath(const char *path_) {
+  size_t length = strlen(path_);
 
-  for(ofs = path + 1; *ofs; ofs++) {
+  char *path = malloc(length + 1);
+  memcpy(path, path_, length + 1);
+
+  for(char *ofs = path + 1; *ofs; ofs++) {
     if(*ofs == '/') { // create the directory
       *ofs = 0;
-      Sys_Mkdir(path);
+
+      uv_fs_t req;
+      uv_fs_mkdir(&global_uv_loop, &req, path, 0777, NULL);
+      uv_fs_req_cleanup(&req);
+
+      // Sys_Mkdir(path);
       *ofs = '/';
     }
   }
+
+  free(path);
 }
 
 /*
@@ -187,7 +197,7 @@ a seperate file.
 */
 int file_from_pak = 0;
 #ifndef NO_ADDONS
-int FS_FOpenFile(char *filename, FILE **file) {
+int FS_FOpenFile(const char *filename, FILE **file) {
   searchpath_t *search;
   char netpath[MAX_OSPATH];
   pack_t *pak;
@@ -357,7 +367,7 @@ Filename are reletive to the quake search path
 a null buffer will just return the file length without loading
 ============
 */
-int FS_LoadFile(char *path, void **buffer) {
+int FS_LoadFile(const char *path, void **buffer) {
   FILE *h;
   byte *buf;
   int len;
@@ -509,7 +519,7 @@ FS_Gamedir
 Called to find where to write a file (demos, savegames, etc)
 ============
 */
-char *FS_Gamedir(void) { return fs_gamedir; }
+const char *FS_Gamedir(void) { return fs_gamedir; }
 
 /*
 =============
@@ -537,7 +547,7 @@ FS_SetGamedir
 Sets the gamedir and path to a different directory.
 ================
 */
-void FS_SetGamedir(char *dir) {
+void FS_SetGamedir(const char *dir) {
   searchpath_t *next;
 
   if(strstr(dir, "..") || strstr(dir, "/") || strstr(dir, "\\") || strstr(dir, ":")) {
@@ -669,7 +679,7 @@ char **FS_ListFiles(char *findname, int *numfiles, unsigned musthave, unsigned c
 ** FS_Dir_f
 */
 void FS_Dir_f(void) {
-  char *path = NULL;
+  const char *path = NULL;
   char findname[1024];
   char wildcard[1024] = "*.*";
   char **dirnames;
@@ -741,9 +751,9 @@ FS_NextPath
 Allows enumerating all of the directories in the search path
 ================
 */
-char *FS_NextPath(char *prevpath) {
+const char *FS_NextPath(const char *prevpath) {
   searchpath_t *s;
-  char *prev;
+  const char *prev;
 
   if(!prevpath)
     return fs_gamedir;

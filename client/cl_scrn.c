@@ -839,7 +839,7 @@ SCR_ExecuteLayoutString
 
 ================
 */
-void SCR_ExecuteLayoutString(char *s) {
+void SCR_ExecuteLayoutString(const char *s) {
   int x, y;
   int value;
   char *token;

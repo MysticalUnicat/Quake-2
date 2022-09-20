@@ -199,19 +199,19 @@ void COM_FileBase(char *in, char *out);
 void COM_FilePath(char *in, char *out);
 void COM_DefaultExtension(char *path, char *extension);
 
-char *COM_Parse(char **data_p);
+char *COM_Parse(const char **data_p);
 // data is an in/out parm, returns a parsed out token
 
-void Com_sprintf(char *dest, int size, char *fmt, ...);
+void Com_sprintf(char *dest, int size, const char *fmt, ...);
 
 void Com_PageInMemory(byte *buffer, int size);
 
 //=============================================
 
 // portable case insensitive compare
-int Q_stricmp(char *s1, char *s2);
-int Q_strcasecmp(char *s1, char *s2);
-int Q_strncasecmp(char *s1, char *s2, int n);
+int Q_stricmp(const char *s1, const char *s2);
+int Q_strcasecmp(const char *s1, const char *s2);
+int Q_strncasecmp(const char *s1, const char *s2, int n);
 
 //=============================================
 

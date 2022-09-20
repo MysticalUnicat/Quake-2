@@ -78,7 +78,7 @@ Cbuf_AddText
 Adds command text at the end of the buffer
 ============
 */
-void Cbuf_AddText(char *text) {
+void Cbuf_AddText(const char *text) {
   int l;
 
   l = strlen(text);
@@ -99,7 +99,7 @@ Adds a \n to the text
 FIXME: actually change the command buffer to do less copying
 ============
 */
-void Cbuf_InsertText(char *text) {
+void Cbuf_InsertText(const char *text) {
   char *temp;
   int templen;
 
@@ -148,7 +148,7 @@ void Cbuf_InsertFromDefer(void) {
 Cbuf_ExecuteText
 ============
 */
-void Cbuf_ExecuteText(int exec_when, char *text) {
+void Cbuf_ExecuteText(int exec_when, const char *text) {
   switch(exec_when) {
   case EXEC_NOW:
     Cmd_ExecuteString(text);
@@ -478,10 +478,10 @@ char *Cmd_Args(void) { return cmd_args; }
 Cmd_MacroExpandString
 ======================
 */
-char *Cmd_MacroExpandString(char *text) {
+char *Cmd_MacroExpandString(const char *text) {
   int i, j, count, len;
   bool inquote;
-  char *scan;
+  const char *scan;
   static char expanded[MAX_STRING_CHARS];
   char temporary[MAX_STRING_CHARS];
   char *token, *start;
@@ -718,7 +718,7 @@ A complete command line has been parsed, so try to execute it
 FIXME: lookupnoadd the token to speed search?
 ============
 */
-void Cmd_ExecuteString(char *text) {
+void Cmd_ExecuteString(const char *text) {
   cmd_function_t *cmd;
   cmdalias_t *a;
 
