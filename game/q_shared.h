@@ -252,11 +252,31 @@ extern int curtime; // time returned by last Sys_Milliseconds
 int Sys_Milliseconds(void);
 void Sys_Mkdir(char *path);
 
+struct HunkAllocator {
+  uint8_t *base;
+  uint64_t max_size;
+  uint64_t cur_size;
+};
+
 // large block stack allocation routines
-void *Hunk_Begin(int maxsize);
-void *Hunk_Alloc(int size);
-void Hunk_Free(void *buf);
-int Hunk_End(void);
+static inline void *HunkAllocator_Begin(struct HunkAllocator *hunk, int max_size) {
+  hunk->base = malloc(max_size);
+  hunk->max_size = max_size;
+  hunk->cur_size = 0;
+  return hunk->base;
+}
+
+static inline void *HunkAllocator_Alloc(struct HunkAllocator *hunk, int size) {
+  // round to cacheline
+  size = (size + 31) & ~31;
+  void *result = hunk->base + hunk->cur_size;
+  hunk->cur_size += size;
+  return result;
+}
+
+static inline int HunkAllocator_End(struct HunkAllocator *hunk) { return hunk->cur_size; }
+
+static inline void HunkAllocator_Free(void *base) { free(base); }
 
 // directory searching
 #define SFF_ARCH 0x01

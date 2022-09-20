@@ -261,13 +261,15 @@ void CL_PrepRefresh(void) {
   num_cl_weaponmodels = 1;
   strcpy(cl_weaponmodels[0], "weapon.md2");
 
+  Com_Printf("models\r");
+  SCR_UpdateScreen();
   for(i = 1; i < MAX_MODELS && cl.configstrings[CS_MODELS + i][0]; i++) {
     strcpy(name, cl.configstrings[CS_MODELS + i]);
     name[37] = 0; // never go beyond one line
-    if(name[0] != '*')
-      Com_Printf("%s\r", name);
-    SCR_UpdateScreen();
-    Sys_SendKeyEvents(); // pump message loop
+    // if(name[0] != '*')
+    //   Com_Printf("%s\r", name);
+    // SCR_UpdateScreen();
+    // Sys_SendKeyEvents(); // pump message loop
     if(name[0] == '#') {
       // special player weapon model
       if(num_cl_weaponmodels < MAX_CLIENTWEAPONMODELS) {
@@ -282,11 +284,11 @@ void CL_PrepRefresh(void) {
       else
         cl.model_clip[i] = NULL;
     }
-    if(name[0] != '*')
-      Com_Printf("                                     \r");
+    // if(name[0] != '*')
+    //   Com_Printf("                                     \r");
   }
 
-  Com_Printf("images\r", i);
+  Com_Printf("images\r");
   SCR_UpdateScreen();
   for(i = 1; i < MAX_IMAGES && cl.configstrings[CS_IMAGES + i][0]; i++) {
     cl.image_precache[i] = re.RegisterPic(cl.configstrings[CS_IMAGES + i]);

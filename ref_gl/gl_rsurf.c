@@ -1261,7 +1261,7 @@ static bool LM_AllocBlock(int w, int h, int *x, int *y) {
 GL_BuildPolygonFromSurface
 ================
 */
-void GL_BuildPolygonFromSurface(msurface_t *fa) {
+void GL_BuildPolygonFromSurface(msurface_t *fa, struct HunkAllocator *hunk) {
   int i, lindex, lnumverts;
   medge_t *pedges, *r_pedge;
   int vertpage;
@@ -1279,7 +1279,7 @@ void GL_BuildPolygonFromSurface(msurface_t *fa) {
   //
   // draw texture
   //
-  poly = Hunk_Alloc(sizeof(glpoly_t) + (lnumverts - 4) * VERTEXSIZE * sizeof(float));
+  poly = HunkAllocator_Alloc(hunk, sizeof(glpoly_t) + (lnumverts - 4) * VERTEXSIZE * sizeof(float));
   poly->next = fa->polys;
   poly->flags = fa->flags;
   fa->polys = poly;

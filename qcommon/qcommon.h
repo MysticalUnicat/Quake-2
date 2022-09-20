@@ -701,6 +701,8 @@ void FS_FreeFile(void *buffer);
 
 void FS_CreatePath(char *path);
 
+int FS_LoadAsync(const char *path, void (*error)(void *ud), void (*done)(const void *, int, void *ud), void *ud);
+
 /*
 ==============================================================
 
