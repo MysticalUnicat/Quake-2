@@ -276,6 +276,9 @@ void SV_WritePlayerstateToClient(client_frame_t *from, client_frame_t *to, sizeb
   if(ps->gunframe != ops->gunframe)
     pflags |= PS_WEAPONFRAME;
 
+  if(ps->cmodel_index != ops->cmodel_index)
+    pflags |= PS_CMODEL_INDEX;
+
   pflags |= PS_WEAPONINDEX;
 
   //
@@ -362,6 +365,8 @@ void SV_WritePlayerstateToClient(client_frame_t *from, client_frame_t *to, sizeb
     MSG_WriteByte(msg, ps->fov);
   if(pflags & PS_RDFLAGS)
     MSG_WriteByte(msg, ps->rdflags);
+  if(pflags & PS_CMODEL_INDEX)
+    MSG_WriteByte(msg, ps->cmodel_index);
 
   // send stats
   statbits = 0;

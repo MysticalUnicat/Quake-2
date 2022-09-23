@@ -1109,6 +1109,8 @@ typedef enum {
 typedef struct entity_state_s {
   int number; // edict index
 
+  int cmodel_index;
+
   vec3_t origin;
   vec3_t angles;
   vec3_t old_origin; // for lerping
@@ -1134,6 +1136,8 @@ typedef struct entity_state_s {
 // but the number of pmove_state_t changes will be reletive to client
 // frame rates
 typedef struct {
+  int cmodel_index;
+
   pmove_state_t pmove; // for prediction
 
   // these fields do not need to be communicated bit-precise

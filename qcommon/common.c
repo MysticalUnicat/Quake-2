@@ -476,6 +476,10 @@ void MSG_WriteDeltaEntity(entity_state_t *from, entity_state_t *to, sizebuf_t *m
       bits |= U_RENDERFX8 | U_RENDERFX16;
   }
 
+  if(to->cmodel_index != from->cmodel_index) {
+    bits |= U_CMODEL_INDEX;
+  }
+
   if(to->solid != from->solid)
     bits |= U_SOLID;
 
@@ -594,6 +598,9 @@ void MSG_WriteDeltaEntity(entity_state_t *from, entity_state_t *to, sizebuf_t *m
     MSG_WriteByte(msg, to->event);
   if(bits & U_SOLID)
     MSG_WriteShort(msg, to->solid);
+
+  if(bits & U_CMODEL_INDEX)
+    MSG_WriteByte(msg, to->cmodel_index);
 }
 
 //============================================================
@@ -897,7 +904,7 @@ int memsearch(byte *start, int count, int search) {
   return -1;
 }
 
-char *CopyString(char *in) {
+char *CopyString(const char *in) {
   char *out;
 
   out = Z_Malloc(strlen(in) + 1);

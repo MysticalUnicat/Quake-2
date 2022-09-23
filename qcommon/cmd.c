@@ -478,13 +478,13 @@ char *Cmd_Args(void) { return cmd_args; }
 Cmd_MacroExpandString
 ======================
 */
-char *Cmd_MacroExpandString(const char *text) {
+const char *Cmd_MacroExpandString(const char *text) {
   int i, j, count, len;
   bool inquote;
   const char *scan;
   static char expanded[MAX_STRING_CHARS];
   char temporary[MAX_STRING_CHARS];
-  char *token, *start;
+  const char *token, *start;
 
   inquote = false;
   scan = text;
@@ -549,7 +549,7 @@ Parses the given string into command line tokens.
 $Cvars will be expanded unless they are in a quoted token
 ============
 */
-void Cmd_TokenizeString(char *text, bool macroExpand) {
+void Cmd_TokenizeString(const char *text, bool macroExpand) {
   int i;
   char *com_token;
 

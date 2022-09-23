@@ -152,7 +152,7 @@ void COM_AddParm(char *parm);
 void COM_Init(void);
 void COM_InitArgv(int argc, char **argv);
 
-char *CopyString(char *in);
+char *CopyString(const char *in);
 
 //============================================================================
 
@@ -257,6 +257,7 @@ enum clc_ops_e {
 #define PS_WEAPONINDEX (1 << 12)
 #define PS_WEAPONFRAME (1 << 13)
 #define PS_RDFLAGS (1 << 14)
+#define PS_CMODEL_INDEX (1 << 15)
 
 //==============================================
 
@@ -322,6 +323,7 @@ enum clc_ops_e {
 #define U_SKIN16 (1 << 25)
 #define U_SOUND (1 << 26)
 #define U_SOLID (1 << 27)
+#define U_CMODEL_INDEX (1 << 26)
 
 /*
 ==============================================================
@@ -418,7 +420,7 @@ char *Cmd_Args(void);
 // functions. Cmd_Argv () will return an empty string, not a NULL
 // if arg > argc, so string operations are always safe.
 
-void Cmd_TokenizeString(char *text, bool macroExpand);
+void Cmd_TokenizeString(const char *text, bool macroExpand);
 // Takes a null terminated string.  Does not need to be /n terminated.
 // breaks the string up into arg tokens.
 

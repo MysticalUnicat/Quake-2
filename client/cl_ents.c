@@ -308,6 +308,9 @@ void CL_ParseDelta(entity_state_t *from, entity_state_t *to, int number, int bit
 
   if(bits & U_SOLID)
     to->solid = MSG_ReadShort(&net_message);
+
+  if(bits & U_CMODEL_INDEX)
+    to->cmodel_index = MSG_ReadByte(&net_message);
 }
 
 /*
@@ -576,6 +579,9 @@ void CL_ParsePlayerstate(frame_t *oldframe, frame_t *newframe) {
 
   if(flags & PS_RDFLAGS)
     state->rdflags = MSG_ReadByte(&net_message);
+
+  if(flags & PS_CMODEL_INDEX)
+    state->cmodel_index = MSG_ReadByte(&net_message);
 
   // parse stats
   statbits = MSG_ReadLong(&net_message);
