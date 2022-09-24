@@ -264,7 +264,14 @@ void CL_PrepRefresh(void) {
 
   Com_Printf("models\r");
   SCR_UpdateScreen();
-  for(i = 1; i < MAX_MODELS && cl.configstrings[CS_MODELS + i][0]; i++) {
+  for(i = 1; i < MAX_MODELS; i++) {
+    if(cl.configstrings[CS_MODELS + i][0] == 0) {
+      if(i > CMODEL_COUNT)
+        break;
+      else
+        continue;
+    }
+
     strcpy(name, cl.configstrings[CS_MODELS + i]);
     name[37] = 0; // never go beyond one line
     // if(name[0] != '*')
@@ -278,7 +285,7 @@ void CL_PrepRefresh(void) {
                 sizeof(cl_weaponmodels[num_cl_weaponmodels]) - 1);
         num_cl_weaponmodels++;
       }
-    } else if(i - 1 < 1 /* CMODEL_COUNT */) {
+    } else if(i - 1 < CMODEL_COUNT) {
       memcpy(name, cl.configstrings[CS_MODELS + i], MAX_QPATH);
       *strchr(name, ';') = 0;
 

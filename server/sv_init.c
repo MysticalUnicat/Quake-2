@@ -58,7 +58,9 @@ int SV_FindIndex(char *name, int start, int max, bool create) {
   return i;
 }
 
-int SV_ModelIndex(char *name) { return SV_FindIndex(name, CS_MODELS, MAX_MODELS, true); }
+int SV_ModelIndex(char *name) {
+  return SV_FindIndex(name, CS_MODELS + CMODEL_COUNT, MAX_MODELS - CMODEL_COUNT, true) + CMODEL_COUNT;
+}
 
 int SV_SoundIndex(char *name) { return SV_FindIndex(name, CS_SOUNDS, MAX_SOUNDS, true); }
 

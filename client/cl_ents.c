@@ -891,7 +891,7 @@ void CL_AddPacketEntities(frame_t *frame) {
         ent.skinnum = s1->skinnum;
         ent.skin = NULL;
 
-        if(s1->modelindex - 1 < 1 /* CMODEL_INDEX */) {
+        if(s1->modelindex - 1 < CMODEL_COUNT) {
           ent.model = cl.cmodel_draw[s1->modelindex - 1][s1->modelindex2];
         } else {
           ent.model = cl.model_draw[s1->modelindex];
@@ -995,7 +995,7 @@ void CL_AddPacketEntities(frame_t *frame) {
     ent.alpha = 0;
 
     // duplicate for linked models
-    if((s1->modelindex - 1 > 1 /* CMODEL_COUNT */) && s1->modelindex2) {
+    if((s1->modelindex - 1 >= CMODEL_COUNT) && s1->modelindex2) {
       if(s1->modelindex2 == 255) { // custom weapon
         ci = &cl.clientinfo[s1->skinnum & 0xff];
         i = (s1->skinnum >> 8); // 0 is default weapon model

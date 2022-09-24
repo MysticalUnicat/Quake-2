@@ -495,9 +495,7 @@ void CL_ParseConfigString(void) {
   } else if(i >= CS_MODELS && i < CS_MODELS + MAX_MODELS) {
     if(cl.refresh_prepped) {
       int model = i - CS_MODELS;
-      // CMODEL_COUNT
-
-      if(model != 0 && model <= 1) {
+      if(model != 0 && model <= CMODEL_COUNT) {
         char path[MAX_QPATH];
         memcpy(path, cl.configstrings[i], MAX_QPATH);
         *strchr(path, ';') = 0;
@@ -518,11 +516,6 @@ void CL_ParseConfigString(void) {
       } else {
         cl.model_draw[model] = re.RegisterModel(cl.configstrings[i]);
       }
-
-      // if(cl.configstrings[i][0] == '*')
-      //   cl.model_clip[i - CS_MODELS] = CM_InlineModel(CMODEL_A, cl.configstrings[i]);
-      // else
-      //   cl.model_clip[i - CS_MODELS] = NULL;
     }
   } else if(i >= CS_SOUNDS && i < CS_SOUNDS + MAX_MODELS) {
     if(cl.refresh_prepped)
