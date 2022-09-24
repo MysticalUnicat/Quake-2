@@ -231,7 +231,7 @@ void SV_SpawnServer(char *server, char *spawnpoint, server_state_t serverstate, 
   Com_SetServerState(sv.state);
 
   // load and spawn all other entities
-  ge->SpawnEntities(sv.name, CM_EntityString(CMODEL_A), spawnpoint);
+  ge->SpawnEntities(CMODEL_A, sv.name, CM_EntityString(CMODEL_A), spawnpoint);
 
   // run two frames to allow everything to settle
   ge->RunFrame();

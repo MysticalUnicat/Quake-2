@@ -5,6 +5,12 @@
         "wsipx.h": "c",
         "winsock.h": "c",
         "qcommon.h": "c",
-        "gl_local.h": "c"
+        "gl_local.h": "c",
+        "system_error": "c",
+        "*.tcc": "c",
+        "deque": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "vector": "c"
     }
 }

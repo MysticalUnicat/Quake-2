@@ -315,7 +315,7 @@ void fire_blaster(edict_t *self, vec3_t start, vec3_t dir, int damage, int speed
 
   VectorNormalize(dir);
 
-  bolt = G_Spawn();
+  bolt = G_Spawn(self->s.cmodel_index);
   bolt->svflags = SVF_DEADMONSTER;
   // yes, I know it looks weird that projectiles are deadmonsters
   // what this means is that when prediction is used against the object
@@ -445,7 +445,7 @@ void fire_grenade(edict_t *self, vec3_t start, vec3_t aimdir, int damage, int sp
   vectoangles(aimdir, dir);
   AngleVectors(dir, forward, right, up);
 
-  grenade = G_Spawn();
+  grenade = G_Spawn(self->s.cmodel_index);
   VectorCopy(start, grenade->s.origin);
   VectorScale(aimdir, speed, grenade->velocity);
   VectorMA(grenade->velocity, 200 + crandom() * 10.0, up, grenade->velocity);
@@ -478,7 +478,7 @@ void fire_grenade2(edict_t *self, vec3_t start, vec3_t aimdir, int damage, int s
   vectoangles(aimdir, dir);
   AngleVectors(dir, forward, right, up);
 
-  grenade = G_Spawn();
+  grenade = G_Spawn(self->s.cmodel_index);
   VectorCopy(start, grenade->s.origin);
   VectorScale(aimdir, speed, grenade->velocity);
   VectorMA(grenade->velocity, 200 + crandom() * 10.0, up, grenade->velocity);
@@ -565,7 +565,7 @@ void fire_rocket(edict_t *self, vec3_t start, vec3_t dir, int damage, int speed,
                  int radius_damage) {
   edict_t *rocket;
 
-  rocket = G_Spawn();
+  rocket = G_Spawn(self->s.cmodel_index);
   VectorCopy(start, rocket->s.origin);
   VectorCopy(dir, rocket->movedir);
   vectoangles(dir, rocket->s.angles);
@@ -808,7 +808,7 @@ void bfg_think(edict_t *self) {
 void fire_bfg(edict_t *self, vec3_t start, vec3_t dir, int damage, int speed, float damage_radius) {
   edict_t *bfg;
 
-  bfg = G_Spawn();
+  bfg = G_Spawn(self->s.cmodel_index);
   VectorCopy(start, bfg->s.origin);
   VectorCopy(dir, bfg->movedir);
   vectoangles(dir, bfg->s.angles);

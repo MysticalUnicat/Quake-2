@@ -335,6 +335,8 @@ COLLISION DETECTION
 ==============================================================
 */
 
+enum cmodel_index { CMODEL_START, CMODEL_A = CMODEL_START, CMODEL_B, CMODEL_C, CMODEL_COUNT };
+
 // lower bits are stronger, and will eat weaker brushes completely
 #define CONTENTS_SOLID 1 // an eye is never valid in a solid
 #define CONTENTS_WINDOW 2 // translucent, but not watery

@@ -503,7 +503,7 @@ void makron_die(edict_t *self, edict_t *inflictor, edict_t *attacker, int damage
   self->deadflag = DEAD_DEAD;
   self->takedamage = DAMAGE_YES;
 
-  tempent = G_Spawn();
+  tempent = G_Spawn(self->s.cmodel_index);
   VectorCopy(self->s.origin, tempent->s.origin);
   VectorCopy(self->s.angles, tempent->s.angles);
   tempent->s.origin[1] -= 84;
@@ -687,7 +687,7 @@ Jorg is just about dead, so set up to launch Makron out
 void MakronToss(edict_t *self) {
   edict_t *ent;
 
-  ent = G_Spawn();
+  ent = G_Spawn(self->s.cmodel_index);
   ent->nextthink = level.time + 0.8;
   ent->think = MakronSpawn;
   ent->target = self->target;

@@ -681,8 +681,8 @@ edict_t *G_PickTarget(char *targetname);
 void G_UseTargets(edict_t *ent, edict_t *activator);
 void G_SetMovedir(vec3_t angles, vec3_t movedir);
 
-void G_InitEdict(edict_t *e);
-edict_t *G_Spawn(void);
+void G_InitEdict(int cmodel_index, edict_t *e);
+edict_t *G_Spawn(int cmodel_index);
 void G_FreeEdict(edict_t *e);
 
 void G_TouchTriggers(edict_t *ent);
@@ -887,7 +887,7 @@ typedef struct {
   int hand;
 
   bool connected; // a loadgame will leave valid entities that
-                      // just don't have a connection yet
+                  // just don't have a connection yet
 
   // values saved and restored from edicts when changing levels
   int health;
@@ -1009,7 +1009,7 @@ struct gclient_s {
   float respawn_time; // can respawn when time > this
 
   edict_t *chase_target; // player we are chasing
-  bool update_chase; // need to update chase info?
+  bool update_chase;     // need to update chase info?
 };
 
 struct edict_s {
@@ -1175,13 +1175,13 @@ static inline alias_ecs_Instance *GAME_ECS_INSTANCE(void) {
   return game_global_ecs_instance;
 }
 
-static inline alias_ecs_LayerHandle GAME_MAIN_LAYER(void) {
-  extern alias_ecs_LayerHandle game_global_ecs_main_layer;
-  if(game_global_ecs_main_layer == ALIAS_ECS_INVALID_LAYER) {
+static inline alias_ecs_LayerHandle GAME_MAIN_LAYER(int cmodel_index) {
+  extern alias_ecs_LayerHandle game_global_ecs_main_layer[CMODEL_COUNT];
+  if(game_global_ecs_main_layer[cmodel_index] == ALIAS_ECS_INVALID_LAYER) {
     alias_ecs_create_layer(GAME_ECS_INSTANCE(), &(alias_ecs_LayerCreateInfo){.max_entities = 0},
-                           &game_global_ecs_main_layer);
+                           &game_global_ecs_main_layer[cmodel_index]);
   }
-  return game_global_ecs_main_layer;
+  return game_global_ecs_main_layer[cmodel_index];
 }
 
 static inline alias_ecs_ComponentHandle GAME_EDICT_COMPONENT_HANDLE(void) {

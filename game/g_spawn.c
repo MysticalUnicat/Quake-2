@@ -475,6 +475,8 @@ void G_FindTeams(void) {
   gi.dprintf("%i teams with %i entities\n", c, c2);
 }
 
+void initialize_worlds(void);
+
 /*
 ==============
 SpawnEntities
@@ -483,7 +485,7 @@ Creates a server's entity / program execution context by
 parsing textual entity definitions out of an ent file.
 ==============
 */
-void SpawnEntities(const char *mapname, const char *entities, const char *spawnpoint) {
+void SpawnEntities(int cmodel_index, const char *mapname, const char *entities, const char *spawnpoint) {
   edict_t *ent;
   int inhibit;
   char *com_token;
@@ -498,19 +500,23 @@ void SpawnEntities(const char *mapname, const char *entities, const char *spawnp
   if(skill->value != skill_level)
     gi.cvar_forceset("skill", va("%f", skill_level));
 
-  SaveClientData();
+  if(cmodel_index == CMODEL_A) {
+    SaveClientData();
 
-  gi.FreeTags(TAG_LEVEL);
+    gi.FreeTags(TAG_LEVEL);
 
-  memset(&level, 0, sizeof(level));
-  memset(g_edicts, 0, game.maxentities * sizeof(g_edicts[0]));
+    memset(&level, 0, sizeof(level));
+    memset(g_edicts, 0, game.maxentities * sizeof(g_edicts[0]));
 
-  strncpy(level.mapname, mapname, sizeof(level.mapname) - 1);
-  strncpy(game.spawnpoint, spawnpoint, sizeof(game.spawnpoint) - 1);
+    strncpy(level.mapname, mapname, sizeof(level.mapname) - 1);
+    strncpy(game.spawnpoint, spawnpoint, sizeof(game.spawnpoint) - 1);
 
-  // set client fields on player ents
-  for(i = 0; i < game.maxclients; i++)
-    g_edicts[i + 1].client = game.clients + i;
+    // set client fields on player ents
+    for(i = 0; i < game.maxclients; i++)
+      g_edicts[i + 1].client = game.clients + i;
+
+    initialize_worlds();
+  }
 
   ent = NULL;
   inhibit = 0;
@@ -524,10 +530,10 @@ void SpawnEntities(const char *mapname, const char *entities, const char *spawnp
     if(com_token[0] != '{')
       gi.error("ED_LoadFromFile: found %s when expecting {", com_token);
 
-    if(!ent)
+    if(cmodel_index == CMODEL_A && !ent)
       ent = g_edicts;
     else
-      ent = G_Spawn();
+      ent = G_Spawn(cmodel_index);
     entities = ED_ParseEdict(entities, ent);
 
     // yet another map hack
@@ -749,27 +755,29 @@ Only used for the world.
 void SP_worldspawn(edict_t *ent) {
   ent->movetype = MOVETYPE_PUSH;
   ent->solid = SOLID_BSP;
-  ent->inuse = true;     // since the world doesn't use G_Spawn()
-  ent->s.modelindex = 1; // world model is always index 1
-
-  //---------------
-
-  // reserve some spots for dead player bodies for coop / deathmatch
-  InitBodyQue();
-
-  // set configstrings for items
-  SetItemNames();
+  ent->inuse = true;                           // since the world doesn't use G_Spawn()
+  ent->s.modelindex = ent->s.cmodel_index + 1; // world model is always index 1
 
   if(st.nextmap)
     strcpy(level.nextmap, st.nextmap);
-
-  // make some data visible to the server
 
   if(ent->message && ent->message[0]) {
     gi.configstring(CS_NAME, ent->message);
     strncpy(level.level_name, ent->message, sizeof(level.level_name));
   } else
     strncpy(level.level_name, level.mapname, sizeof(level.level_name));
+
+  gi.configstring(CS_CDTRACK, va("%i", ent->sounds));
+}
+
+void initialize_worlds(void) {
+  // reserve some spots for dead player bodies for coop / deathmatch
+  InitBodyQue();
+
+  // set configstrings for items
+  SetItemNames();
+
+  // make some data visible to the server
 
   if(st.sky && st.sky[0])
     gi.configstring(CS_SKY, st.sky);
@@ -780,7 +788,7 @@ void SP_worldspawn(edict_t *ent) {
 
   gi.configstring(CS_SKYAXIS, va("%f %f %f", st.skyaxis[0], st.skyaxis[1], st.skyaxis[2]));
 
-  gi.configstring(CS_CDTRACK, va("%i", ent->sounds));
+  // gi.configstring(CS_CDTRACK, va("%i", ent->sounds));
 
   gi.configstring(CS_MAXCLIENTS, va("%i", (int)(maxclients->value)));
 

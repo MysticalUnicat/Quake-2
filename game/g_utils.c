@@ -162,7 +162,7 @@ void G_UseTargets(edict_t *ent, edict_t *activator) {
   //
   if(ent->delay) {
     // create a temp object to fire at a later time
-    t = G_Spawn();
+    t = G_Spawn(ent->s.cmodel_index);
     t->classname = "DelayedUse";
     t->nextthink = level.time + ent->delay;
     t->think = Think_Delay;
@@ -346,18 +346,19 @@ char *G_CopyString(char *in) {
   return out;
 }
 
-void G_InitEdict(edict_t *e) {
+void G_InitEdict(int cmodel_index, edict_t *e) {
   e->inuse = true;
   e->classname = "noclass";
   e->gravity = 1.0;
   e->s.number = e - g_edicts;
 
-  if(alias_ecs_spawn(
+  if(e->entity_handle == 0 &&
+     alias_ecs_spawn(
          GAME_ECS_INSTANCE(),
          &(alias_ecs_EntitySpawnInfo){
              .count = 1,
              .num_components = 1,
-             .layer = GAME_MAIN_LAYER(),
+             .layer = GAME_MAIN_LAYER(cmodel_index),
              .components = &(alias_ecs_EntitySpawnComponent){.component = GAME_EDICT_COMPONENT_HANDLE(), .data = &e}},
          &e->entity_handle) != ALIAS_ECS_SUCCESS) {
     gi.error("failed to spawn alias ECS entity with edict\n");
@@ -375,7 +376,7 @@ instead of being removed and recreated, which can cause interpolated
 angles and bad trails.
 =================
 */
-edict_t *G_Spawn(void) {
+edict_t *G_Spawn(int cmodel_index) {
   int i;
   edict_t *e;
 
@@ -384,7 +385,7 @@ edict_t *G_Spawn(void) {
     // the first couple seconds of server time can involve a lot of
     // freeing and allocating, so relax the replacement policy
     if(!e->inuse && (e->freetime < 2 || level.time - e->freetime > 0.5)) {
-      G_InitEdict(e);
+      G_InitEdict(cmodel_index, e);
       return e;
     }
   }
@@ -393,7 +394,7 @@ edict_t *G_Spawn(void) {
     gi.error("ED_Alloc: no free edicts");
 
   globals.num_edicts++;
-  G_InitEdict(e);
+  G_InitEdict(cmodel_index, e);
   return e;
 }
 

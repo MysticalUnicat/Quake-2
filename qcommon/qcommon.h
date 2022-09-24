@@ -613,8 +613,6 @@ CMODEL
 
 #include "../qcommon/qfiles.h"
 
-enum cmodel_index { CMODEL_START, CMODEL_A = CMODEL_START, CMODEL_B, CMODEL_C, CMODEL_COUNT };
-
 cmodel_t *CM_LoadMap(int cmodel_index, char *name, bool clientload, unsigned *checksum);
 cmodel_t *CM_InlineModel(int cmodel_index, char *name); // *1, *2, etc
 

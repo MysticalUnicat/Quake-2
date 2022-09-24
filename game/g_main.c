@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "g_local.h"
 
 alias_ecs_Instance *game_global_ecs_instance = NULL;
-alias_ecs_LayerHandle game_global_ecs_main_layer = ALIAS_ECS_INVALID_LAYER;
+alias_ecs_LayerHandle game_global_ecs_main_layer[CMODEL_COUNT] = {[0 ... CMODEL_COUNT - 1] = ALIAS_ECS_INVALID_LAYER};
 alias_ecs_ComponentHandle game_global_ecs_edict_component = 0;
 
 game_locals_t game;
@@ -75,7 +75,7 @@ cvar_t *flood_waitdelay;
 
 cvar_t *sv_maplist;
 
-void SpawnEntities(char *mapname, char *entities, char *spawnpoint);
+void SpawnEntities(int cmodel_index, const char *mapname, const char *entities, const char *spawnpoint);
 void ClientThink(edict_t *ent, usercmd_t *cmd);
 bool ClientConnect(edict_t *ent, char *userinfo);
 void ClientUserinfoChanged(edict_t *ent, char *userinfo);
@@ -98,10 +98,12 @@ void ShutdownGame(void) {
   gi.FreeTags(TAG_LEVEL);
   gi.FreeTags(TAG_GAME);
 
-  if(game_global_ecs_main_layer != ALIAS_ECS_INVALID_LAYER) {
-    alias_ecs_destroy_layer(game_global_ecs_instance, game_global_ecs_main_layer,
-                            ALIAS_ECS_LAYER_DESTROY_REMOVE_ENTITIES);
-    game_global_ecs_main_layer = ALIAS_ECS_INVALID_LAYER;
+  for(int k = 0; k < CMODEL_COUNT; k++) {
+    if(game_global_ecs_main_layer[k] != ALIAS_ECS_INVALID_LAYER) {
+      alias_ecs_destroy_layer(game_global_ecs_instance, game_global_ecs_main_layer[k],
+                              ALIAS_ECS_LAYER_DESTROY_REMOVE_ENTITIES);
+      game_global_ecs_main_layer[k] = ALIAS_ECS_INVALID_LAYER;
+    }
   }
 
   if(game_global_ecs_instance != NULL) {
@@ -206,7 +208,7 @@ Returns the created target changelevel
 edict_t *CreateTargetChangeLevel(char *map) {
   edict_t *ent;
 
-  ent = G_Spawn();
+  ent = G_Spawn(0);
   ent->classname = "target_changelevel";
   Com_sprintf(level.nextmap, sizeof(level.nextmap), "%s", map);
   ent->map = level.nextmap;

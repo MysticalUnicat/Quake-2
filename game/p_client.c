@@ -68,7 +68,7 @@ static void SP_CreateCoopSpots(edict_t *self) {
   edict_t *spot;
 
   if(Q_stricmp(level.mapname, "security") == 0) {
-    spot = G_Spawn();
+    spot = G_Spawn(self->s.cmodel_index);
     spot->classname = "info_player_coop";
     spot->s.origin[0] = 188 - 64;
     spot->s.origin[1] = -164;
@@ -76,7 +76,7 @@ static void SP_CreateCoopSpots(edict_t *self) {
     spot->targetname = "jail3";
     spot->s.angles[1] = 90;
 
-    spot = G_Spawn();
+    spot = G_Spawn(self->s.cmodel_index);
     spot->classname = "info_player_coop";
     spot->s.origin[0] = 188 + 64;
     spot->s.origin[1] = -164;
@@ -84,7 +84,7 @@ static void SP_CreateCoopSpots(edict_t *self) {
     spot->targetname = "jail3";
     spot->s.angles[1] = 90;
 
-    spot = G_Spawn();
+    spot = G_Spawn(self->s.cmodel_index);
     spot->classname = "info_player_coop";
     spot->s.origin[0] = 188 + 128;
     spot->s.origin[1] = -164;
@@ -824,7 +824,7 @@ void InitBodyQue(void) {
 
   level.body_que = 0;
   for(i = 0; i < BODY_QUEUE_SIZE; i++) {
-    ent = G_Spawn();
+    ent = G_Spawn(0);
     ent->classname = "bodyque";
   }
 }
@@ -1145,7 +1145,7 @@ deathmatch mode, so clear everything out before starting them.
 =====================
 */
 void ClientBeginDeathmatch(edict_t *ent) {
-  G_InitEdict(ent);
+  G_InitEdict(ent->s.cmodel_index, ent);
 
   InitClientResp(ent->client);
 
@@ -1195,7 +1195,7 @@ void ClientBegin(edict_t *ent) {
     // a spawn point will completely reinitialize the entity
     // except for the persistant data that was initialized at
     // ClientConnect() time
-    G_InitEdict(ent);
+    G_InitEdict(ent->s.cmodel_index, ent);
     ent->classname = "player";
     InitClientResp(ent->client);
     PutClientInServer(ent);

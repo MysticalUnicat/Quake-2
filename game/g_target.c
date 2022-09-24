@@ -252,7 +252,8 @@ void use_target_changelevel(edict_t *self, edict_t *other, edict_t *activator) {
 
   // if noexit, do a ton of damage to other
   if(deathmatch->value && !((int)dmflags->value & DF_ALLOW_EXIT) && other != world) {
-    T_Damage(other, self, self, vec3_origin, other->s.origin, vec3_origin, 10 * cv_get(ent_read_max_health(other)), 1000, 0, MOD_EXIT);
+    T_Damage(other, self, self, vec3_origin, other->s.origin, vec3_origin, 10 * cv_get(ent_read_max_health(other)),
+             1000, 0, MOD_EXIT);
     return;
   }
 
@@ -344,7 +345,7 @@ void ED_CallSpawn(edict_t *ent);
 void use_target_spawner(edict_t *self, edict_t *other, edict_t *activator) {
   edict_t *ent;
 
-  ent = G_Spawn();
+  ent = G_Spawn(self->s.cmodel_index);
   ent->classname = self->target;
   VectorCopy(self->s.origin, ent->s.origin);
   VectorCopy(self->s.angles, ent->s.angles);

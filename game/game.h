@@ -135,6 +135,7 @@ typedef struct {
   int (*soundindex)(char *name);
   int (*imageindex)(char *name);
 
+  void (*set_cmodel)(edict_t *ent, const char *name);
   void (*setmodel)(edict_t *ent, char *name);
 
   // collision detection
@@ -201,7 +202,7 @@ typedef struct {
   void (*Shutdown)(void);
 
   // each new level entered will cause a call to SpawnEntities
-  void (*SpawnEntities)(char *mapname, char *entstring, char *spawnpoint);
+  void (*SpawnEntities)(int cmodel_index, const char *mapname, const char *entstring, const char *spawnpoint);
 
   // Read/Write Game is for storing persistant cross level information
   // about the world state and the clients.

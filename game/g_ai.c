@@ -849,7 +849,7 @@ void ai_run(edict_t *self, float dist) {
   }
 
   save = self->goalentity;
-  tempgoal = G_Spawn();
+  tempgoal = G_Spawn(self->s.cmodel_index);
   self->goalentity = tempgoal;
 
   new = false;
