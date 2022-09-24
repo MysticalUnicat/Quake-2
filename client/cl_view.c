@@ -278,13 +278,31 @@ void CL_PrepRefresh(void) {
                 sizeof(cl_weaponmodels[num_cl_weaponmodels]) - 1);
         num_cl_weaponmodels++;
       }
+    } else if(i - 1 < 1 /* CMODEL_COUNT */) {
+      memcpy(name, cl.configstrings[CS_MODELS + i], MAX_QPATH);
+      *strchr(name, ';') = 0;
+
+      cl.model_draw[i] = re.RegisterModel(name);
+
+      unsigned int checksum;
+
+      cl.cmodel_draw[i - 1][0] = cl.model_draw[i];
+      cl.cmodel_clip[i - 1][0] = CM_LoadMap(i - 1, name, true, &checksum);
+
+      for(int k = 1; k < CM_NumInlineModels(i - 1); k++) {
+        char inline_name[6];
+        sprintf(inline_name, "*%i", k);
+        cl.cmodel_draw[i - 1][k] = re.RegisterModel(inline_name);
+        cl.cmodel_clip[i - 1][k] = CM_InlineModel(i - 1, inline_name);
+      }
     } else {
       cl.model_draw[i] = re.RegisterModel(cl.configstrings[CS_MODELS + i]);
-      if(name[0] == '*')
-        cl.model_clip[i] = CM_InlineModel(CMODEL_A, cl.configstrings[CS_MODELS + i]);
-      else
-        cl.model_clip[i] = NULL;
     }
+
+    // if(name[0] == '*')
+    //   cl.model_clip[i] = CM_InlineModel(CMODEL_A, cl.configstrings[CS_MODELS + i]);
+    // else
+    //   cl.model_clip[i] = NULL;
     // if(name[0] != '*')
     //   Com_Printf("                                     \r");
   }

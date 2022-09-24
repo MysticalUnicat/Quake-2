@@ -126,7 +126,7 @@ SV_ClearWorld
 void SV_ClearWorld(void) {
   memset(sv_areanodes, 0, sizeof(sv_areanodes));
   sv_numareanodes = 0;
-  SV_CreateAreaNode(0, sv.models[1]->mins, sv.models[1]->maxs);
+  SV_CreateAreaNode(0, sv.models[CMODEL_A][0]->mins, sv.models[CMODEL_A][0]->maxs);
 }
 
 /*
@@ -386,7 +386,7 @@ int SV_PointContents(vec3_t p) {
   float *angles;
 
   // get base contents from world
-  contents = CM_PointContents(CMODEL_A, p, sv.models[1]->headnode);
+  contents = CM_PointContents(CMODEL_A, p, sv.models[CMODEL_A][0]->headnode);
 
   // or in contents from all the other entities
   num = SV_AreaEdicts(p, p, touch, MAX_EDICTS, AREA_SOLID);
@@ -433,7 +433,7 @@ int SV_HullForEntity(edict_t *ent) {
 
   // decide which clipping hull to use, based on the size
   if(ent->solid == SOLID_BSP) { // explicit hulls in the BSP model
-    model = sv.models[ent->s.modelindex];
+    model = sv.models[ent->s.modelindex - 1][ent->s.modelindex2];
 
     if(!model)
       Com_Error(ERR_FATAL, "MOVETYPE_PUSH with a non bsp model");

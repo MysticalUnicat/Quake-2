@@ -165,7 +165,7 @@ typedef struct {
   // server state information
   //
   bool attractloop; // running the attract loop, any key will menu
-  int servercount;      // server identification for prespawns
+  int servercount;  // server identification for prespawns
   char gamedir[MAX_QPATH];
   int playernum;
 
@@ -175,7 +175,8 @@ typedef struct {
   // locally derived information from server state
   //
   struct model_s *model_draw[MAX_MODELS];
-  struct cmodel_s *model_clip[MAX_MODELS];
+  struct model_s *cmodel_draw[CMODEL_COUNT][MAX_MODELS];
+  struct cmodel_s *cmodel_clip[CMODEL_COUNT][MAX_MODELS];
 
   struct sfx_s *sound_precache[MAX_SOUNDS];
   struct image_s *image_precache[MAX_IMAGES];

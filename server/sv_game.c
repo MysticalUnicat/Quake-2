@@ -154,17 +154,20 @@ void PF_setmodel(edict_t *ent, char *name) {
   if(!name)
     Com_Error(ERR_DROP, "PF_setmodel: NULL");
 
-  i = SV_ModelIndex(name);
-
-  //	ent->model = name;
-  ent->s.modelindex = i;
-
   // if it is an inline model, get the size information for it
   if(name[0] == '*') {
+    ent->s.modelindex = CMODEL_A + 1;
+    ent->s.modelindex2 = atoi(name + 1);
+
     mod = CM_InlineModel(CMODEL_A, name);
     VectorCopy(mod->mins, ent->mins);
     VectorCopy(mod->maxs, ent->maxs);
     SV_LinkEdict(ent);
+  } else {
+    i = SV_ModelIndex(name);
+
+    //	ent->model = name;
+    ent->s.modelindex = i;
   }
 }
 

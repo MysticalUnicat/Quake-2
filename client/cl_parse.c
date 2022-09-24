@@ -503,14 +503,26 @@ void CL_ParseConfigString(void) {
         *strchr(path, ';') = 0;
 
         cl.model_draw[model] = re.RegisterModel(path);
+
+        unsigned int checksum;
+
+        cl.cmodel_draw[model - 1][0] = cl.model_draw[model];
+        cl.cmodel_clip[model - 1][0] = CM_LoadMap(model - 1, path, true, &checksum);
+
+        for(int k = 1; k < CM_NumInlineModels(model - 1); k++) {
+          char inline_name[6];
+          sprintf(inline_name, "*%i", k);
+          cl.cmodel_draw[model - 1][k] = re.RegisterModel(inline_name);
+          cl.cmodel_clip[model - 1][k] = CM_InlineModel(model - 1, inline_name);
+        }
       } else {
         cl.model_draw[model] = re.RegisterModel(cl.configstrings[i]);
       }
 
-      if(cl.configstrings[i][0] == '*')
-        cl.model_clip[i - CS_MODELS] = CM_InlineModel(CMODEL_A, cl.configstrings[i]);
-      else
-        cl.model_clip[i - CS_MODELS] = NULL;
+      // if(cl.configstrings[i][0] == '*')
+      //   cl.model_clip[i - CS_MODELS] = CM_InlineModel(CMODEL_A, cl.configstrings[i]);
+      // else
+      //   cl.model_clip[i - CS_MODELS] = NULL;
     }
   } else if(i >= CS_SOUNDS && i < CS_SOUNDS + MAX_MODELS) {
     if(cl.refresh_prepped)

@@ -199,10 +199,10 @@ void SV_SpawnServer(char *server, char *spawnpoint, server_state_t serverstate, 
   strcpy(sv.configstrings[CS_NAME], server);
 
   if(serverstate != ss_game) {
-    sv.models[1] = CM_LoadMap(CMODEL_A, "", false, &checksum); // no real map
+    sv.models[CMODEL_A][0] = CM_LoadMap(CMODEL_A, "", false, &checksum); // no real map
   } else {
     Com_sprintf(sv.configstrings[CS_MODELS + 1], sizeof(sv.configstrings[CS_MODELS + 1]), "maps/%s.bsp", server);
-    sv.models[1] = CM_LoadMap(CMODEL_A, sv.configstrings[CS_MODELS + 1], false, &checksum);
+    sv.models[CMODEL_A][0] = CM_LoadMap(CMODEL_A, sv.configstrings[CS_MODELS + 1], false, &checksum);
   }
   Com_sprintf(sv.configstrings[CS_MODELS + 1], sizeof(sv.configstrings[CS_MODELS + 1]), "maps/%s.bsp;%i", server,
               checksum);
@@ -213,8 +213,10 @@ void SV_SpawnServer(char *server, char *spawnpoint, server_state_t serverstate, 
   SV_ClearWorld();
 
   for(i = 1; i < CM_NumInlineModels(CMODEL_A); i++) {
-    Com_sprintf(sv.configstrings[CS_MODELS + 1 + i], sizeof(sv.configstrings[CS_MODELS + 1 + i]), "*%i", i);
-    sv.models[i + 1] = CM_InlineModel(CMODEL_A, sv.configstrings[CS_MODELS + 1 + i]);
+    // Com_sprintf(sv.configstrings[CS_MODELS + 1 + i], sizeof(sv.configstrings[CS_MODELS + 1 + i]), "*%i", i);
+    char inline_name[6];
+    sprintf(inline_name, "*%i", i);
+    sv.models[CMODEL_A][i] = CM_InlineModel(CMODEL_A, inline_name);
   }
 
   //

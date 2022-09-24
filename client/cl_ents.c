@@ -890,7 +890,12 @@ void CL_AddPacketEntities(frame_t *frame) {
       } else {
         ent.skinnum = s1->skinnum;
         ent.skin = NULL;
-        ent.model = cl.model_draw[s1->modelindex];
+
+        if(s1->modelindex - 1 < 1 /* CMODEL_INDEX */) {
+          ent.model = cl.cmodel_draw[s1->modelindex - 1][s1->modelindex2];
+        } else {
+          ent.model = cl.model_draw[s1->modelindex];
+        }
       }
     }
 
@@ -990,7 +995,7 @@ void CL_AddPacketEntities(frame_t *frame) {
     ent.alpha = 0;
 
     // duplicate for linked models
-    if(s1->modelindex2) {
+    if((s1->modelindex - 1 > 1 /* CMODEL_COUNT */) && s1->modelindex2) {
       if(s1->modelindex2 == 255) { // custom weapon
         ci = &cl.clientinfo[s1->skinnum & 0xff];
         i = (s1->skinnum >> 8); // 0 is default weapon model
@@ -1010,10 +1015,10 @@ void CL_AddPacketEntities(frame_t *frame) {
         ent.model = cl.model_draw[s1->modelindex2 & 0x7F];
         ent.alpha = 0.32;
         ent.flags = RF_TRANSLUCENT;
-      }
-      // PGM
-      else
+        // PGM
+      } else {
         ent.model = cl.model_draw[s1->modelindex2];
+      }
       V_AddEntity(&ent);
 
       // PGM - make sure these get reset.
