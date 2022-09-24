@@ -1021,9 +1021,14 @@ void CL_RequestNextDownload(void) {
   // ZOID
   if(precache_check == CS_MODELS) { // confirm map
     precache_check = CS_MODELS + 2; // 0 isn't used
-    if(allow_download_maps->value)
-      if(!CL_CheckOrDownloadFile(cl.configstrings[CS_MODELS + 1]))
+    if(allow_download_maps->value) {
+      char path[MAX_QPATH];
+      memcpy(path, cl.configstrings[CS_MODELS + 1], MAX_QPATH);
+      *strchr(path, ';') = 0;
+
+      if(!CL_CheckOrDownloadFile(path))
         return; // started a download
+    }
   }
   if(precache_check >= CS_MODELS && precache_check < CS_MODELS + MAX_MODELS) {
     if(allow_download_models->value) {
@@ -1197,11 +1202,15 @@ void CL_RequestNextDownload(void) {
   if(precache_check == ENV_CNT) {
     precache_check = ENV_CNT + 1;
 
-    CM_LoadMap(CMODEL_A, cl.configstrings[CS_MODELS + 1], true, &map_checksum);
+    char path[MAX_QPATH];
+    memcpy(path, cl.configstrings[CS_MODELS + 1], MAX_QPATH);
+    char *sc = strchr(path, ';');
+    *sc = 0;
 
-    if(map_checksum != atoi(cl.configstrings[CS_MAPCHECKSUM])) {
-      Com_Error(ERR_DROP, "Local map version differs from server: %i != '%s'\n", map_checksum,
-                cl.configstrings[CS_MAPCHECKSUM]);
+    CM_LoadMap(CMODEL_A, path, true, &map_checksum);
+
+    if(map_checksum != atoi(sc + 1)) {
+      Com_Error(ERR_DROP, "Local map version differs from server: %i != '%s'\n", map_checksum, sc + 1);
       return;
     }
   }
@@ -1263,7 +1272,11 @@ void CL_Precache_f(void) {
   if(Cmd_Argc() < 2) {
     unsigned map_checksum; // for detecting cheater maps
 
-    CM_LoadMap(CMODEL_A, cl.configstrings[CS_MODELS + 1], true, &map_checksum);
+    char path[MAX_QPATH];
+    memcpy(path, cl.configstrings[CS_MODELS + 1], MAX_QPATH);
+    *strchr(path, ';') = 0;
+
+    CM_LoadMap(CMODEL_A, path, true, &map_checksum);
     CL_RegisterSounds();
     CL_PrepRefresh();
     return;

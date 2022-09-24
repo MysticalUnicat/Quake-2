@@ -242,6 +242,7 @@ void CL_PrepRefresh(void) {
 
   // let the render dll load the map
   strcpy(mapname, cl.configstrings[CS_MODELS + 1] + 5); // skip "maps/"
+  *strchr(mapname, ';') = 0;                            // remove checksum
   mapname[strlen(mapname) - 4] = 0;                     // cut off ".bsp"
 
   // register models, pics, and skins
