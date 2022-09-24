@@ -126,11 +126,11 @@ void CL_ClipMoveToEntities(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, t
 CL_PMTrace
 ================
 */
-trace_t CL_PMTrace(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end) {
+trace_t CL_PMTrace(int cmodel_index, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end) {
   trace_t t;
 
   // check against world
-  t = CM_BoxTrace(CMODEL_A, start, end, mins, maxs, 0, MASK_PLAYERSOLID);
+  t = CM_BoxTrace(cmodel_index, start, end, mins, maxs, 0, MASK_PLAYERSOLID);
   if(t.fraction < 1.0)
     t.ent = (struct edict_s *)1;
 
@@ -140,14 +140,14 @@ trace_t CL_PMTrace(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end) {
   return t;
 }
 
-int CL_PMpointcontents(vec3_t point) {
+int CL_PMpointcontents(int cmodel_index, vec3_t point) {
   int i;
   entity_state_t *ent;
   int num;
   cmodel_t *cmodel;
   int contents;
 
-  contents = CM_PointContents(CMODEL_A, point, 0);
+  contents = CM_PointContents(cmodel_index, point, 0);
 
   for(i = 0; i < cl.frame.num_entities; i++) {
     num = (cl.frame.parse_entities + i) & (MAX_PARSE_ENTITIES - 1);
@@ -160,7 +160,7 @@ int CL_PMpointcontents(vec3_t point) {
     if(!cmodel)
       continue;
 
-    contents |= CM_TransformedPointContents(CMODEL_A, point, cmodel->headnode, ent->origin, ent->angles);
+    contents |= CM_TransformedPointContents(cmodel_index, point, cmodel->headnode, ent->origin, ent->angles);
   }
 
   return contents;
@@ -208,6 +208,7 @@ void CL_PredictMovement(void) {
 
   // copy current state to pmove
   memset(&pm, 0, sizeof(pm));
+  pm.cmodel_index = cl.frame.playerstate.cmodel_index;
   pm.trace = CL_PMTrace;
   pm.pointcontents = CL_PMpointcontents;
 

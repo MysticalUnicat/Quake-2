@@ -435,7 +435,7 @@ void Cmd_Alias_f(void) {
 
 typedef struct cmd_function_s {
   struct cmd_function_s *next;
-  char *name;
+  const char *name;
   xcommand_t function;
 } cmd_function_t;
 
@@ -612,7 +612,7 @@ void Cmd_TokenizeString(const char *text, bool macroExpand) {
 Cmd_AddCommand
 ============
 */
-void Cmd_AddCommand(char *cmd_name, xcommand_t function) {
+void Cmd_AddCommand(const char *cmd_name, xcommand_t function) {
   cmd_function_t *cmd;
 
   // fail if the command is a variable name
@@ -641,7 +641,7 @@ void Cmd_AddCommand(char *cmd_name, xcommand_t function) {
 Cmd_RemoveCommand
 ============
 */
-void Cmd_RemoveCommand(char *cmd_name) {
+void Cmd_RemoveCommand(const char *cmd_name) {
   cmd_function_t *cmd, **back;
 
   back = &cmd_functions;
@@ -665,7 +665,7 @@ void Cmd_RemoveCommand(char *cmd_name) {
 Cmd_Exists
 ============
 */
-bool Cmd_Exists(char *cmd_name) {
+bool Cmd_Exists(const char *cmd_name) {
   cmd_function_t *cmd;
 
   for(cmd = cmd_functions; cmd; cmd = cmd->next) {
@@ -681,7 +681,7 @@ bool Cmd_Exists(char *cmd_name) {
 Cmd_CompleteCommand
 ============
 */
-char *Cmd_CompleteCommand(char *partial) {
+const char *Cmd_CompleteCommand(const char *partial) {
   cmd_function_t *cmd;
   int len;
   cmdalias_t *a;

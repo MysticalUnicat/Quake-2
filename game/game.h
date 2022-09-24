@@ -135,23 +135,23 @@ typedef struct {
   int (*soundindex)(char *name);
   int (*imageindex)(char *name);
 
-  void (*set_cmodel)(edict_t *ent, const char *name);
   void (*setmodel)(edict_t *ent, char *name);
 
   // collision detection
-  trace_t (*trace)(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, edict_t *passent, int contentmask);
-  int (*pointcontents)(vec3_t point);
-  bool (*inPVS)(vec3_t p1, vec3_t p2);
-  bool (*inPHS)(vec3_t p1, vec3_t p2);
-  void (*SetAreaPortalState)(int portalnum, bool open);
-  bool (*AreasConnected)(int area1, int area2);
+  trace_t (*trace)(int cmodel_index, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, edict_t *passent,
+                   int contentmask);
+  int (*pointcontents)(int cmodel_index, vec3_t point);
+  bool (*inPVS)(int cmodel_index, vec3_t p1, vec3_t p2);
+  bool (*inPHS)(int cmodel_index, vec3_t p1, vec3_t p2);
+  void (*SetAreaPortalState)(int cmodel_index, int portalnum, bool open);
+  bool (*AreasConnected)(int cmodel_index, int area1, int area2);
 
   // an entity will never be sent to a client or used for collision
   // if it is not passed to linkentity.  If the size, position, or
   // solidity changes, it must be relinked.
   void (*linkentity)(edict_t *ent);
   void (*unlinkentity)(edict_t *ent); // call before removing an interactive edict
-  int (*BoxEdicts)(vec3_t mins, vec3_t maxs, edict_t **list, int maxcount, int areatype);
+  int (*BoxEdicts)(int cmodel_index, vec3_t mins, vec3_t maxs, edict_t **list, int maxcount, int areatype);
   void (*Pmove)(pmove_t *pmove); // player movement code common with client prediction
 
   // network messaging

@@ -527,8 +527,9 @@ typedef struct {
   int waterlevel;
 
   // callbacks to test the world
-  trace_t (*trace)(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end);
-  int (*pointcontents)(vec3_t point);
+  int cmodel_index;
+  trace_t (*trace)(int cmodel_index, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end);
+  int (*pointcontents)(int cmodel_index, vec3_t point);
 } pmove_t;
 
 // entity_state_t->effects

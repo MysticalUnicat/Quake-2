@@ -48,8 +48,8 @@ typedef struct areanode_s {
 #define AREA_DEPTH 4
 #define AREA_NODES 32
 
-areanode_t sv_areanodes[AREA_NODES];
-int sv_numareanodes;
+areanode_t sv_areanodes[CMODEL_COUNT][AREA_NODES];
+int sv_numareanodes[CMODEL_COUNT];
 
 float *area_mins, *area_maxs;
 edict_t **area_list;
@@ -80,13 +80,13 @@ SV_CreateAreaNode
 Builds a uniformly subdivided tree for the given world size
 ===============
 */
-areanode_t *SV_CreateAreaNode(int depth, vec3_t mins, vec3_t maxs) {
+areanode_t *SV_CreateAreaNode(int cmodel_index, int depth, vec3_t mins, vec3_t maxs) {
   areanode_t *anode;
   vec3_t size;
   vec3_t mins1, maxs1, mins2, maxs2;
 
-  anode = &sv_areanodes[sv_numareanodes];
-  sv_numareanodes++;
+  anode = &sv_areanodes[cmodel_index][sv_numareanodes[cmodel_index]];
+  sv_numareanodes[cmodel_index]++;
 
   ClearLink(&anode->trigger_edicts);
   ClearLink(&anode->solid_edicts);
@@ -111,8 +111,8 @@ areanode_t *SV_CreateAreaNode(int depth, vec3_t mins, vec3_t maxs) {
 
   maxs1[anode->axis] = mins2[anode->axis] = anode->dist;
 
-  anode->children[0] = SV_CreateAreaNode(depth + 1, mins2, maxs2);
-  anode->children[1] = SV_CreateAreaNode(depth + 1, mins1, maxs1);
+  anode->children[0] = SV_CreateAreaNode(cmodel_index, depth + 1, mins2, maxs2);
+  anode->children[1] = SV_CreateAreaNode(cmodel_index, depth + 1, mins1, maxs1);
 
   return anode;
 }
@@ -123,10 +123,10 @@ SV_ClearWorld
 
 ===============
 */
-void SV_ClearWorld(void) {
-  memset(sv_areanodes, 0, sizeof(sv_areanodes));
-  sv_numareanodes = 0;
-  SV_CreateAreaNode(0, sv.models[CMODEL_A][0]->mins, sv.models[CMODEL_A][0]->maxs);
+void SV_ClearWorld(int cmodel_index) {
+  memset(sv_areanodes[cmodel_index], 0, sizeof(sv_areanodes[0]));
+  sv_numareanodes[cmodel_index] = 0;
+  SV_CreateAreaNode(cmodel_index, 0, sv.models[CMODEL_A][0]->mins, sv.models[CMODEL_A][0]->maxs);
 }
 
 /*
@@ -166,6 +166,8 @@ void SV_LinkEdict(edict_t *ent) {
 
   if(!ent->inuse)
     return;
+
+  int cmodel_index = ent->s.cmodel_index;
 
   // set the size
   VectorSubtract(ent->maxs, ent->mins, ent->size);
@@ -236,12 +238,12 @@ void SV_LinkEdict(edict_t *ent) {
   ent->areanum2 = 0;
 
   // get all leafs, including solids
-  num_leafs = CM_BoxLeafnums(CMODEL_A, ent->absmin, ent->absmax, leafs, MAX_TOTAL_ENT_LEAFS, &topnode);
+  num_leafs = CM_BoxLeafnums(cmodel_index, ent->absmin, ent->absmax, leafs, MAX_TOTAL_ENT_LEAFS, &topnode);
 
   // set areas
   for(i = 0; i < num_leafs; i++) {
-    clusters[i] = CM_LeafCluster(CMODEL_A, leafs[i]);
-    area = CM_LeafArea(CMODEL_A, leafs[i]);
+    clusters[i] = CM_LeafCluster(cmodel_index, leafs[i]);
+    area = CM_LeafArea(cmodel_index, leafs[i]);
     if(area) { // doors may legally straggle two areas,
       // but nothing should evern need more than that
       if(ent->areanum && ent->areanum != area) {
@@ -286,7 +288,7 @@ void SV_LinkEdict(edict_t *ent) {
     return;
 
   // find the first node that the ent's box crosses
-  node = sv_areanodes;
+  node = sv_areanodes[cmodel_index];
   while(1) {
     if(node->axis == -1)
       break;
@@ -358,7 +360,7 @@ void SV_AreaEdicts_r(areanode_t *node) {
 SV_AreaEdicts
 ================
 */
-int SV_AreaEdicts(vec3_t mins, vec3_t maxs, edict_t **list, int maxcount, int areatype) {
+int SV_AreaEdicts(int cmodel_index, vec3_t mins, vec3_t maxs, edict_t **list, int maxcount, int areatype) {
   area_mins = mins;
   area_maxs = maxs;
   area_list = list;
@@ -366,7 +368,7 @@ int SV_AreaEdicts(vec3_t mins, vec3_t maxs, edict_t **list, int maxcount, int ar
   area_maxcount = maxcount;
   area_type = areatype;
 
-  SV_AreaEdicts_r(sv_areanodes);
+  SV_AreaEdicts_r(sv_areanodes[cmodel_index]);
 
   return area_count;
 }
@@ -378,7 +380,7 @@ int SV_AreaEdicts(vec3_t mins, vec3_t maxs, edict_t **list, int maxcount, int ar
 SV_PointContents
 =============
 */
-int SV_PointContents(vec3_t p) {
+int SV_PointContents(int cmodel_index, vec3_t p) {
   edict_t *touch[MAX_EDICTS], *hit;
   int i, num;
   int contents, c2;
@@ -386,10 +388,10 @@ int SV_PointContents(vec3_t p) {
   float *angles;
 
   // get base contents from world
-  contents = CM_PointContents(CMODEL_A, p, sv.models[CMODEL_A][0]->headnode);
+  contents = CM_PointContents(cmodel_index, p, sv.models[cmodel_index][0]->headnode);
 
   // or in contents from all the other entities
-  num = SV_AreaEdicts(p, p, touch, MAX_EDICTS, AREA_SOLID);
+  num = SV_AreaEdicts(cmodel_index, p, p, touch, MAX_EDICTS, AREA_SOLID);
 
   for(i = 0; i < num; i++) {
     hit = touch[i];
@@ -400,7 +402,7 @@ int SV_PointContents(vec3_t p) {
     if(hit->solid != SOLID_BSP)
       angles = vec3_origin; // boxes don't rotate
 
-    c2 = CM_TransformedPointContents(CMODEL_A, p, headnode, hit->s.origin, hit->s.angles);
+    c2 = CM_TransformedPointContents(cmodel_index, p, headnode, hit->s.origin, hit->s.angles);
 
     contents |= c2;
   }
@@ -454,14 +456,14 @@ SV_ClipMoveToEntities
 
 ====================
 */
-void SV_ClipMoveToEntities(moveclip_t *clip) {
+void SV_ClipMoveToEntities(int cmodel_index, moveclip_t *clip) {
   int i, num;
   edict_t *touchlist[MAX_EDICTS], *touch;
   trace_t trace;
   int headnode;
   float *angles;
 
-  num = SV_AreaEdicts(clip->boxmins, clip->boxmaxs, touchlist, MAX_EDICTS, AREA_SOLID);
+  num = SV_AreaEdicts(cmodel_index, clip->boxmins, clip->boxmaxs, touchlist, MAX_EDICTS, AREA_SOLID);
 
   // be careful, it is possible to have an entity in this
   // list removed before we get to it (killtriggered)
@@ -490,10 +492,10 @@ void SV_ClipMoveToEntities(moveclip_t *clip) {
       angles = vec3_origin; // boxes don't rotate
 
     if(touch->svflags & SVF_MONSTER)
-      trace = CM_TransformedBoxTrace(CMODEL_A, clip->start, clip->end, clip->mins2, clip->maxs2, headnode,
+      trace = CM_TransformedBoxTrace(cmodel_index, clip->start, clip->end, clip->mins2, clip->maxs2, headnode,
                                      clip->contentmask, touch->s.origin, angles);
     else
-      trace = CM_TransformedBoxTrace(CMODEL_A, clip->start, clip->end, clip->mins, clip->maxs, headnode,
+      trace = CM_TransformedBoxTrace(cmodel_index, clip->start, clip->end, clip->mins, clip->maxs, headnode,
                                      clip->contentmask, touch->s.origin, angles);
 
     if(trace.allsolid || trace.startsolid || trace.fraction < clip->trace.fraction) {
@@ -543,7 +545,8 @@ Passedict and edicts owned by passedict are explicitly not checked.
 
 ==================
 */
-trace_t SV_Trace(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, edict_t *passedict, int contentmask) {
+trace_t SV_Trace(int cmodel_index, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, edict_t *passedict,
+                 int contentmask) {
   moveclip_t clip;
 
   if(!mins)
@@ -554,7 +557,7 @@ trace_t SV_Trace(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, edict_t *pa
   memset(&clip, 0, sizeof(moveclip_t));
 
   // clip to world
-  clip.trace = CM_BoxTrace(CMODEL_A, start, end, mins, maxs, 0, contentmask);
+  clip.trace = CM_BoxTrace(cmodel_index, start, end, mins, maxs, 0, contentmask);
   clip.trace.ent = ge->edicts;
   if(clip.trace.fraction == 0)
     return clip.trace; // blocked by the world
@@ -573,7 +576,7 @@ trace_t SV_Trace(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, edict_t *pa
   SV_TraceBounds(start, clip.mins2, clip.maxs2, end, clip.boxmins, clip.boxmaxs);
 
   // clip to other solid entities
-  SV_ClipMoveToEntities(&clip);
+  SV_ClipMoveToEntities(cmodel_index, &clip);
 
   return clip.trace;
 }

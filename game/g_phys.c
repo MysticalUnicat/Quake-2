@@ -54,7 +54,7 @@ edict_t *SV_TestEntityPosition(edict_t *ent) {
     mask = ent->clipmask;
   else
     mask = MASK_SOLID;
-  trace = gi.trace(ent->s.origin, ent->mins, ent->maxs, ent->s.origin, ent, mask);
+  trace = gi.trace(ent->s.cmodel_index, ent->s.origin, ent->mins, ent->maxs, ent->s.origin, ent, mask);
 
   if(trace.startsolid)
     return g_edicts;
@@ -198,7 +198,7 @@ int SV_FlyMove(edict_t *ent, float time, int mask) {
     for(i = 0; i < 3; i++)
       end[i] = ent->s.origin[i] + time_left * ent->velocity[i];
 
-    trace = gi.trace(ent->s.origin, ent->mins, ent->maxs, end, ent, mask);
+    trace = gi.trace(ent->s.cmodel_index, ent->s.origin, ent->mins, ent->maxs, end, ent, mask);
 
     if(trace.allsolid) { // entity is trapped in another solid
       VectorCopy(vec3_origin, ent->velocity);
@@ -324,7 +324,7 @@ retry:
   else
     mask = MASK_SOLID;
 
-  trace = gi.trace(start, ent->mins, ent->maxs, end, ent, mask);
+  trace = gi.trace(ent->s.cmodel_index, start, ent->mins, ent->maxs, end, ent, mask);
 
   VectorCopy(trace.endpos, ent->s.origin);
   gi.linkentity(ent);
@@ -673,7 +673,7 @@ void SV_Physics_Toss(edict_t *ent) {
 
   // check for water transition
   wasinwater = (ent->watertype & MASK_WATER);
-  ent->watertype = gi.pointcontents(ent->s.origin);
+  ent->watertype = gi.pointcontents(ent->s.cmodel_index, ent->s.origin);
   isinwater = ent->watertype & MASK_WATER;
 
   if(isinwater)

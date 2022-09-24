@@ -122,7 +122,7 @@ void PM_StepSlideMove_(void) {
     for(i = 0; i < 3; i++)
       end[i] = pml.origin[i] + time_left * pml.velocity[i];
 
-    trace = pm->trace(pml.origin, pm->mins, pm->maxs, end);
+    trace = pm->trace(pm->cmodel_index, pml.origin, pm->mins, pm->maxs, end);
 
     if(trace.allsolid) {   // entity is trapped in another solid
       pml.velocity[2] = 0; // don't build up falling damage
@@ -262,7 +262,7 @@ void PM_StepSlideMove(void) {
   VectorCopy(start_o, up);
   up[2] += STEPSIZE;
 
-  trace = pm->trace(up, pm->mins, pm->maxs, up);
+  trace = pm->trace(pm->cmodel_index, up, pm->mins, pm->maxs, up);
   if(trace.allsolid)
     return; // can't step up
 
@@ -275,7 +275,7 @@ void PM_StepSlideMove(void) {
   // push down the final amount
   VectorCopy(pml.origin, down);
   down[2] -= STEPSIZE;
-  trace = pm->trace(pml.origin, pm->mins, pm->maxs, down);
+  trace = pm->trace(pm->cmodel_index, pml.origin, pm->mins, pm->maxs, down);
   if(!trace.allsolid) {
     VectorCopy(trace.endpos, pml.origin);
   }
@@ -627,7 +627,7 @@ void PM_CatagorizePosition(void) {
     pm->s.pm_flags &= ~PMF_ON_GROUND;
     pm->groundentity = NULL;
   } else {
-    trace = pm->trace(pml.origin, pm->mins, pm->maxs, point);
+    trace = pm->trace(pm->cmodel_index, pml.origin, pm->mins, pm->maxs, point);
     pml.groundplane = trace.plane;
     pml.groundsurface = trace.surface;
     pml.groundcontents = trace.contents;
@@ -679,17 +679,17 @@ void PM_CatagorizePosition(void) {
   sample1 = sample2 / 2;
 
   point[2] = pml.origin[2] + pm->mins[2] + 1;
-  cont = pm->pointcontents(point);
+  cont = pm->pointcontents(pm->cmodel_index, point);
 
   if(cont & MASK_WATER) {
     pm->watertype = cont;
     pm->waterlevel = 1;
     point[2] = pml.origin[2] + pm->mins[2] + sample1;
-    cont = pm->pointcontents(point);
+    cont = pm->pointcontents(pm->cmodel_index, point);
     if(cont & MASK_WATER) {
       pm->waterlevel = 2;
       point[2] = pml.origin[2] + pm->mins[2] + sample2;
-      cont = pm->pointcontents(point);
+      cont = pm->pointcontents(pm->cmodel_index, point);
       if(cont & MASK_WATER)
         pm->waterlevel = 3;
     }
@@ -767,7 +767,7 @@ void PM_CheckSpecialMovement(void) {
   VectorNormalize(flatforward);
 
   VectorMA(pml.origin, 1, flatforward, spot);
-  trace = pm->trace(pml.origin, pm->mins, pm->maxs, spot);
+  trace = pm->trace(pm->cmodel_index, pml.origin, pm->mins, pm->maxs, spot);
   if((trace.fraction < 1) && (trace.contents & CONTENTS_LADDER))
     pml.ladder = true;
 
@@ -777,12 +777,12 @@ void PM_CheckSpecialMovement(void) {
 
   VectorMA(pml.origin, 30, flatforward, spot);
   spot[2] += 4;
-  cont = pm->pointcontents(spot);
+  cont = pm->pointcontents(pm->cmodel_index, spot);
   if(!(cont & CONTENTS_SOLID))
     return;
 
   spot[2] += 16;
-  cont = pm->pointcontents(spot);
+  cont = pm->pointcontents(pm->cmodel_index, spot);
   if(cont)
     return;
   // jump out of water
@@ -869,7 +869,7 @@ void PM_FlyMove(bool doclip) {
     for(i = 0; i < 3; i++)
       end[i] = pml.origin[i] + pml.frametime * pml.velocity[i];
 
-    trace = pm->trace(pml.origin, pm->mins, pm->maxs, end);
+    trace = pm->trace(pm->cmodel_index, pml.origin, pm->mins, pm->maxs, end);
 
     VectorCopy(trace.endpos, pml.origin);
   } else {
@@ -911,7 +911,7 @@ void PM_CheckDuck(void) {
     if(pm->s.pm_flags & PMF_DUCKED) {
       // try to stand up
       pm->maxs[2] = 32;
-      trace = pm->trace(pml.origin, pm->mins, pm->maxs, pml.origin);
+      trace = pm->trace(pm->cmodel_index, pml.origin, pm->mins, pm->maxs, pml.origin);
       if(!trace.allsolid)
         pm->s.pm_flags &= ~PMF_DUCKED;
     }
@@ -959,7 +959,7 @@ bool PM_GoodPosition(void) {
 
   for(i = 0; i < 3; i++)
     origin[i] = end[i] = pm->s.origin[i] * 0.125;
-  trace = pm->trace(origin, pm->mins, pm->maxs, end);
+  trace = pm->trace(pm->cmodel_index, origin, pm->mins, pm->maxs, end);
 
   return !trace.allsolid;
 }

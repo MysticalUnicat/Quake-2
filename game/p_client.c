@@ -1389,11 +1389,11 @@ void ClientDisconnect(edict_t *ent) {
 edict_t *pm_passent;
 
 // pmove doesn't need to know about passent and contentmask
-trace_t PM_trace(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end) {
+trace_t PM_trace(int cmodel_index, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end) {
   if(ent_read_health(pm_passent)->value > 0)
-    return gi.trace(start, mins, maxs, end, pm_passent, MASK_PLAYERSOLID);
+    return gi.trace(cmodel_index, start, mins, maxs, end, pm_passent, MASK_PLAYERSOLID);
   else
-    return gi.trace(start, mins, maxs, end, pm_passent, MASK_DEADSOLID);
+    return gi.trace(cmodel_index, start, mins, maxs, end, pm_passent, MASK_DEADSOLID);
 }
 
 unsigned CheckBlock(void *b, int c) {
@@ -1473,6 +1473,7 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd) {
 
     pm.cmd = *ucmd;
 
+    pm.cmodel_index = ent->s.cmodel_index;
     pm.trace = PM_trace; // adds default parms
     pm.pointcontents = gi.pointcontents;
 

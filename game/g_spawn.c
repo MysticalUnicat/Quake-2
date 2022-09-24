@@ -581,7 +581,9 @@ void SpawnEntities(int cmodel_index, const char *mapname, const char *entities, 
 
   G_FindTeams();
 
-  PlayerTrail_Init();
+  if(cmodel_index == CMODEL_A) {
+    PlayerTrail_Init();
+  }
 }
 
 //===================================================================
@@ -936,4 +938,8 @@ void initialize_worlds(void) {
 
   // 63 testing
   gi.configstring(CS_LIGHTS + 63, "a");
+
+  // TEST CODE
+  edict_t *other = G_Spawn(CMODEL_B);
+  gi.setmodel(other, "maps/q2dm2.bsp");
 }

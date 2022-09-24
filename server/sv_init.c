@@ -118,7 +118,9 @@ void SV_CheckForSavegame(void) {
 
   fclose(f);
 
-  SV_ClearWorld();
+  SV_ClearWorld(CMODEL_A);
+  SV_ClearWorld(CMODEL_B);
+  SV_ClearWorld(CMODEL_C);
 
   // get configstrings and areaportals
   SV_ReadLevelFile();
@@ -212,7 +214,9 @@ void SV_SpawnServer(char *server, char *spawnpoint, server_state_t serverstate, 
   //
   // clear physics interaction links
   //
-  SV_ClearWorld();
+  SV_ClearWorld(CMODEL_A);
+  SV_ClearWorld(CMODEL_B);
+  SV_ClearWorld(CMODEL_C);
 
   for(i = 1; i < CM_NumInlineModels(CMODEL_A); i++) {
     // Com_sprintf(sv.configstrings[CS_MODELS + 1 + i], sizeof(sv.configstrings[CS_MODELS + 1 + i]), "*%i", i);

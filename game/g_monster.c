@@ -141,7 +141,7 @@ void M_CheckGround(edict_t *ent) {
   point[1] = ent->s.origin[1];
   point[2] = ent->s.origin[2] - 0.25;
 
-  trace = gi.trace(ent->s.origin, ent->mins, ent->maxs, point, ent, MASK_MONSTERSOLID);
+  trace = gi.trace(ent->s.cmodel_index, ent->s.origin, ent->mins, ent->maxs, point, ent, MASK_MONSTERSOLID);
 
   // check steepness
   if(trace.plane.normal[2] < 0.7 && !trace.startsolid) {
@@ -171,7 +171,7 @@ void M_CatagorizePosition(edict_t *ent) {
   point[0] = ent->s.origin[0];
   point[1] = ent->s.origin[1];
   point[2] = ent->s.origin[2] + ent->mins[2] + 1;
-  cont = gi.pointcontents(point);
+  cont = gi.pointcontents(ent->s.cmodel_index, point);
 
   if(!(cont & MASK_WATER)) {
     ent->waterlevel = 0;
@@ -182,13 +182,13 @@ void M_CatagorizePosition(edict_t *ent) {
   ent->watertype = cont;
   ent->waterlevel = 1;
   point[2] += 26;
-  cont = gi.pointcontents(point);
+  cont = gi.pointcontents(ent->s.cmodel_index, point);
   if(!(cont & MASK_WATER))
     return;
 
   ent->waterlevel = 2;
   point[2] += 22;
-  cont = gi.pointcontents(point);
+  cont = gi.pointcontents(ent->s.cmodel_index, point);
   if(cont & MASK_WATER)
     ent->waterlevel = 3;
 }
@@ -271,7 +271,7 @@ void M_droptofloor(edict_t *ent) {
   VectorCopy(ent->s.origin, end);
   end[2] -= 256;
 
-  trace = gi.trace(ent->s.origin, ent->mins, ent->maxs, end, ent, MASK_MONSTERSOLID);
+  trace = gi.trace(ent->s.cmodel_index, ent->s.origin, ent->mins, ent->maxs, end, ent, MASK_MONSTERSOLID);
 
   if(trace.fraction == 1 || trace.allsolid)
     return;

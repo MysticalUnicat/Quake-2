@@ -154,15 +154,31 @@ void PF_setmodel(edict_t *ent, char *name) {
   if(!name)
     Com_Error(ERR_DROP, "PF_setmodel: NULL");
 
+  int name_len = strlen(name);
+
   // if it is an inline model, get the size information for it
   if(name[0] == '*') {
-    ent->s.modelindex = CMODEL_A + 1;
+    ent->s.modelindex = ent->s.cmodel_index + 1;
     ent->s.modelindex2 = atoi(name + 1);
 
-    mod = CM_InlineModel(CMODEL_A, name);
+    mod = CM_InlineModel(ent->s.cmodel_index, name);
     VectorCopy(mod->mins, ent->mins);
     VectorCopy(mod->maxs, ent->maxs);
     SV_LinkEdict(ent);
+  } else if(strncmp(name + name_len - 4, ".bsp", 4) == 0) {
+    unsigned int checksum;
+
+    sv.models[ent->s.cmodel_index][0] = CM_LoadMap(ent->s.cmodel_index, name, false, &checksum);
+
+    snprintf(sv.configstrings[CS_MODELS + ent->s.cmodel_index + 1], MAX_QPATH, "%s;%i", name, checksum);
+
+    for(int k = 1; k < CM_NumInlineModels(ent->s.cmodel_index); k++) {
+      char inline_name[6];
+      sprintf(inline_name, "*%i", k);
+      sv.models[ent->s.cmodel_index][k] = CM_InlineModel(ent->s.cmodel_index, inline_name);
+    }
+
+    ge->SpawnEntities(ent->s.cmodel_index, sv.name, CM_EntityString(ent->s.cmodel_index), NULL);
   } else {
     i = SV_ModelIndex(name);
 
@@ -214,23 +230,23 @@ PF_inPVS
 Also checks portalareas so that doors block sight
 =================
 */
-bool PF_inPVS(vec3_t p1, vec3_t p2) {
+bool PF_inPVS(int cmodel_index, vec3_t p1, vec3_t p2) {
   int leafnum;
   int cluster;
   int area1, area2;
   byte *mask;
 
-  leafnum = CM_PointLeafnum(CMODEL_A, p1);
-  cluster = CM_LeafCluster(CMODEL_A, leafnum);
-  area1 = CM_LeafArea(CMODEL_A, leafnum);
-  mask = CM_ClusterPVS(CMODEL_A, cluster);
+  leafnum = CM_PointLeafnum(cmodel_index, p1);
+  cluster = CM_LeafCluster(cmodel_index, leafnum);
+  area1 = CM_LeafArea(cmodel_index, leafnum);
+  mask = CM_ClusterPVS(cmodel_index, cluster);
 
-  leafnum = CM_PointLeafnum(CMODEL_A, p2);
-  cluster = CM_LeafCluster(CMODEL_A, leafnum);
-  area2 = CM_LeafArea(CMODEL_A, leafnum);
+  leafnum = CM_PointLeafnum(cmodel_index, p2);
+  cluster = CM_LeafCluster(cmodel_index, leafnum);
+  area2 = CM_LeafArea(cmodel_index, leafnum);
   if(mask && (!(mask[cluster >> 3] & (1 << (cluster & 7)))))
     return false;
-  if(!CM_AreasConnected(CMODEL_A, area1, area2))
+  if(!CM_AreasConnected(cmodel_index, area1, area2))
     return false; // a door blocks sight
   return true;
 }
@@ -242,23 +258,23 @@ PF_inPHS
 Also checks portalareas so that doors block sound
 =================
 */
-bool PF_inPHS(vec3_t p1, vec3_t p2) {
+bool PF_inPHS(int cmodel_index, vec3_t p1, vec3_t p2) {
   int leafnum;
   int cluster;
   int area1, area2;
   byte *mask;
 
-  leafnum = CM_PointLeafnum(CMODEL_A, p1);
-  cluster = CM_LeafCluster(CMODEL_A, leafnum);
-  area1 = CM_LeafArea(CMODEL_A, leafnum);
-  mask = CM_ClusterPHS(CMODEL_A, cluster);
+  leafnum = CM_PointLeafnum(cmodel_index, p1);
+  cluster = CM_LeafCluster(cmodel_index, leafnum);
+  area1 = CM_LeafArea(cmodel_index, leafnum);
+  mask = CM_ClusterPHS(cmodel_index, cluster);
 
-  leafnum = CM_PointLeafnum(CMODEL_A, p2);
-  cluster = CM_LeafCluster(CMODEL_A, leafnum);
-  area2 = CM_LeafArea(CMODEL_A, leafnum);
+  leafnum = CM_PointLeafnum(cmodel_index, p2);
+  cluster = CM_LeafCluster(cmodel_index, leafnum);
+  area2 = CM_LeafArea(cmodel_index, leafnum);
   if(mask && (!(mask[cluster >> 3] & (1 << (cluster & 7)))))
     return false; // more than one bounce away
-  if(!CM_AreasConnected(CMODEL_A, area1, area2))
+  if(!CM_AreasConnected(cmodel_index, area1, area2))
     return false; // a door blocks hearing
 
   return true;
@@ -288,9 +304,13 @@ void SV_ShutdownGameProgs(void) {
   ge = NULL;
 }
 
-static void SV_SetAreaPortalState(int portal_num, bool open) { CM_SetAreaPortalState(CMODEL_A, portal_num, open); }
+static void SV_SetAreaPortalState(int cmodel_index, int portal_num, bool open) {
+  CM_SetAreaPortalState(cmodel_index, portal_num, open);
+}
 
-static bool SV_AreasConnected(int area1, int area2) { return CM_AreasConnected(CMODEL_A, area1, area2); }
+static bool SV_AreasConnected(int cmodel_index, int area1, int area2) {
+  return CM_AreasConnected(cmodel_index, area1, area2);
+}
 
 /*
 ===============

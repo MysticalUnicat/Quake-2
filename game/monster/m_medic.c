@@ -386,7 +386,7 @@ void medic_cable_attack(edict_t *self) {
   if(fabs(angles[0]) > 45)
     return;
 
-  tr = gi.trace(start, NULL, NULL, self->enemy->s.origin, self, MASK_SHOT);
+  tr = gi.trace(self->s.cmodel_index, start, NULL, NULL, self->enemy->s.origin, self, MASK_SHOT);
   if(tr.fraction != 1.0 && tr.ent != self->enemy)
     return;
 

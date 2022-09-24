@@ -256,11 +256,14 @@ bool visible(edict_t *self, edict_t *other) {
   vec3_t spot2;
   trace_t trace;
 
+  if(self->s.cmodel_index != other->s.cmodel_index)
+    return false;
+
   VectorCopy(self->s.origin, spot1);
   spot1[2] += self->viewheight;
   VectorCopy(other->s.origin, spot2);
   spot2[2] += other->viewheight;
-  trace = gi.trace(spot1, vec3_origin, vec3_origin, spot2, self, MASK_OPAQUE);
+  trace = gi.trace(self->s.cmodel_index, spot1, vec3_origin, vec3_origin, spot2, self, MASK_OPAQUE);
 
   if(trace.fraction == 1.0)
     return true;
@@ -473,7 +476,7 @@ bool FindTarget(edict_t *self) {
       if(!visible(self, client))
         return false;
     } else {
-      if(!gi.inPHS(self->s.origin, client->s.origin))
+      if(!gi.inPHS(self->s.cmodel_index, self->s.origin, client->s.origin))
         return false;
     }
 
@@ -486,7 +489,7 @@ bool FindTarget(edict_t *self) {
 
     // check area portals - if they are different and not connected then we can't hear it
     if(client->areanum != self->areanum)
-      if(!gi.AreasConnected(self->areanum, client->areanum))
+      if(!gi.AreasConnected(self->s.cmodel_index, self->areanum, client->areanum))
         return false;
 
     self->ideal_yaw = vectoyaw(temp);
@@ -539,7 +542,7 @@ bool M_CheckAttack(edict_t *self) {
     VectorCopy(self->enemy->s.origin, spot2);
     spot2[2] += self->enemy->viewheight;
 
-    tr = gi.trace(spot1, NULL, NULL, spot2, self,
+    tr = gi.trace(self->s.cmodel_index, spot1, NULL, NULL, spot2, self,
                   CONTENTS_SOLID | CONTENTS_MONSTER | CONTENTS_SLIME | CONTENTS_LAVA | CONTENTS_WINDOW);
 
     // do we have a clear shot?
@@ -906,7 +909,8 @@ void ai_run(edict_t *self, float dist) {
   if(new) {
     //		gi.dprintf("checking for course correction\n");
 
-    tr = gi.trace(self->s.origin, self->mins, self->maxs, self->monsterinfo.last_sighting, self, MASK_PLAYERSOLID);
+    tr = gi.trace(self->s.cmodel_index, self->s.origin, self->mins, self->maxs, self->monsterinfo.last_sighting, self,
+                  MASK_PLAYERSOLID);
     if(tr.fraction < 1) {
       VectorSubtract(self->goalentity->s.origin, self->s.origin, v);
       d1 = VectorLength(v);
@@ -917,12 +921,12 @@ void ai_run(edict_t *self, float dist) {
 
       VectorSet(v, d2, -16, 0);
       G_ProjectSource(self->s.origin, v, v_forward, v_right, left_target);
-      tr = gi.trace(self->s.origin, self->mins, self->maxs, left_target, self, MASK_PLAYERSOLID);
+      tr = gi.trace(self->s.cmodel_index, self->s.origin, self->mins, self->maxs, left_target, self, MASK_PLAYERSOLID);
       left = tr.fraction;
 
       VectorSet(v, d2, 16, 0);
       G_ProjectSource(self->s.origin, v, v_forward, v_right, right_target);
-      tr = gi.trace(self->s.origin, self->mins, self->maxs, right_target, self, MASK_PLAYERSOLID);
+      tr = gi.trace(self->s.cmodel_index, self->s.origin, self->mins, self->maxs, right_target, self, MASK_PLAYERSOLID);
       right = tr.fraction;
 
       center = (d1 * center) / d2;

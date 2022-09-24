@@ -351,6 +351,7 @@ void G_InitEdict(int cmodel_index, edict_t *e) {
   e->classname = "noclass";
   e->gravity = 1.0;
   e->s.number = e - g_edicts;
+  e->s.cmodel_index = cmodel_index;
 
   if(e->entity_handle == 0 &&
      alias_ecs_spawn(
@@ -437,7 +438,7 @@ void G_TouchTriggers(edict_t *ent) {
   if((ent->client || (ent->svflags & SVF_MONSTER)) && (ent_read_health(ent)->value <= 0))
     return;
 
-  num = gi.BoxEdicts(ent->absmin, ent->absmax, touch, MAX_EDICTS, AREA_TRIGGERS);
+  num = gi.BoxEdicts(ent->s.cmodel_index, ent->absmin, ent->absmax, touch, MAX_EDICTS, AREA_TRIGGERS);
 
   // be careful, it is possible to have an entity in this
   // list removed before we get to it (killtriggered)
@@ -463,7 +464,7 @@ void G_TouchSolids(edict_t *ent) {
   int i, num;
   edict_t *touch[MAX_EDICTS], *hit;
 
-  num = gi.BoxEdicts(ent->absmin, ent->absmax, touch, MAX_EDICTS, AREA_SOLID);
+  num = gi.BoxEdicts(ent->s.cmodel_index, ent->absmin, ent->absmax, touch, MAX_EDICTS, AREA_SOLID);
 
   // be careful, it is possible to have an entity in this
   // list removed before we get to it (killtriggered)
@@ -498,7 +499,7 @@ bool KillBox(edict_t *ent) {
   trace_t tr;
 
   while(1) {
-    tr = gi.trace(ent->s.origin, ent->mins, ent->maxs, ent->s.origin, NULL, MASK_PLAYERSOLID);
+    tr = gi.trace(ent->s.cmodel_index, ent->s.origin, ent->mins, ent->maxs, ent->s.origin, NULL, MASK_PLAYERSOLID);
     if(!tr.ent)
       break;
 
