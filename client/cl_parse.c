@@ -372,9 +372,9 @@ void CL_LoadClientinfo(clientinfo_t *ci, char *s) {
     Com_sprintf(weapon_filename, sizeof(weapon_filename), "players/male/weapon.md2");
     Com_sprintf(skin_filename, sizeof(skin_filename), "players/male/grunt.pcx");
     Com_sprintf(ci->iconname, sizeof(ci->iconname), "/players/male/grunt_i.pcx");
-    ci->model = re.RegisterModel(model_filename);
+    ci->model = re.RegisterModel(CMODEL_A, model_filename);
     memset(ci->weaponmodel, 0, sizeof(ci->weaponmodel));
-    ci->weaponmodel[0] = re.RegisterModel(weapon_filename);
+    ci->weaponmodel[0] = re.RegisterModel(CMODEL_A, weapon_filename);
     ci->skin = re.RegisterSkin(skin_filename);
     ci->icon = re.RegisterPic(ci->iconname);
   } else {
@@ -392,11 +392,11 @@ void CL_LoadClientinfo(clientinfo_t *ci, char *s) {
 
     // model file
     Com_sprintf(model_filename, sizeof(model_filename), "players/%s/tris.md2", model_name);
-    ci->model = re.RegisterModel(model_filename);
+    ci->model = re.RegisterModel(CMODEL_A, model_filename);
     if(!ci->model) {
       strcpy(model_name, "male");
       Com_sprintf(model_filename, sizeof(model_filename), "players/male/tris.md2");
-      ci->model = re.RegisterModel(model_filename);
+      ci->model = re.RegisterModel(CMODEL_A, model_filename);
     }
 
     // skin file
@@ -409,7 +409,7 @@ void CL_LoadClientinfo(clientinfo_t *ci, char *s) {
       // change model to male
       strcpy(model_name, "male");
       Com_sprintf(model_filename, sizeof(model_filename), "players/male/tris.md2");
-      ci->model = re.RegisterModel(model_filename);
+      ci->model = re.RegisterModel(CMODEL_A, model_filename);
 
       // see if the skin exists for the male model
       Com_sprintf(skin_filename, sizeof(skin_filename), "players/%s/%s.pcx", model_name, skin_name);
@@ -427,11 +427,11 @@ void CL_LoadClientinfo(clientinfo_t *ci, char *s) {
     // weapon file
     for(i = 0; i < num_cl_weaponmodels; i++) {
       Com_sprintf(weapon_filename, sizeof(weapon_filename), "players/%s/%s", model_name, cl_weaponmodels[i]);
-      ci->weaponmodel[i] = re.RegisterModel(weapon_filename);
+      ci->weaponmodel[i] = re.RegisterModel(CMODEL_A, weapon_filename);
       if(!ci->weaponmodel[i] && strcmp(model_name, "cyborg") == 0) {
         // try male
         Com_sprintf(weapon_filename, sizeof(weapon_filename), "players/male/%s", cl_weaponmodels[i]);
-        ci->weaponmodel[i] = re.RegisterModel(weapon_filename);
+        ci->weaponmodel[i] = re.RegisterModel(CMODEL_A, weapon_filename);
       }
       if(!cl_vwep->value)
         break; // only one when vwep is off
@@ -500,7 +500,7 @@ void CL_ParseConfigString(void) {
         memcpy(path, cl.configstrings[i], MAX_QPATH);
         *strchr(path, ';') = 0;
 
-        cl.model_draw[model] = re.RegisterModel(path);
+        cl.model_draw[model] = re.RegisterModel(model - 1, path);
 
         unsigned int checksum;
 
@@ -510,11 +510,11 @@ void CL_ParseConfigString(void) {
         for(int k = 1; k < CM_NumInlineModels(model - 1); k++) {
           char inline_name[6];
           sprintf(inline_name, "*%i", k);
-          cl.cmodel_draw[model - 1][k] = re.RegisterModel(inline_name);
+          cl.cmodel_draw[model - 1][k] = re.RegisterModel(model - 1, inline_name);
           cl.cmodel_clip[model - 1][k] = CM_InlineModel(model - 1, inline_name);
         }
       } else {
-        cl.model_draw[model] = re.RegisterModel(cl.configstrings[i]);
+        cl.model_draw[model] = re.RegisterModel(CMODEL_A, cl.configstrings[i]);
       }
     }
   } else if(i >= CS_SOUNDS && i < CS_SOUNDS + MAX_MODELS) {

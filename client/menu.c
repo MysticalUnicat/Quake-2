@@ -3365,7 +3365,7 @@ void PlayerConfig_MenuDraw(void) {
     memset(&entity, 0, sizeof(entity));
 
     Com_sprintf(scratch, sizeof(scratch), "players/%s/tris.md2", s_pmi[s_player_model_box.curvalue].directory);
-    entity.model = re.RegisterModel(scratch);
+    entity.model = re.RegisterModel(CMODEL_A, scratch);
     Com_sprintf(scratch, sizeof(scratch), "players/%s/%s.pcx", s_pmi[s_player_model_box.curvalue].directory,
                 s_pmi[s_player_model_box.curvalue].skindisplaynames[s_player_skin_box.curvalue]);
     entity.skin = re.RegisterSkin(scratch);

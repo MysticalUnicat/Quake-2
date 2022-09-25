@@ -289,7 +289,7 @@ void CL_PrepRefresh(void) {
       memcpy(name, cl.configstrings[CS_MODELS + i], MAX_QPATH);
       *strchr(name, ';') = 0;
 
-      cl.model_draw[i] = re.RegisterModel(name);
+      cl.model_draw[i] = re.RegisterModel(i - 1, name);
 
       unsigned int checksum;
 
@@ -299,11 +299,11 @@ void CL_PrepRefresh(void) {
       for(int k = 1; k < CM_NumInlineModels(i - 1); k++) {
         char inline_name[6];
         sprintf(inline_name, "*%i", k);
-        cl.cmodel_draw[i - 1][k] = re.RegisterModel(inline_name);
+        cl.cmodel_draw[i - 1][k] = re.RegisterModel(i - 1, inline_name);
         cl.cmodel_clip[i - 1][k] = CM_InlineModel(i - 1, inline_name);
       }
     } else {
-      cl.model_draw[i] = re.RegisterModel(cl.configstrings[CS_MODELS + i]);
+      cl.model_draw[i] = re.RegisterModel(CMODEL_A, cl.configstrings[CS_MODELS + i]);
     }
 
     // if(name[0] == '*')
@@ -400,7 +400,7 @@ void V_Gun_Model_f(void) {
     return;
   }
   Com_sprintf(name, sizeof(name), "models/%s/tris.md2", Cmd_Argv(1));
-  gun_model = re.RegisterModel(name);
+  gun_model = re.RegisterModel(CMODEL_A, name);
 }
 
 //============================================================================
@@ -487,6 +487,7 @@ void V_RenderView(float stereo_separation) {
     cl.refdef.vieworg[1] += 1.0 / 16;
     cl.refdef.vieworg[2] += 1.0 / 16;
 
+    cl.refdef.cmodel_index = cl.frame.playerstate.cmodel_index;
     cl.refdef.x = scr_vrect.x;
     cl.refdef.y = scr_vrect.y;
     cl.refdef.width = scr_vrect.width;

@@ -36,7 +36,7 @@ model_t mod_known[MAX_MOD_KNOWN];
 int mod_numknown;
 
 // the inline * models from the current map are kept seperate
-model_t mod_inline[MAX_MOD_KNOWN];
+model_t mod_inline[CMODEL_COUNT][MAX_MOD_KNOWN];
 
 int registration_sequence;
 
@@ -200,7 +200,7 @@ Mod_ForName
 Loads in a model for the given name
 ==================
 */
-model_t *Mod_ForName(char *name, bool crash) {
+model_t *Mod_ForName(int cmodel_index, char *name, bool crash) {
   model_t *mod;
   unsigned *buf;
   int i;
@@ -214,12 +214,12 @@ model_t *Mod_ForName(char *name, bool crash) {
   if(name[0] == '*') {
     i = atoi(name + 1);
     if(i < 1 || !r_worldmodel) {
-      if(r_worldmodel->type == mod_brush && i > r_worldmodel->numsubmodels) {
+      if(r_worldmodel[cmodel_index]->type == mod_brush && i > r_worldmodel[cmodel_index]->numsubmodels) {
         ri.Sys_Error(ERR_DROP, "bad inline model number");
       }
-      mod_inline[i].type = r_worldmodel->type;
+      mod_inline[cmodel_index][i].type = r_worldmodel[cmodel_index]->type;
     }
-    return &mod_inline[i];
+    return &mod_inline[cmodel_index][i];
   }
 
   //
@@ -252,6 +252,7 @@ model_t *Mod_ForName(char *name, bool crash) {
     mod->type = mod_load;
   }
 
+  mod->cmodel_index = cmodel_index;
   FS_LoadAsync(mod->name, mod_load_error, mod_load_done, mod);
 
   return mod;
@@ -831,8 +832,8 @@ void Mod_LoadBrushModel(model_t *mod, struct HunkAllocator *hunk, void *buffer) 
   dheader_t *header;
   mmodel_t *bm;
 
-  if(loadmodel != mod_known)
-    ri.Sys_Error(ERR_DROP, "Loaded a brush model after the world");
+  // if(loadmodel != mod_known)
+  //   ri.Sys_Error(ERR_DROP, "Loaded a brush model after the world");
 
   header = (dheader_t *)buffer;
 
@@ -872,7 +873,7 @@ void Mod_LoadBrushModel(model_t *mod, struct HunkAllocator *hunk, void *buffer) 
     model_t *starmod;
 
     bm = &mod->submodels[i];
-    starmod = &mod_inline[i];
+    starmod = &mod_inline[loadmodel->cmodel_index][i];
 
     *starmod = *loadmodel;
 
@@ -1077,7 +1078,7 @@ void R_BeginRegistration(char *model) {
   if(strcmp(mod_known[0].name, fullname) || flushmap->value)
     Mod_Free(&mod_known[0]);
 
-  r_worldmodel = Mod_ForName(fullname, true);
+  r_worldmodel[CMODEL_A] = Mod_ForName(CMODEL_A, fullname, true);
 
   r_viewcluster = -1;
 }
@@ -1088,13 +1089,13 @@ R_RegisterModel
 
 @@@@@@@@@@@@@@@@@@@@@
 */
-struct model_s *R_RegisterModel(char *name) {
+struct model_s *R_RegisterModel(int cmodel_index, char *name) {
   model_t *mod;
   int i;
   dsprite_t *sprout;
   dmdl_t *pheader;
 
-  mod = Mod_ForName(name, false);
+  mod = Mod_ForName(cmodel_index, name, false);
   if(mod) {
     mod->registration_sequence = registration_sequence;
 
@@ -1147,9 +1148,11 @@ Mod_Free
 ================
 */
 void Mod_Free(model_t *mod) {
-  if(mod == r_worldmodel) {
-    for(int i = 0; i < MAX_MOD_KNOWN; i++) {
-      mod_inline[i].type = mod_load;
+  for(int k = 0; k < CMODEL_COUNT; k++) {
+    if(mod == r_worldmodel[k]) {
+      for(int i = 0; i < MAX_MOD_KNOWN; i++) {
+        mod_inline[k][i].type = mod_load;
+      }
     }
   }
 

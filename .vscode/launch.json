@@ -13,6 +13,9 @@
                 "-set",
                 "basedir",
                 "c:\\q2",
+                "+set",
+                "deathmatch",
+                "1",
                 "+map",
                 "q2dm1"
             ],

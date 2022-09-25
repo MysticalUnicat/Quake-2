@@ -182,6 +182,7 @@ typedef struct model_s {
   //
   // brush model
   //
+  int cmodel_index;
   int firstmodelsurface, nummodelsurfaces;
   int lightmap; // only for submodels
 
@@ -231,7 +232,7 @@ typedef struct model_s {
 
 void Mod_Init(void);
 void Mod_ClearAll(void);
-model_t *Mod_ForName(char *name, bool crash);
+model_t *Mod_ForName(int cmodel_index, char *name, bool crash);
 mleaf_t *Mod_PointInLeaf(float *p, model_t *model);
 byte *Mod_ClusterPVS(int cluster, model_t *model);
 

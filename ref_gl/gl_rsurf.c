@@ -292,14 +292,14 @@ void DrawGLPolyChain(glpoly_t *p, float soffset, float toffset) {
 ** This routine takes all the given light mapped surfaces in the world and
 ** blends them into the framebuffer.
 */
-void R_BlendLightmaps(void) {
+void R_BlendLightmaps(int cmodel_index) {
   int i;
   msurface_t *surf, *newdrawsurf = 0;
 
   // don't bother if we're set to fullbright
   if(r_fullbright->value)
     return;
-  if(!r_worldmodel->lightdata)
+  if(!r_worldmodel[cmodel_index]->lightdata)
     return;
 
   // don't bother writing Z
@@ -334,7 +334,7 @@ void R_BlendLightmaps(void) {
     }
   }
 
-  if(currentmodel == r_worldmodel)
+  if(currentmodel == r_worldmodel[cmodel_index])
     c_visible_lightmaps = 0;
 
   /*
@@ -342,7 +342,7 @@ void R_BlendLightmaps(void) {
   */
   for(i = 1; i < MAX_LIGHTMAPS; i++) {
     if(gl_lms.lightmap_surfaces[i]) {
-      if(currentmodel == r_worldmodel)
+      if(currentmodel == r_worldmodel[cmodel_index])
         c_visible_lightmaps++;
       GL_Bind(gl_state.lightmap_textures + i);
 
@@ -361,7 +361,7 @@ void R_BlendLightmaps(void) {
 
     GL_Bind(gl_state.lightmap_textures + 0);
 
-    if(currentmodel == r_worldmodel)
+    if(currentmodel == r_worldmodel[cmodel_index])
       c_visible_lightmaps++;
 
     newdrawsurf = gl_lms.lightmap_surfaces[0];
@@ -769,7 +769,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 R_DrawInlineBModel
 =================
 */
-void R_DrawInlineBModel(void) {
+void R_DrawInlineBModel(int cmodel_index) {
   int i, k;
   cplane_t *pplane;
   float dot;
@@ -780,7 +780,7 @@ void R_DrawInlineBModel(void) {
   if(!gl_flashblend->value) {
     lt = r_newrefdef.dlights;
     for(k = 0; k < r_newrefdef.num_dlights; k++, lt++) {
-      R_MarkLights(lt, 1 << k, currentmodel->nodes + currentmodel->firstnode);
+      R_MarkLights(cmodel_index, lt, 1 << k, currentmodel->nodes + currentmodel->firstnode);
     }
   }
 
@@ -819,7 +819,7 @@ void R_DrawInlineBModel(void) {
 
   if(!(currententity->flags & RF_TRANSLUCENT)) {
     if(!qglMTexCoord2fSGIS)
-      R_BlendLightmaps();
+      R_BlendLightmaps(cmodel_index);
   } else {
     qglDisable(GL_BLEND);
     qglColor4f(1, 1, 1, 1);
@@ -886,7 +886,7 @@ void R_DrawBrushModel(entity_t *e) {
   GL_SelectTexture(GL_TEXTURE1_SGIS);
   GL_TexEnv(GL_MODULATE);
 
-  R_DrawInlineBModel();
+  R_DrawInlineBModel(r_newrefdef.cmodel_index);
   GL_EnableMultitexture(false);
 
   qglPopMatrix();
@@ -905,7 +905,7 @@ void R_DrawBrushModel(entity_t *e) {
 R_RecursiveWorldNode
 ================
 */
-void R_RecursiveWorldNode(mnode_t *node) {
+void R_RecursiveWorldNode(int cmodel_index, mnode_t *node) {
   int c, side, sidebit;
   cplane_t *plane;
   msurface_t *surf, **mark;
@@ -973,10 +973,10 @@ void R_RecursiveWorldNode(mnode_t *node) {
   }
 
   // recurse down the children, front side first
-  R_RecursiveWorldNode(node->children[side]);
+  R_RecursiveWorldNode(cmodel_index, node->children[side]);
 
   // draw stuff
-  for(c = node->numsurfaces, surf = r_worldmodel->surfaces + node->firstsurface; c; c--, surf++) {
+  for(c = node->numsurfaces, surf = r_worldmodel[cmodel_index]->surfaces + node->firstsurface; c; c--, surf++) {
     if(surf->visframe != r_framecount)
       continue;
 
@@ -1003,7 +1003,7 @@ void R_RecursiveWorldNode(mnode_t *node) {
   }
 
   // recurse down the back side
-  R_RecursiveWorldNode(node->children[!side]);
+  R_RecursiveWorldNode(cmodel_index, node->children[!side]);
   /*
     for ( ; c ; c--, surf++)
     {
@@ -1047,7 +1047,7 @@ void R_RecursiveWorldNode(mnode_t *node) {
 R_DrawWorld
 =============
 */
-void R_DrawWorld(void) {
+void R_DrawWorld(int cmodel_index) {
   entity_t ent;
 
   if(!r_drawworld->value)
@@ -1056,7 +1056,7 @@ void R_DrawWorld(void) {
   if(r_newrefdef.rdflags & RDF_NOWORLDMODEL)
     return;
 
-  currentmodel = r_worldmodel;
+  currentmodel = r_worldmodel[cmodel_index];
 
   VectorCopy(r_newrefdef.vieworg, modelorg);
 
@@ -1083,11 +1083,11 @@ void R_DrawWorld(void) {
     else
       GL_TexEnv(GL_MODULATE);
 
-    R_RecursiveWorldNode(r_worldmodel->nodes);
+    R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
 
     GL_EnableMultitexture(false);
   } else {
-    R_RecursiveWorldNode(r_worldmodel->nodes);
+    R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
   }
 
   /*
@@ -1095,7 +1095,7 @@ void R_DrawWorld(void) {
   ** if multitexture is enabled
   */
   DrawTextureChains();
-  R_BlendLightmaps();
+  R_BlendLightmaps(cmodel_index);
 
   R_DrawSkyBox();
 
@@ -1110,7 +1110,7 @@ Mark the leaves and nodes that are in the PVS for the current
 cluster
 ===============
 */
-void R_MarkLeaves(void) {
+void R_MarkLeaves(int cmodel_index) {
   byte *vis;
   byte fatvis[MAX_MAP_LEAFS / 8];
   mnode_t *node;
@@ -1130,27 +1130,27 @@ void R_MarkLeaves(void) {
   r_oldviewcluster = r_viewcluster;
   r_oldviewcluster2 = r_viewcluster2;
 
-  if(r_novis->value || r_viewcluster == -1 || !r_worldmodel->vis) {
+  if(r_novis->value || r_viewcluster == -1 || !r_worldmodel[cmodel_index]->vis) {
     // mark everything
-    for(i = 0; i < r_worldmodel->numleafs; i++)
-      r_worldmodel->leafs[i].visframe = r_visframecount;
-    for(i = 0; i < r_worldmodel->numnodes; i++)
-      r_worldmodel->nodes[i].visframe = r_visframecount;
+    for(i = 0; i < r_worldmodel[cmodel_index]->numleafs; i++)
+      r_worldmodel[cmodel_index]->leafs[i].visframe = r_visframecount;
+    for(i = 0; i < r_worldmodel[cmodel_index]->numnodes; i++)
+      r_worldmodel[cmodel_index]->nodes[i].visframe = r_visframecount;
     return;
   }
 
-  vis = Mod_ClusterPVS(r_viewcluster, r_worldmodel);
+  vis = Mod_ClusterPVS(r_viewcluster, r_worldmodel[cmodel_index]);
   // may have to combine two clusters because of solid water boundaries
   if(r_viewcluster2 != r_viewcluster) {
-    memcpy(fatvis, vis, (r_worldmodel->numleafs + 7) / 8);
-    vis = Mod_ClusterPVS(r_viewcluster2, r_worldmodel);
-    c = (r_worldmodel->numleafs + 31) / 32;
+    memcpy(fatvis, vis, (r_worldmodel[cmodel_index]->numleafs + 7) / 8);
+    vis = Mod_ClusterPVS(r_viewcluster2, r_worldmodel[cmodel_index]);
+    c = (r_worldmodel[cmodel_index]->numleafs + 31) / 32;
     for(i = 0; i < c; i++)
       ((int *)fatvis)[i] |= ((int *)vis)[i];
     vis = fatvis;
   }
 
-  for(i = 0, leaf = r_worldmodel->leafs; i < r_worldmodel->numleafs; i++, leaf++) {
+  for(i = 0, leaf = r_worldmodel[cmodel_index]->leafs; i < r_worldmodel[cmodel_index]->numleafs; i++, leaf++) {
     cluster = leaf->cluster;
     if(cluster == -1)
       continue;

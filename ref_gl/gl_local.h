@@ -241,12 +241,12 @@ void GL_TexEnv(GLenum value);
 void GL_EnableMultitexture(bool enable);
 void GL_SelectTexture(GLenum);
 
-void R_LightPoint(vec3_t p, vec3_t color);
-void R_PushDlights(void);
+void R_LightPoint(int cmodel_index, vec3_t p, vec3_t color);
+void R_PushDlights(int cmodel_index);
 
 //====================================================================
 
-extern model_t *r_worldmodel;
+extern model_t *r_worldmodel[CMODEL_COUNT];
 
 extern unsigned d_8to24table[256];
 
@@ -263,7 +263,7 @@ void R_DrawAliasModel(entity_t *e);
 void R_DrawBrushModel(entity_t *e);
 void R_DrawSpriteModel(entity_t *e);
 void R_DrawBeam(entity_t *e);
-void R_DrawWorld(void);
+void R_DrawWorld(int cmodel_index);
 void R_RenderDlights(void);
 void R_DrawAlphaSurfaces(void);
 void R_RenderBrushPoly(msurface_t *fa);
@@ -272,14 +272,14 @@ void Draw_InitLocal(void);
 void GL_SubdivideSurface(msurface_t *fa, struct HunkAllocator *hunk);
 bool R_CullBox(vec3_t mins, vec3_t maxs);
 void R_RotateForEntity(entity_t *e);
-void R_MarkLeaves(void);
+void R_MarkLeaves(int cmodel_index);
 
 glpoly_t *WaterWarpPolyVerts(glpoly_t *p);
 void EmitWaterPolys(msurface_t *fa);
 void R_AddSkySurface(msurface_t *fa);
 void R_ClearSkyBox(void);
 void R_DrawSkyBox(void);
-void R_MarkLights(dlight_t *light, int bit, mnode_t *node);
+void R_MarkLights(int codel_index, dlight_t *light, int bit, mnode_t *node);
 
 #if 0
 short LittleShort (short l);

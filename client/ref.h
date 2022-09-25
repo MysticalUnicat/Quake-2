@@ -94,6 +94,7 @@ typedef struct {
 } lightstyle_t;
 
 typedef struct {
+  int cmodel_index;
   int x, y, width, height; // in virtual screen coordinates
   float fov_x, fov_y;
   float vieworg[3];
@@ -145,7 +146,7 @@ typedef struct {
   // an implicit "pics/" prepended to the name. (a pic name that starts with a
   // slash will not use the "pics/" prefix or the ".pcx" postfix)
   void (*BeginRegistration)(char *map);
-  struct model_s *(*RegisterModel)(char *name);
+  struct model_s *(*RegisterModel)(int cmodel_index, char *name);
   struct image_s *(*RegisterSkin)(char *name);
   struct image_s *(*RegisterPic)(char *name);
   void (*SetSky)(char *name, float rotate, vec3_t axis);

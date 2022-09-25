@@ -781,7 +781,7 @@ SelectSpawnPoint
 Chooses a player start, deathmatch start, coop start, etc
 ============
 */
-void SelectSpawnPoint(edict_t *ent, vec3_t origin, vec3_t angles) {
+void SelectSpawnPoint(edict_t *ent, int *cmodel_index, vec3_t origin, vec3_t angles) {
   edict_t *spot = NULL;
 
   if(deathmatch->value)
@@ -810,6 +810,8 @@ void SelectSpawnPoint(edict_t *ent, vec3_t origin, vec3_t angles) {
         gi.error("Couldn't find spawn point %s\n", game.spawnpoint);
     }
   }
+
+  *cmodel_index = spot->s.cmodel_index;
 
   VectorCopy(spot->s.origin, origin);
   origin[2] += 9;
@@ -994,11 +996,15 @@ void PutClientInServer(edict_t *ent) {
   int i;
   client_persistant_t saved;
   client_respawn_t resp;
+  int cmodel_index;
 
   // find a spawn point
   // do it before setting health back up, so farthest
   // ranging doesn't count this client
-  SelectSpawnPoint(ent, spawn_origin, spawn_angles);
+  SelectSpawnPoint(ent, &cmodel_index, spawn_origin, spawn_angles);
+
+  ent->s.cmodel_index = cmodel_index;
+  ent->client->ps.cmodel_index = cmodel_index;
 
   index = ent - g_edicts - 1;
   client = ent->client;

@@ -26,7 +26,7 @@ viddef_t vid;
 
 refimport_t ri;
 
-model_t *r_worldmodel;
+model_t *r_worldmodel[CMODEL_COUNT];
 
 float gldepthmin, gldepthmax;
 
@@ -277,7 +277,7 @@ void R_DrawNullModel(void) {
   if(currententity->flags & RF_FULLBRIGHT)
     shadelight[0] = shadelight[1] = shadelight[2] = 1.0F;
   else
-    R_LightPoint(currententity->origin, shadelight);
+    R_LightPoint(r_newrefdef.cmodel_index, currententity->origin, shadelight);
 
   qglPushMatrix();
   R_RotateForEntity(currententity);
@@ -584,7 +584,7 @@ void R_SetupFrame(void) {
   if(!(r_newrefdef.rdflags & RDF_NOWORLDMODEL)) {
     r_oldviewcluster = r_viewcluster;
     r_oldviewcluster2 = r_viewcluster2;
-    leaf = Mod_PointInLeaf(r_origin, r_worldmodel);
+    leaf = Mod_PointInLeaf(r_origin, r_worldmodel[r_newrefdef.cmodel_index]);
     r_viewcluster = r_viewcluster2 = leaf->cluster;
 
     // check above and below so crossing solid water doesn't draw wrong
@@ -593,7 +593,7 @@ void R_SetupFrame(void) {
 
       VectorCopy(r_origin, temp);
       temp[2] -= 16;
-      leaf = Mod_PointInLeaf(temp, r_worldmodel);
+      leaf = Mod_PointInLeaf(temp, r_worldmodel[r_newrefdef.cmodel_index]);
       if(!(leaf->contents & CONTENTS_SOLID) && (leaf->cluster != r_viewcluster2))
         r_viewcluster2 = leaf->cluster;
     } else { // look up a bit
@@ -601,7 +601,7 @@ void R_SetupFrame(void) {
 
       VectorCopy(r_origin, temp);
       temp[2] += 16;
-      leaf = Mod_PointInLeaf(temp, r_worldmodel);
+      leaf = Mod_PointInLeaf(temp, r_worldmodel[r_newrefdef.cmodel_index]);
       if(!(leaf->contents & CONTENTS_SOLID) && (leaf->cluster != r_viewcluster2))
         r_viewcluster2 = leaf->cluster;
     }
@@ -759,7 +759,7 @@ void R_RenderView(refdef_t *fd) {
     c_alias_polys = 0;
   }
 
-  R_PushDlights();
+  R_PushDlights(r_newrefdef.cmodel_index);
 
   if(gl_finish->value)
     qglFinish();
@@ -770,9 +770,9 @@ void R_RenderView(refdef_t *fd) {
 
   R_SetupGL();
 
-  R_MarkLeaves(); // done here so we know if we're in water
+  R_MarkLeaves(r_newrefdef.cmodel_index); // done here so we know if we're in water
 
-  R_DrawWorld();
+  R_DrawWorld(r_newrefdef.cmodel_index);
 
   R_DrawEntitiesOnList();
 
@@ -857,7 +857,7 @@ void R_SetLightLevel(void) {
 
   // save off light value for server to look at (BIG HACK!)
 
-  R_LightPoint(r_newrefdef.vieworg, shadelight);
+  R_LightPoint(r_newrefdef.cmodel_index, r_newrefdef.vieworg, shadelight);
 
   // pick the greatest component, which should be the same
   // as the mono value returned by software
@@ -1441,7 +1441,7 @@ void R_DrawBeam(entity_t *e) {
 //===================================================================
 
 void R_BeginRegistration(char *map);
-struct model_s *R_RegisterModel(char *name);
+struct model_s *R_RegisterModel(int cmodel_index, char *name);
 struct image_s *R_RegisterSkin(char *name);
 void R_SetSky(char *name, float rotate, vec3_t axis);
 void R_EndRegistration(void);

@@ -529,7 +529,7 @@ void R_DrawAliasModel(entity_t *e) {
     for(i = 0; i < 3; i++)
       shadelight[i] = 1.0;
   } else {
-    R_LightPoint(currententity->origin, shadelight);
+    R_LightPoint(r_newrefdef.cmodel_index, currententity->origin, shadelight);
 
     // player lighting hack for communication back to server
     // big hack!
