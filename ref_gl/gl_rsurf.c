@@ -35,8 +35,6 @@ msurface_t *r_alpha_surfaces;
 #define BLOCK_WIDTH 128
 #define BLOCK_HEIGHT 128
 
-#define MAX_LIGHTMAPS 128
-
 int c_visible_lightmaps;
 int c_visible_textures;
 
@@ -46,7 +44,7 @@ typedef struct {
   int internal_format;
   int current_lightmap_texture;
 
-  msurface_t *lightmap_surfaces[MAX_LIGHTMAPS];
+  msurface_t *lightmap_surfaces[MAX_LIGHTMAPS * CMODEL_COUNT];
 
   int allocated[BLOCK_WIDTH];
 
@@ -231,7 +229,7 @@ void R_DrawTriangleOutlines(void) {
   qglDisable(GL_DEPTH_TEST);
   qglColor4f(1, 1, 1, 1);
 
-  for(i = 0; i < MAX_LIGHTMAPS; i++) {
+  for(i = 0; i < MAX_LIGHTMAPS * CMODEL_COUNT; i++) {
     msurface_t *surf;
 
     for(surf = gl_lms.lightmap_surfaces[i]; surf != 0; surf = surf->lightmapchain) {
@@ -340,7 +338,7 @@ void R_BlendLightmaps(int cmodel_index) {
   /*
   ** render static lightmaps first
   */
-  for(i = 1; i < MAX_LIGHTMAPS; i++) {
+  for(i = 1; i < MAX_LIGHTMAPS * CMODEL_COUNT; i++) {
     if(gl_lms.lightmap_surfaces[i]) {
       if(currentmodel == r_worldmodel[cmodel_index])
         c_visible_lightmaps++;
@@ -1220,7 +1218,7 @@ static void LM_UploadBlock(bool dynamic) {
   } else {
     qglTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
                   GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer);
-    if(++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS)
+    if(++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS * CMODEL_COUNT)
       ri.Sys_Error(ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded\n");
   }
 }
@@ -1396,7 +1394,7 @@ void GL_BeginBuildingLightmaps(model_t *m) {
     //		gl_state.texture_extension_number = gl_state.lightmap_textures + MAX_LIGHTMAPS;
   }
 
-  gl_lms.current_lightmap_texture = 1;
+  gl_lms.current_lightmap_texture = 1 + m->cmodel_index * MAX_LIGHTMAPS;
 
   /*
   ** if mono lightmaps are enabled and we want to use alpha

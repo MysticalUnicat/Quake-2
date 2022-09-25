@@ -90,9 +90,11 @@ typedef struct image_s {
   bool paletted;
 } image_t;
 
+#define MAX_LIGHTMAPS 128
+
 #define TEXNUM_LIGHTMAPS 1024
-#define TEXNUM_SCRAPS 1152
-#define TEXNUM_IMAGES 1153
+#define TEXNUM_SCRAPS (TEXNUM_LIGHTMAPS + MAX_LIGHTMAPS * CMODEL_COUNT)
+#define TEXNUM_IMAGES (TEXNUM_SCRAPS + 1)
 
 #define MAX_GLTEXTURES 1024
 

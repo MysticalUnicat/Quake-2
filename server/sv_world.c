@@ -445,7 +445,7 @@ int SV_HullForEntity(edict_t *ent) {
 
   // create a temp hull from bounding box sizes
 
-  return CM_HeadnodeForBox(ent->mins, ent->maxs);
+  return CM_HeadnodeForBox(ent->s.cmodel_index, ent->mins, ent->maxs);
 }
 
 //===========================================================================

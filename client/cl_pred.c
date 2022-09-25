@@ -100,7 +100,7 @@ void CL_ClipMoveToEntities(int cmodel_index, vec3_t start, vec3_t mins, vec3_t m
       bmins[2] = -zd;
       bmaxs[2] = zu;
 
-      headnode = CM_HeadnodeForBox(bmins, bmaxs);
+      headnode = CM_HeadnodeForBox(cmodel_index, bmins, bmaxs);
       angles = vec3_origin; // boxes don't rotate
     }
 

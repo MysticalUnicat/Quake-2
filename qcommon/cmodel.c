@@ -104,11 +104,16 @@ struct cmodel {
   int floodvalid;
 
   bool portalopen[MAX_MAP_AREAPORTALS];
+
+  cplane_t *box_planes;
+  int box_headnode;
+  cbrush_t *box_brush;
+  cleaf_t *box_leaf;
 };
 
 cvar_t *map_noareas;
 
-void CM_InitBoxHull(struct cmodel *cm);
+void CM_InitBoxHull(int index);
 void FloodAreaConnections(struct cmodel *cm);
 
 int c_pointcontents;
@@ -590,7 +595,7 @@ cmodel_t *CM_LoadMap(int index, char *name, bool clientload, unsigned *checksum)
 
   FS_FreeFile(buf);
 
-  CM_InitBoxHull(cm);
+  CM_InitBoxHull(index);
 
   memset(cm->portalopen, 0, sizeof(cm->portalopen));
   FloodAreaConnections(cm);
@@ -678,11 +683,6 @@ int CM_LeafArea(int index, int leafnum) {
 
 //=======================================================================
 
-cplane_t *box_planes;
-int box_headnode;
-cbrush_t *box_brush;
-cleaf_t *box_leaf;
-
 /*
 ===================
 CM_InitBoxHull
@@ -691,29 +691,34 @@ Set up the planes and nodes so that the six floats of a bounding box
 can just be stored out and get a proper clipping hull structure.
 ===================
 */
-void CM_InitBoxHull(struct cmodel *cm) {
+void CM_InitBoxHull(int index) {
   int i;
   int side;
   cnode_t *c;
   cplane_t *p;
   cbrushside_t *s;
 
-  box_headnode = cm->numnodes;
-  box_planes = &cm->map_planes[cm->numplanes];
+  if(index < 0 || index >= 3) {
+    Com_Error(ERR_DROP, "CMod_LoadBrushModel: %i is an invalid index (must be 0, 1, or 2)", index);
+  }
+  struct cmodel *cm = &global_cmodels[index];
+
+  cm->box_headnode = cm->numnodes;
+  cm->box_planes = &cm->map_planes[cm->numplanes];
   if(cm->numnodes + 6 > MAX_MAP_NODES || cm->numbrushes + 1 > MAX_MAP_BRUSHES ||
      cm->numleafbrushes + 1 > MAX_MAP_LEAFBRUSHES || cm->numbrushsides + 6 > MAX_MAP_BRUSHSIDES ||
      cm->numplanes + 12 > MAX_MAP_PLANES)
     Com_Error(ERR_DROP, "Not enough room for box tree");
 
-  box_brush = &cm->map_brushes[cm->numbrushes];
-  box_brush->numsides = 6;
-  box_brush->firstbrushside = cm->numbrushsides;
-  box_brush->contents = CONTENTS_MONSTER;
+  cm->box_brush = &cm->map_brushes[cm->numbrushes];
+  cm->box_brush->numsides = 6;
+  cm->box_brush->firstbrushside = cm->numbrushsides;
+  cm->box_brush->contents = CONTENTS_MONSTER;
 
-  box_leaf = &cm->map_leafs[cm->numleafs];
-  box_leaf->contents = CONTENTS_MONSTER;
-  box_leaf->firstleafbrush = cm->numleafbrushes;
-  box_leaf->numleafbrushes = 1;
+  cm->box_leaf = &cm->map_leafs[cm->numleafs];
+  cm->box_leaf->contents = CONTENTS_MONSTER;
+  cm->box_leaf->firstleafbrush = cm->numleafbrushes;
+  cm->box_leaf->numleafbrushes = 1;
 
   cm->map_leafbrushes[cm->numleafbrushes] = cm->numbrushes;
 
@@ -726,22 +731,22 @@ void CM_InitBoxHull(struct cmodel *cm) {
     s->surface = &cm->nullsurface;
 
     // nodes
-    c = &cm->map_nodes[box_headnode + i];
+    c = &cm->map_nodes[cm->box_headnode + i];
     c->plane = cm->map_planes + (cm->numplanes + i * 2);
     c->children[side] = -1 - cm->emptyleaf;
     if(i != 5)
-      c->children[side ^ 1] = box_headnode + i + 1;
+      c->children[side ^ 1] = cm->box_headnode + i + 1;
     else
       c->children[side ^ 1] = -1 - cm->numleafs;
 
     // planes
-    p = &box_planes[i * 2];
+    p = &cm->box_planes[i * 2];
     p->type = i >> 1;
     p->signbits = 0;
     VectorClear(p->normal);
     p->normal[i >> 1] = 1;
 
-    p = &box_planes[i * 2 + 1];
+    p = &cm->box_planes[i * 2 + 1];
     p->type = 3 + (i >> 1);
     p->signbits = 0;
     VectorClear(p->normal);
@@ -757,21 +762,26 @@ To keep everything totally uniform, bounding boxes are turned into small
 BSP trees instead of being compared directly.
 ===================
 */
-int CM_HeadnodeForBox(vec3_t mins, vec3_t maxs) {
-  box_planes[0].dist = maxs[0];
-  box_planes[1].dist = -maxs[0];
-  box_planes[2].dist = mins[0];
-  box_planes[3].dist = -mins[0];
-  box_planes[4].dist = maxs[1];
-  box_planes[5].dist = -maxs[1];
-  box_planes[6].dist = mins[1];
-  box_planes[7].dist = -mins[1];
-  box_planes[8].dist = maxs[2];
-  box_planes[9].dist = -maxs[2];
-  box_planes[10].dist = mins[2];
-  box_planes[11].dist = -mins[2];
+int CM_HeadnodeForBox(int index, vec3_t mins, vec3_t maxs) {
+  if(index < 0 || index >= 3) {
+    Com_Error(ERR_DROP, "CMod_LoadBrushModel: %i is an invalid index (must be 0, 1, or 2)", index);
+  }
+  struct cmodel *cm = &global_cmodels[index];
 
-  return box_headnode;
+  cm->box_planes[0].dist = maxs[0];
+  cm->box_planes[1].dist = -maxs[0];
+  cm->box_planes[2].dist = mins[0];
+  cm->box_planes[3].dist = -mins[0];
+  cm->box_planes[4].dist = maxs[1];
+  cm->box_planes[5].dist = -maxs[1];
+  cm->box_planes[6].dist = mins[1];
+  cm->box_planes[7].dist = -mins[1];
+  cm->box_planes[8].dist = maxs[2];
+  cm->box_planes[9].dist = -maxs[2];
+  cm->box_planes[10].dist = mins[2];
+  cm->box_planes[11].dist = -mins[2];
+
+  return cm->box_headnode;
 }
 
 /*
@@ -935,7 +945,7 @@ int CM_TransformedPointContents(int index, vec3_t p, int headnode, vec3_t origin
   VectorSubtract(p, origin, p_l);
 
   // rotate start and end into the models frame of reference
-  if(headnode != box_headnode && (angles[0] || angles[1] || angles[2])) {
+  if(headnode != cm->box_headnode && (angles[0] || angles[1] || angles[2])) {
     AngleVectors(angles, forward, right, up);
 
     VectorCopy(p_l, temp);
@@ -1400,7 +1410,7 @@ trace_t CM_TransformedBoxTrace(int index, vec3_t start, vec3_t end, vec3_t mins,
   VectorSubtract(end, origin, end_l);
 
   // rotate start and end into the models frame of reference
-  if(headnode != box_headnode && (angles[0] || angles[1] || angles[2]))
+  if(headnode != cm->box_headnode && (angles[0] || angles[1] || angles[2]))
     rotated = true;
   else
     rotated = false;
