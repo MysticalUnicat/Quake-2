@@ -514,7 +514,7 @@ void monster_start_go(edict_t *self) {
     target = NULL;
     notcombat = false;
     fixup = false;
-    while((target = G_Find(target, FOFS(targetname), self->target)) != NULL) {
+    while((target = G_Find(self->s.cmodel_index, target, FOFS(targetname), self->target)) != NULL) {
       if(strcmp(target->classname, "point_combat") == 0) {
         self->combattarget = self->target;
         fixup = true;
@@ -533,7 +533,7 @@ void monster_start_go(edict_t *self) {
     edict_t *target;
 
     target = NULL;
-    while((target = G_Find(target, FOFS(targetname), self->combattarget)) != NULL) {
+    while((target = G_Find(self->s.cmodel_index, target, FOFS(targetname), self->combattarget)) != NULL) {
       if(strcmp(target->classname, "point_combat") != 0) {
         gi.dprintf("%s at (%i %i %i) has a bad combattarget %s : %s at (%i %i %i)\n", self->classname,
                    (int)self->s.origin[0], (int)self->s.origin[1], (int)self->s.origin[2], self->combattarget,
@@ -543,7 +543,7 @@ void monster_start_go(edict_t *self) {
   }
 
   if(self->target) {
-    self->goalentity = self->movetarget = G_PickTarget(self->target);
+    self->goalentity = self->movetarget = G_PickTarget(self->s.cmodel_index, self->target);
     if(!self->movetarget) {
       gi.dprintf("%s can't find target %s at %s\n", self->classname, self->target, vtos(self->s.origin));
       self->target = NULL;

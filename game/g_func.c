@@ -784,7 +784,7 @@ void door_use_areaportals(edict_t *self, bool open) {
   if(!self->target)
     return;
 
-  while((t = G_Find(t, FOFS(targetname), self->target))) {
+  while((t = G_Find(self->s.cmodel_index, t, FOFS(targetname), self->target))) {
     if(Q_stricmp(t->classname, "func_areaportal") == 0) {
       gi.SetAreaPortalState(self->s.cmodel_index, t->style, open);
     }
@@ -1406,7 +1406,7 @@ again:
     return;
   }
 
-  ent = G_PickTarget(self->target);
+  ent = G_PickTarget(self->s.cmodel_index, self->target);
   if(!ent) {
     gi.dprintf("train_next: bad target %s\n", self->target);
     return;
@@ -1466,7 +1466,7 @@ void func_train_find(edict_t *self) {
     gi.dprintf("train_find: no target\n");
     return;
   }
-  ent = G_PickTarget(self->target);
+  ent = G_PickTarget(self->s.cmodel_index, self->target);
   if(!ent) {
     gi.dprintf("train_find: target %s not found\n", self->target);
     return;
@@ -1556,7 +1556,7 @@ void trigger_elevator_use(edict_t *self, edict_t *other, edict_t *activator) {
     return;
   }
 
-  target = G_PickTarget(other->pathtarget);
+  target = G_PickTarget(self->s.cmodel_index, other->pathtarget);
   if(!target) {
     gi.dprintf("elevator used with bad pathtarget: %s\n", other->pathtarget);
     return;
@@ -1571,7 +1571,7 @@ void trigger_elevator_init(edict_t *self) {
     gi.dprintf("trigger_elevator has no target\n");
     return;
   }
-  self->movetarget = G_PickTarget(self->target);
+  self->movetarget = G_PickTarget(self->s.cmodel_index, self->target);
   if(!self->movetarget) {
     gi.dprintf("trigger_elevator unable to find target %s\n", self->target);
     return;

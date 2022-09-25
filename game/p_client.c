@@ -43,7 +43,7 @@ static void SP_FixCoopSpots(edict_t *self) {
   spot = NULL;
 
   while(1) {
-    spot = G_Find(spot, FOFS(classname), "info_player_start");
+    spot = G_Find(self->s.cmodel_index, spot, FOFS(classname), "info_player_start");
     if(!spot)
       return;
     if(!spot->targetname)
@@ -669,7 +669,7 @@ edict_t *SelectRandomDeathmatchSpawnPoint(void) {
   range1 = range2 = 99999;
   spot1 = spot2 = NULL;
 
-  while((spot = G_Find(spot, FOFS(classname), "info_player_deathmatch")) != NULL) {
+  while((spot = G_Find(CMODEL_COUNT, spot, FOFS(classname), "info_player_deathmatch")) != NULL) {
     count++;
     range = PlayersRangeFromSpot(spot);
     if(range < range1) {
@@ -693,7 +693,7 @@ edict_t *SelectRandomDeathmatchSpawnPoint(void) {
 
   spot = NULL;
   do {
-    spot = G_Find(spot, FOFS(classname), "info_player_deathmatch");
+    spot = G_Find(CMODEL_COUNT, spot, FOFS(classname), "info_player_deathmatch");
     if(spot == spot1 || spot == spot2)
       selection++;
   } while(selection--);
@@ -715,7 +715,7 @@ edict_t *SelectFarthestDeathmatchSpawnPoint(void) {
   spot = NULL;
   bestspot = NULL;
   bestdistance = 0;
-  while((spot = G_Find(spot, FOFS(classname), "info_player_deathmatch")) != NULL) {
+  while((spot = G_Find(CMODEL_COUNT, spot, FOFS(classname), "info_player_deathmatch")) != NULL) {
     bestplayerdistance = PlayersRangeFromSpot(spot);
 
     if(bestplayerdistance > bestdistance) {
@@ -730,7 +730,7 @@ edict_t *SelectFarthestDeathmatchSpawnPoint(void) {
 
   // if there is a player just spawned on each and every start spot
   // we have no choice to turn one into a telefrag meltdown
-  spot = G_Find(NULL, FOFS(classname), "info_player_deathmatch");
+  spot = G_Find(CMODEL_COUNT, NULL, FOFS(classname), "info_player_deathmatch");
 
   return spot;
 }
@@ -757,7 +757,7 @@ edict_t *SelectCoopSpawnPoint(edict_t *ent) {
 
   // assume there are four coop spots at each spawnpoint
   while(1) {
-    spot = G_Find(spot, FOFS(classname), "info_player_coop");
+    spot = G_Find(CMODEL_COUNT, spot, FOFS(classname), "info_player_coop");
     if(!spot)
       return NULL; // we didn't have enough...
 
@@ -791,7 +791,7 @@ void SelectSpawnPoint(edict_t *ent, int *cmodel_index, vec3_t origin, vec3_t ang
 
   // find a single player start spot
   if(!spot) {
-    while((spot = G_Find(spot, FOFS(classname), "info_player_start")) != NULL) {
+    while((spot = G_Find(CMODEL_COUNT, spot, FOFS(classname), "info_player_start")) != NULL) {
       if(!game.spawnpoint[0] && !spot->targetname)
         break;
 
@@ -804,7 +804,7 @@ void SelectSpawnPoint(edict_t *ent, int *cmodel_index, vec3_t origin, vec3_t ang
 
     if(!spot) {
       if(!game.spawnpoint[0]) { // there wasn't a spawnpoint without a target, so use any
-        spot = G_Find(spot, FOFS(classname), "info_player_start");
+        spot = G_Find(CMODEL_COUNT, spot, FOFS(classname), "info_player_start");
       }
       if(!spot)
         gi.error("Couldn't find spawn point %s\n", game.spawnpoint);

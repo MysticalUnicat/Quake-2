@@ -319,7 +319,7 @@ void path_corner_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface_
   }
 
   if(self->target)
-    next = G_PickTarget(self->target);
+    next = G_PickTarget(self->s.cmodel_index, self->target);
   else
     next = NULL;
 
@@ -328,7 +328,7 @@ void path_corner_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface_
     v[2] += next->mins[2];
     v[2] -= other->mins[2];
     VectorCopy(v, other->s.origin);
-    next = G_PickTarget(next->target);
+    next = G_PickTarget(self->s.cmodel_index, next->target);
     other->s.event = EV_OTHER_TELEPORT;
   }
 
@@ -377,7 +377,7 @@ void point_combat_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface
 
   if(self->target) {
     other->target = self->target;
-    other->goalentity = other->movetarget = G_PickTarget(other->target);
+    other->goalentity = other->movetarget = G_PickTarget(self->s.cmodel_index, other->target);
     if(!other->goalentity) {
       gi.dprintf("%s at %s target %s does not exist\n", self->classname, vtos(self->s.origin), self->target);
       other->movetarget = self;
@@ -1217,7 +1217,7 @@ void misc_viper_bomb_use(edict_t *self, edict_t *other, edict_t *activator) {
   self->touch = misc_viper_bomb_touch;
   self->activator = activator;
 
-  viper = G_Find(NULL, FOFS(classname), "misc_viper");
+  viper = G_Find(self->s.cmodel_index, NULL, FOFS(classname), "misc_viper");
   VectorScale(viper->moveinfo.dir, viper->moveinfo.speed, self->velocity);
 
   self->timestamp = level.time;
@@ -1494,7 +1494,7 @@ static void func_clock_format_countdown(edict_t *self) {
 
 void func_clock_think(edict_t *self) {
   if(!self->enemy) {
-    self->enemy = G_Find(NULL, FOFS(targetname), self->target);
+    self->enemy = G_Find(self->s.cmodel_index, NULL, FOFS(targetname), self->target);
     if(!self->enemy)
       return;
   }
@@ -1594,7 +1594,7 @@ void teleporter_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface_t
 
   if(!other->client)
     return;
-  dest = G_Find(NULL, FOFS(targetname), self->target);
+  dest = G_Find(self->s.cmodel_index, NULL, FOFS(targetname), self->target);
   if(!dest) {
     gi.dprintf("Couldn't find destination\n");
     return;

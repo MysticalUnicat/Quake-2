@@ -1187,6 +1187,8 @@ void Qcommon_Init(int argc, char **argv) {
 
   uv_loop_init(&global_uv_loop);
 
+  srand(uv_hrtime());
+
   static uv_timer_t frame_uv_timer;
   uv_timer_init(&global_uv_loop, &frame_uv_timer);
   uv_timer_start(&frame_uv_timer, frame_uv_timer_cb, 0, 10); // just above 90fps
@@ -1264,6 +1266,8 @@ void Qcommon_Init(int argc, char **argv) {
     // so drop the loading plaque
     SCR_EndLoadingPlaque();
   }
+
+  srand(rand() * uv_hrtime());
 
   Com_Printf("====== Quake2 Initialized ======\n\n");
 }

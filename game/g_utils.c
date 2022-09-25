@@ -39,7 +39,7 @@ NULL will be returned if the end of the list is reached.
 
 =============
 */
-edict_t *G_Find(edict_t *from, int fieldofs, char *match) {
+edict_t *G_Find(int cmodel_index, edict_t *from, int fieldofs, char *match) {
   char *s;
 
   if(!from)
@@ -49,6 +49,8 @@ edict_t *G_Find(edict_t *from, int fieldofs, char *match) {
 
   for(; from < &g_edicts[globals.num_edicts]; from++) {
     if(!from->inuse)
+      continue;
+    if(cmodel_index < CMODEL_COUNT && from->s.cmodel_index != cmodel_index)
       continue;
     s = *(char **)((byte *)from + fieldofs);
     if(!s)
@@ -106,7 +108,7 @@ NULL will be returned if the end of the list is reached.
 */
 #define MAXCHOICES 8
 
-edict_t *G_PickTarget(char *targetname) {
+edict_t *G_PickTarget(int cmodel_index, char *targetname) {
   edict_t *ent = NULL;
   int num_choices = 0;
   edict_t *choice[MAXCHOICES];
@@ -117,7 +119,7 @@ edict_t *G_PickTarget(char *targetname) {
   }
 
   while(1) {
-    ent = G_Find(ent, FOFS(targetname), targetname);
+    ent = G_Find(cmodel_index, ent, FOFS(targetname), targetname);
     if(!ent)
       break;
     choice[num_choices++] = ent;
@@ -191,7 +193,7 @@ void G_UseTargets(edict_t *ent, edict_t *activator) {
   //
   if(ent->killtarget) {
     t = NULL;
-    while((t = G_Find(t, FOFS(targetname), ent->killtarget))) {
+    while((t = G_Find(ent->s.cmodel_index, t, FOFS(targetname), ent->killtarget))) {
       G_FreeEdict(t);
       if(!ent->inuse) {
         gi.dprintf("entity was removed while using killtargets\n");
@@ -205,7 +207,7 @@ void G_UseTargets(edict_t *ent, edict_t *activator) {
   //
   if(ent->target) {
     t = NULL;
-    while((t = G_Find(t, FOFS(targetname), ent->target))) {
+    while((t = G_Find(ent->s.cmodel_index, t, FOFS(targetname), ent->target))) {
       // doors fire area portals in a specific way
       if(!Q_stricmp(t->classname, "func_areaportal") &&
          (!Q_stricmp(ent->classname, "func_door") || !Q_stricmp(ent->classname, "func_door_rotating")))

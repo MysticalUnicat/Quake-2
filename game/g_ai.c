@@ -327,7 +327,7 @@ void FoundTarget(edict_t *self) {
     return;
   }
 
-  self->goalentity = self->movetarget = G_PickTarget(self->combattarget);
+  self->goalentity = self->movetarget = G_PickTarget(self->s.cmodel_index, self->combattarget);
   if(!self->movetarget) {
     self->goalentity = self->movetarget = self->enemy;
     HuntTarget(self);

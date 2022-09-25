@@ -262,7 +262,7 @@ void EndDMLevel(void) {
   if(level.nextmap[0]) // go to a specific map
     BeginIntermission(CreateTargetChangeLevel(level.nextmap));
   else { // search for a changelevel
-    ent = G_Find(NULL, FOFS(classname), "target_changelevel");
+    ent = G_Find(CMODEL_COUNT, NULL, FOFS(classname), "target_changelevel");
     if(!ent) { // the map designer didn't include a changelevel,
       // so create a fake ent that goes back to the same level
       BeginIntermission(CreateTargetChangeLevel(level.mapname));
