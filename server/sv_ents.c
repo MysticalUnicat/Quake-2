@@ -542,6 +542,9 @@ void SV_BuildClientFrame(client_t *client) {
     if(ent->svflags & SVF_NOCLIENT)
       continue;
 
+    if(ent->s.cmodel_index != clent->s.cmodel_index)
+      continue;
+
     // ignore ents without visible models unless they have an effect
     if(!ent->s.modelindex && !ent->s.effects && !ent->s.sound && !ent->s.event)
       continue;

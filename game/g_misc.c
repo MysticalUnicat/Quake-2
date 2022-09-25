@@ -1675,3 +1675,73 @@ void SP_misc_teleporter_dest(edict_t *ent) {
   VectorSet(ent->maxs, 32, 32, -16);
   gi.linkentity(ent);
 }
+
+/*QUAKED misc_redploy (1 0 0) (-32 -32 -24) (32 32 -16)
+Stepping onto this disc will teleport players to the targeted misc_teleporter_dest object.
+*/
+void SelectSpawnPoint(edict_t *ent, int *cmodel_index, vec3_t origin, vec3_t angles);
+void redeploy_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface_t *surf) {
+  if(!other->client)
+    return;
+
+  int cmodel_index;
+  vec3_t dest_origin;
+  vec3_t dest_angles;
+
+  SelectSpawnPoint(other, &cmodel_index, dest_origin, dest_angles);
+
+  // unlink to make sure it can't possibly interfere with KillBox
+  gi.unlinkentity(other);
+
+  VectorCopy(dest_origin, other->s.origin);
+  VectorCopy(dest_origin, other->s.old_origin);
+  other->s.origin[2] += 10;
+  other->s.cmodel_index = cmodel_index;
+  other->client->ps.cmodel_index = cmodel_index;
+
+  // clear the velocity and hold them in place briefly
+  VectorClear(other->velocity);
+  other->client->ps.pmove.pm_time = 160 >> 3; // hold time
+  other->client->ps.pmove.pm_flags |= PMF_TIME_TELEPORT;
+
+  // draw the teleport splash at source and on the player
+  self->owner->s.event = EV_PLAYER_TELEPORT;
+  other->s.event = EV_PLAYER_TELEPORT;
+
+  // set angles
+  for(int i = 0; i < 3; i++)
+    other->client->ps.pmove.delta_angles[i] = ANGLE2SHORT(dest_angles[i] - other->client->resp.cmd_angles[i]);
+
+  VectorClear(other->s.angles);
+  VectorClear(other->client->ps.viewangles);
+  VectorClear(other->client->v_angle);
+
+  // kill anything at the destination
+  KillBox(other);
+
+  gi.linkentity(other);
+}
+
+void SP_misc_redeploy(edict_t *ent) {
+  edict_t *trig;
+
+  gi.setmodel(ent, "models/objects/dmspot/tris.md2");
+  ent->s.skinnum = 1;
+  ent->s.effects = EF_TELEPORTER;
+  ent->s.sound = gi.soundindex("world/amb10.wav");
+  ent->solid = SOLID_BBOX;
+
+  VectorSet(ent->mins, -32, -32, -24);
+  VectorSet(ent->maxs, 32, 32, -16);
+  gi.linkentity(ent);
+
+  trig = G_Spawn(ent->s.cmodel_index);
+  trig->touch = redeploy_touch;
+  trig->solid = SOLID_TRIGGER;
+  trig->target = ent->target;
+  trig->owner = ent;
+  VectorCopy(ent->s.origin, trig->s.origin);
+  VectorSet(trig->mins, -8, -8, 8);
+  VectorSet(trig->maxs, 8, 8, 24);
+  gi.linkentity(trig);
+}

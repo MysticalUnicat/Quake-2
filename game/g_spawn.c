@@ -113,6 +113,7 @@ void SP_misc_blackhole(edict_t *self);
 void SP_misc_eastertank(edict_t *self);
 void SP_misc_easterchick(edict_t *self);
 void SP_misc_easterchick2(edict_t *self);
+void SP_misc_redeploy(edict_t *self);
 
 void SP_monster_berserk(edict_t *self);
 void SP_monster_gladiator(edict_t *self);
@@ -231,6 +232,7 @@ spawn_t spawns[] = {{"item_health", SP_item_health},
                     {"misc_eastertank", SP_misc_eastertank},
                     {"misc_easterchick", SP_misc_easterchick},
                     {"misc_easterchick2", SP_misc_easterchick2},
+                    {"misc_redeploy", SP_misc_redeploy},
 
                     {"monster_berserk", SP_monster_berserk},
                     {"monster_gladiator", SP_monster_gladiator},
@@ -544,6 +546,11 @@ void SpawnEntities(int cmodel_index, const char *mapname, const char *entities, 
     // remove things (except the world) from different skill levels or deathmatch
     if(ent != g_edicts) {
       if(deathmatch->value) {
+        if(strcmp(ent->classname, "info_player_start") == 0) {
+          ent->spawnflags &= ~SPAWNFLAG_NOT_DEATHMATCH;
+          ent->classname = "misc_redeploy";
+        }
+
         if(ent->spawnflags & SPAWNFLAG_NOT_DEATHMATCH) {
           G_FreeEdict(ent);
           inhibit++;
@@ -940,9 +947,18 @@ void initialize_worlds(void) {
   gi.configstring(CS_LIGHTS + 63, "a");
 
   // TEST CODE
+  const char *maps[] = {"maps/q2dm2.bsp", "maps/q2dm3.bsp", "maps/q2dm4.bsp", "maps/q2dm5.bsp",
+                        "maps/q2dm6.bsp", "maps/q2dm7.bsp", "maps/q2dm8.bsp"};
+
+  int b, c;
+  do {
+    b = rand() % (sizeof(maps) / sizeof(maps[0]));
+    c = rand() % (sizeof(maps) / sizeof(maps[0]));
+  } while(b == c);
+
   edict_t *other = G_Spawn(CMODEL_B);
-  gi.setmodel(other, "maps/q2dm2.bsp");
+  gi.setmodel(other, maps[b]);
 
   edict_t *other2 = G_Spawn(CMODEL_C);
-  gi.setmodel(other2, "maps/q2dm8.bsp");
+  gi.setmodel(other2, maps[c]);
 }
