@@ -1019,15 +1019,20 @@ void CL_RequestNextDownload(void) {
     precache_check = ENV_CNT;
 
   // ZOID
-  if(precache_check == CS_MODELS) { // confirm map
-    precache_check = CS_MODELS + 2; // 0 isn't used
+  if(precache_check == CS_MODELS) {            // confirm map
+    precache_check = CS_MODELS + CMODEL_COUNT; // 0 isn't used
     if(allow_download_maps->value) {
-      char path[MAX_QPATH];
-      memcpy(path, cl.configstrings[CS_MODELS + 1], MAX_QPATH);
-      *strchr(path, ';') = 0;
+      for(int cmodel_index = 0; cmodel_index < CMODEL_COUNT; cmodel_index++) {
+        char path[MAX_QPATH];
+        memcpy(path, cl.configstrings[CS_MODELS + cmodel_index + 1], MAX_QPATH);
+        if(path[0] == 0)
+          continue;
 
-      if(!CL_CheckOrDownloadFile(path))
-        return; // started a download
+        *strchr(path, ';') = 0;
+
+        if(!CL_CheckOrDownloadFile(path))
+          return; // started a download
+      }
     }
   }
   if(precache_check >= CS_MODELS && precache_check < CS_MODELS + MAX_MODELS) {
@@ -1202,16 +1207,21 @@ void CL_RequestNextDownload(void) {
   if(precache_check == ENV_CNT) {
     precache_check = ENV_CNT + 1;
 
-    char path[MAX_QPATH];
-    memcpy(path, cl.configstrings[CS_MODELS + 1], MAX_QPATH);
-    char *sc = strchr(path, ';');
-    *sc = 0;
+    for(int cmodel_index = 0; cmodel_index < CMODEL_COUNT; cmodel_index++) {
+      char path[MAX_QPATH];
+      memcpy(path, cl.configstrings[CS_MODELS + cmodel_index + 1], MAX_QPATH);
+      if(path[0] == 0)
+        continue;
 
-    CM_LoadMap(CMODEL_A, path, true, &map_checksum);
+      char *sc = strchr(path, ';');
+      *sc = 0;
 
-    if(map_checksum != atoi(sc + 1)) {
-      Com_Error(ERR_DROP, "Local map version differs from server: %i != '%s'\n", map_checksum, sc + 1);
-      return;
+      CM_LoadMap(cmodel_index, path, true, &map_checksum);
+
+      if(map_checksum != atoi(sc + 1)) {
+        Com_Error(ERR_DROP, "Local map version differs from server: %i != '%s'\n", map_checksum, sc + 1);
+        return;
+      }
     }
   }
 
@@ -1236,6 +1246,7 @@ void CL_RequestNextDownload(void) {
     precache_tex = 0;
   }
 
+  // FIXME: only first map's texture's are checked
   // confirm existance of textures, download any that don't exist
   if(precache_check == TEXTURE_CNT + 1) {
     if(allow_download->value && allow_download_maps->value) {

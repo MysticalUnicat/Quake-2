@@ -55,6 +55,7 @@ typedef struct {
 
 struct cmodel {
   int checkcount;
+  unsigned int checksum;
 
   char map_name[MAX_QPATH];
 
@@ -517,12 +518,11 @@ cmodel_t *CM_LoadMap(int index, char *name, bool clientload, unsigned *checksum)
   int i;
   dheader_t header;
   int length;
-  static unsigned last_checksum;
 
   map_noareas = Cvar_Get("map_noareas", "0", 0);
 
   if(!strcmp(cm->map_name, name) && (clientload || !Cvar_VariableValue("flushmap"))) {
-    *checksum = last_checksum;
+    *checksum = cm->checksum;
     if(!clientload) {
       memset(cm->portalopen, 0, sizeof(cm->portalopen));
       FloodAreaConnections(cm);
@@ -561,8 +561,8 @@ cmodel_t *CM_LoadMap(int index, char *name, bool clientload, unsigned *checksum)
   if(!buf)
     Com_Error(ERR_DROP, "Couldn't load %s", name);
 
-  last_checksum = LittleLong(Com_BlockChecksum(buf, length));
-  *checksum = last_checksum;
+  cm->checksum = LittleLong(Com_BlockChecksum(buf, length));
+  *checksum = cm->checksum;
 
   header = *(dheader_t *)buf;
   for(i = 0; i < sizeof(dheader_t) / 4; i++)
