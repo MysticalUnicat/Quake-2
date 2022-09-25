@@ -943,6 +943,6 @@ void initialize_worlds(void) {
   edict_t *other = G_Spawn(CMODEL_B);
   gi.setmodel(other, "maps/q2dm2.bsp");
 
-  // edict_t *other2 = G_Spawn(CMODEL_C);
-  // gi.setmodel(other2, "maps/q2dm8.bsp");
+  edict_t *other2 = G_Spawn(CMODEL_C);
+  gi.setmodel(other2, "maps/q2dm8.bsp");
 }

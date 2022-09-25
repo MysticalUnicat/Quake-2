@@ -84,6 +84,9 @@ void CL_ClipMoveToEntities(int cmodel_index, vec3_t start, vec3_t mins, vec3_t m
     if(ent->number == cl.playernum + 1)
       continue;
 
+    if(ent->cmodel_index != cmodel_index)
+      continue;
+
     if(ent->solid == 31) { // special value for bmodel
       cmodel = cl.cmodel_clip[ent->modelindex - 1][ent->modelindex2];
       if(!cmodel)
@@ -153,6 +156,9 @@ int CL_PMpointcontents(int cmodel_index, vec3_t point) {
   for(i = 0; i < cl.frame.num_entities; i++) {
     num = (cl.frame.parse_entities + i) & (MAX_PARSE_ENTITIES - 1);
     ent = &cl_parse_entities[num];
+
+    if(ent->cmodel_index != cmodel_index)
+      continue;
 
     if(ent->solid != 31) // special value for bmodel
       continue;
