@@ -179,7 +179,7 @@ static void fire_lead(edict_t *self, vec3_t start, vec3_t aimdir, int damage, in
           gi.WritePosition(tr.endpos);
           gi.WriteDir(tr.plane.normal);
           gi.WriteByte(color);
-          gi.multicast(tr.endpos, MULTICAST_PVS);
+          gi.multicast(self->s.cmodel_index, tr.endpos, MULTICAST_PVS);
         }
 
         // change bullet's course when it enters water
@@ -209,7 +209,7 @@ static void fire_lead(edict_t *self, vec3_t start, vec3_t aimdir, int damage, in
           gi.WriteByte(te_impact);
           gi.WritePosition(tr.endpos);
           gi.WriteDir(tr.plane.normal);
-          gi.multicast(tr.endpos, MULTICAST_PVS);
+          gi.multicast(self->s.cmodel_index, tr.endpos, MULTICAST_PVS);
 
           if(self->client)
             PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
@@ -237,7 +237,7 @@ static void fire_lead(edict_t *self, vec3_t start, vec3_t aimdir, int damage, in
     gi.WriteByte(TE_BUBBLETRAIL);
     gi.WritePosition(water_start);
     gi.WritePosition(tr.endpos);
-    gi.multicast(pos, MULTICAST_PVS);
+    gi.multicast(self->s.cmodel_index, pos, MULTICAST_PVS);
   }
 }
 
@@ -303,7 +303,7 @@ void blaster_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface_t *s
       gi.WriteDir(vec3_origin);
     else
       gi.WriteDir(plane->normal);
-    gi.multicast(self->s.origin, MULTICAST_PVS);
+    gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PVS);
   }
 
   G_FreeEdict(self);
@@ -407,7 +407,7 @@ static void Grenade_Explode(edict_t *ent) {
       gi.WriteByte(TE_ROCKET_EXPLOSION);
   }
   gi.WritePosition(origin);
-  gi.multicast(ent->s.origin, MULTICAST_PHS);
+  gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PHS);
 
   G_FreeEdict(ent);
 }
@@ -556,7 +556,7 @@ void rocket_touch(edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *sur
   else
     gi.WriteByte(TE_ROCKET_EXPLOSION);
   gi.WritePosition(origin);
-  gi.multicast(ent->s.origin, MULTICAST_PHS);
+  gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PHS);
 
   G_FreeEdict(ent);
 }
@@ -635,14 +635,14 @@ void fire_rail(edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick)
   gi.WriteByte(TE_RAILTRAIL);
   gi.WritePosition(start);
   gi.WritePosition(tr.endpos);
-  gi.multicast(self->s.origin, MULTICAST_PHS);
+  gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PHS);
   //	gi.multicast (start, MULTICAST_PHS);
   if(water) {
     gi.WriteByte(svc_temp_entity);
     gi.WriteByte(TE_RAILTRAIL);
     gi.WritePosition(start);
     gi.WritePosition(tr.endpos);
-    gi.multicast(tr.endpos, MULTICAST_PHS);
+    gi.multicast(self->s.cmodel_index, tr.endpos, MULTICAST_PHS);
   }
 
   if(self->client)
@@ -684,7 +684,7 @@ void bfg_explode(edict_t *self) {
       gi.WriteByte(svc_temp_entity);
       gi.WriteByte(TE_BFG_EXPLOSION);
       gi.WritePosition(ent->s.origin);
-      gi.multicast(ent->s.origin, MULTICAST_PHS);
+      gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PHS);
       T_Damage(ent, self, self->owner, self->velocity, ent->s.origin, vec3_origin, (int)points, 0, DAMAGE_ENERGY,
                MOD_BFG_EFFECT);
     }
@@ -729,7 +729,7 @@ void bfg_touch(edict_t *self, edict_t *other, cplane_t *plane, csurface_t *surf)
   gi.WriteByte(svc_temp_entity);
   gi.WriteByte(TE_BFG_BIGEXPLOSION);
   gi.WritePosition(self->s.origin);
-  gi.multicast(self->s.origin, MULTICAST_PVS);
+  gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PVS);
 }
 
 void bfg_think(edict_t *self) {
@@ -788,7 +788,7 @@ void bfg_think(edict_t *self) {
         gi.WritePosition(tr.endpos);
         gi.WriteDir(tr.plane.normal);
         gi.WriteByte(self->s.skinnum);
-        gi.multicast(tr.endpos, MULTICAST_PVS);
+        gi.multicast(self->s.cmodel_index, tr.endpos, MULTICAST_PVS);
         break;
       }
 
@@ -800,7 +800,7 @@ void bfg_think(edict_t *self) {
     gi.WriteByte(TE_BFG_LASER);
     gi.WritePosition(self->s.origin);
     gi.WritePosition(tr.endpos);
-    gi.multicast(self->s.origin, MULTICAST_PHS);
+    gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PHS);
   }
 
   self->nextthink = level.time + FRAMETIME;

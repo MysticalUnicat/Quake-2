@@ -131,7 +131,7 @@ void SV_BroadcastCommand(char *fmt, ...) {
 
   MSG_WriteByte(&sv.multicast, svc_stufftext);
   MSG_WriteString(&sv.multicast, string);
-  SV_Multicast(NULL, MULTICAST_ALL_R);
+  SV_Multicast(CMODEL_A, NULL, MULTICAST_ALL_R);
 }
 
 /*
@@ -146,7 +146,7 @@ MULTICAST_PVS	send to clients potentially visible from org
 MULTICAST_PHS	send to clients potentially hearable from org
 =================
 */
-void SV_Multicast(vec3_t origin, multicast_t to) {
+void SV_Multicast(int cmodel_index, vec3_t origin, multicast_t to) {
   client_t *client;
   byte *mask;
   int leafnum, cluster;
@@ -157,8 +157,8 @@ void SV_Multicast(vec3_t origin, multicast_t to) {
   reliable = false;
 
   if(to != MULTICAST_ALL_R && to != MULTICAST_ALL) {
-    leafnum = CM_PointLeafnum(CMODEL_A, origin);
-    area1 = CM_LeafArea(CMODEL_A, leafnum);
+    leafnum = CM_PointLeafnum(cmodel_index, origin);
+    area1 = CM_LeafArea(cmodel_index, leafnum);
   } else {
     leafnum = 0; // just to avoid compiler warnings
     area1 = 0;
@@ -179,17 +179,17 @@ void SV_Multicast(vec3_t origin, multicast_t to) {
   case MULTICAST_PHS_R:
     reliable = true; // intentional fallthrough
   case MULTICAST_PHS:
-    leafnum = CM_PointLeafnum(CMODEL_A, origin);
-    cluster = CM_LeafCluster(CMODEL_A, leafnum);
-    mask = CM_ClusterPHS(CMODEL_A, cluster);
+    leafnum = CM_PointLeafnum(cmodel_index, origin);
+    cluster = CM_LeafCluster(cmodel_index, leafnum);
+    mask = CM_ClusterPHS(cmodel_index, cluster);
     break;
 
   case MULTICAST_PVS_R:
     reliable = true; // intentional fallthrough
   case MULTICAST_PVS:
-    leafnum = CM_PointLeafnum(CMODEL_A, origin);
-    cluster = CM_LeafCluster(CMODEL_A, leafnum);
-    mask = CM_ClusterPVS(CMODEL_A, cluster);
+    leafnum = CM_PointLeafnum(cmodel_index, origin);
+    cluster = CM_LeafCluster(cmodel_index, leafnum);
+    mask = CM_ClusterPVS(cmodel_index, cluster);
     break;
 
   default:
@@ -205,10 +205,10 @@ void SV_Multicast(vec3_t origin, multicast_t to) {
       continue;
 
     if(mask) {
-      leafnum = CM_PointLeafnum(CMODEL_A, client->edict->s.origin);
-      cluster = CM_LeafCluster(CMODEL_A, leafnum);
-      area2 = CM_LeafArea(CMODEL_A, leafnum);
-      if(!CM_AreasConnected(CMODEL_A, area1, area2))
+      leafnum = CM_PointLeafnum(cmodel_index, client->edict->s.origin);
+      cluster = CM_LeafCluster(cmodel_index, leafnum);
+      area2 = CM_LeafArea(cmodel_index, leafnum);
+      if(!CM_AreasConnected(cmodel_index, area1, area2))
         continue;
       if(mask && (!(mask[cluster >> 3] & (1 << (cluster & 7)))))
         continue;
@@ -309,6 +309,8 @@ void SV_StartSound(vec3_t origin, edict_t *entity, int channel, int soundindex, 
     }
   }
 
+  int cmodel_index = entity->s.cmodel_index;
+
   MSG_WriteByte(&sv.multicast, svc_sound);
   MSG_WriteByte(&sv.multicast, flags);
   MSG_WriteByte(&sv.multicast, soundindex);
@@ -333,14 +335,14 @@ void SV_StartSound(vec3_t origin, edict_t *entity, int channel, int soundindex, 
 
   if(channel & CHAN_RELIABLE) {
     if(use_phs)
-      SV_Multicast(origin, MULTICAST_PHS_R);
+      SV_Multicast(cmodel_index, origin, MULTICAST_PHS_R);
     else
-      SV_Multicast(origin, MULTICAST_ALL_R);
+      SV_Multicast(cmodel_index, origin, MULTICAST_ALL_R);
   } else {
     if(use_phs)
-      SV_Multicast(origin, MULTICAST_PHS);
+      SV_Multicast(cmodel_index, origin, MULTICAST_PHS);
     else
-      SV_Multicast(origin, MULTICAST_ALL);
+      SV_Multicast(cmodel_index, origin, MULTICAST_ALL);
   }
 }
 

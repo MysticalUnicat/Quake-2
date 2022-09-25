@@ -279,7 +279,7 @@ void BecomeExplosion1(edict_t *self) {
   gi.WriteByte(svc_temp_entity);
   gi.WriteByte(TE_EXPLOSION1);
   gi.WritePosition(self->s.origin);
-  gi.multicast(self->s.origin, MULTICAST_PVS);
+  gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PVS);
 
   G_FreeEdict(self);
 }
@@ -288,7 +288,7 @@ void BecomeExplosion2(edict_t *self) {
   gi.WriteByte(svc_temp_entity);
   gi.WriteByte(TE_EXPLOSION2);
   gi.WritePosition(self->s.origin);
-  gi.multicast(self->s.origin, MULTICAST_PVS);
+  gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PVS);
 
   G_FreeEdict(self);
 }

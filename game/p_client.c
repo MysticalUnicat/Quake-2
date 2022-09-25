@@ -962,7 +962,7 @@ void spectator_respawn(edict_t *ent) {
     gi.WriteByte(svc_muzzleflash);
     gi.WriteShort(ent - g_edicts);
     gi.WriteByte(MZ_LOGIN);
-    gi.multicast(ent->s.origin, MULTICAST_PVS);
+    gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PVS);
 
     // hold in place briefly
     ent->client->ps.pmove.pm_flags = PMF_TIME_TELEPORT;
@@ -1002,9 +1002,6 @@ void PutClientInServer(edict_t *ent) {
   // do it before setting health back up, so farthest
   // ranging doesn't count this client
   SelectSpawnPoint(ent, &cmodel_index, spawn_origin, spawn_angles);
-
-  ent->s.cmodel_index = cmodel_index;
-  ent->client->ps.cmodel_index = cmodel_index;
 
   index = ent - g_edicts - 1;
   client = ent->client;
@@ -1135,6 +1132,9 @@ void PutClientInServer(edict_t *ent) {
   if(!KillBox(ent)) { // could't spawn in?
   }
 
+  ent->s.cmodel_index = cmodel_index;
+  ent->client->ps.cmodel_index = cmodel_index;
+
   gi.linkentity(ent);
 
   // force the current weapon up
@@ -1162,7 +1162,7 @@ void ClientBeginDeathmatch(edict_t *ent) {
   gi.WriteByte(svc_muzzleflash);
   gi.WriteShort(ent - g_edicts);
   gi.WriteByte(MZ_LOGIN);
-  gi.multicast(ent->s.origin, MULTICAST_PVS);
+  gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PVS);
 
   gi.bprintf(PRINT_HIGH, "%s entered the game\n", ent->client->pers.netname);
 
@@ -1215,7 +1215,7 @@ void ClientBegin(edict_t *ent) {
       gi.WriteByte(svc_muzzleflash);
       gi.WriteShort(ent - g_edicts);
       gi.WriteByte(MZ_LOGIN);
-      gi.multicast(ent->s.origin, MULTICAST_PVS);
+      gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PVS);
 
       gi.bprintf(PRINT_HIGH, "%s entered the game\n", ent->client->pers.netname);
     }
@@ -1377,7 +1377,7 @@ void ClientDisconnect(edict_t *ent) {
   gi.WriteByte(svc_muzzleflash);
   gi.WriteShort(ent - g_edicts);
   gi.WriteByte(MZ_LOGOUT);
-  gi.multicast(ent->s.origin, MULTICAST_PVS);
+  gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PVS);
 
   gi.unlinkentity(ent);
   ent->s.modelindex = 0;

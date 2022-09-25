@@ -155,7 +155,7 @@ typedef struct {
   void (*Pmove)(pmove_t *pmove); // player movement code common with client prediction
 
   // network messaging
-  void (*multicast)(vec3_t origin, multicast_t to);
+  void (*multicast)(int cmodel_index, vec3_t origin, multicast_t to);
   void (*unicast)(edict_t *ent, bool reliable);
   void (*WriteChar)(int c);
   void (*WriteByte)(int c);

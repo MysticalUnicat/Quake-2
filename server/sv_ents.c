@@ -501,7 +501,7 @@ void SV_BuildClientFrame(client_t *client) {
   if(!clent->client)
     return; // not in game yet
 
-  int cmodel_index = CMODEL_A; // from entity
+  int cmodel_index = clent->s.cmodel_index;
 
 #if 0
 	numprojs = 0; // no projectiles yet
@@ -516,18 +516,18 @@ void SV_BuildClientFrame(client_t *client) {
   for(i = 0; i < 3; i++)
     org[i] = clent->client->ps.pmove.origin[i] * 0.125 + clent->client->ps.viewoffset[i];
 
-  leafnum = CM_PointLeafnum(CMODEL_A, org);
-  clientarea = CM_LeafArea(CMODEL_A, leafnum);
-  clientcluster = CM_LeafCluster(CMODEL_A, leafnum);
+  leafnum = CM_PointLeafnum(cmodel_index, org);
+  clientarea = CM_LeafArea(cmodel_index, leafnum);
+  clientcluster = CM_LeafCluster(cmodel_index, leafnum);
 
   // calculate the visible areas
-  frame->areabytes = CM_WriteAreaBits(CMODEL_A, frame->areabits, clientarea);
+  frame->areabytes = CM_WriteAreaBits(cmodel_index, frame->areabits, clientarea);
 
   // grab the current player_state_t
   frame->ps = clent->client->ps;
 
-  SV_FatPVS(CMODEL_A, org);
-  clientphs = CM_ClusterPHS(CMODEL_A, clientcluster);
+  SV_FatPVS(cmodel_index, org);
+  clientphs = CM_ClusterPHS(cmodel_index, clientcluster);
 
   // build up the list of visible entities
   frame->num_entities = 0;
@@ -549,9 +549,9 @@ void SV_BuildClientFrame(client_t *client) {
     // ignore if not touching a PV leaf
     if(ent != clent) {
       // check area
-      if(!CM_AreasConnected(CMODEL_A, clientarea, ent->areanum)) { // doors can legally straddle two areas, so
+      if(!CM_AreasConnected(cmodel_index, clientarea, ent->areanum)) { // doors can legally straddle two areas, so
         // we may need to check another one
-        if(!ent->areanum2 || !CM_AreasConnected(CMODEL_A, clientarea, ent->areanum2))
+        if(!ent->areanum2 || !CM_AreasConnected(cmodel_index, clientarea, ent->areanum2))
           continue; // blocked by a door
       }
 
@@ -569,7 +569,7 @@ void SV_BuildClientFrame(client_t *client) {
           bitvector = fatpvs;
 
         if(ent->num_clusters == -1) { // too many leafs for individual check, go by headnode
-          if(!CM_HeadnodeVisible(CMODEL_A, ent->headnode, bitvector))
+          if(!CM_HeadnodeVisible(cmodel_index, ent->headnode, bitvector))
             continue;
           c_fullsend++;
         } else { // check individual leafs

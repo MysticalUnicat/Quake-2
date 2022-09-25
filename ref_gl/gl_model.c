@@ -892,6 +892,8 @@ void Mod_LoadBrushModel(model_t *mod, struct HunkAllocator *hunk, void *buffer) 
 
     starmod->numleafs = bm->visleafs;
   }
+
+  r_worldmodel[mod->cmodel_index] = mod;
 }
 
 /*

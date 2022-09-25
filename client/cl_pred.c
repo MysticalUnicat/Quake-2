@@ -64,7 +64,7 @@ CL_ClipMoveToEntities
 
 ====================
 */
-void CL_ClipMoveToEntities(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, trace_t *tr) {
+void CL_ClipMoveToEntities(int cmodel_index, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, trace_t *tr) {
   int i, x, zd, zu;
   trace_t trace;
   int headnode;
@@ -107,7 +107,8 @@ void CL_ClipMoveToEntities(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, t
     if(tr->allsolid)
       return;
 
-    trace = CM_TransformedBoxTrace(CMODEL_A, start, end, mins, maxs, headnode, MASK_PLAYERSOLID, ent->origin, angles);
+    trace =
+        CM_TransformedBoxTrace(cmodel_index, start, end, mins, maxs, headnode, MASK_PLAYERSOLID, ent->origin, angles);
 
     if(trace.allsolid || trace.startsolid || trace.fraction < tr->fraction) {
       trace.ent = (struct edict_s *)ent;
@@ -135,7 +136,7 @@ trace_t CL_PMTrace(int cmodel_index, vec3_t start, vec3_t mins, vec3_t maxs, vec
     t.ent = (struct edict_s *)1;
 
   // check all other solid models
-  CL_ClipMoveToEntities(start, mins, maxs, end, &t);
+  CL_ClipMoveToEntities(cmodel_index, start, mins, maxs, end, &t);
 
   return t;
 }

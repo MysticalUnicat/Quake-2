@@ -27,7 +27,7 @@ void Use_Target_Tent(edict_t *ent, edict_t *other, edict_t *activator) {
   gi.WriteByte(svc_temp_entity);
   gi.WriteByte(ent->style);
   gi.WritePosition(ent->s.origin);
-  gi.multicast(ent->s.origin, MULTICAST_PVS);
+  gi.multicast(ent->s.cmodel_index, ent->s.origin, MULTICAST_PVS);
 }
 
 void SP_target_temp_entity(edict_t *ent) { ent->use = Use_Target_Tent; }
@@ -209,7 +209,7 @@ void target_explosion_explode(edict_t *self) {
   gi.WriteByte(svc_temp_entity);
   gi.WriteByte(TE_EXPLOSION1);
   gi.WritePosition(self->s.origin);
-  gi.multicast(self->s.origin, MULTICAST_PHS);
+  gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PHS);
 
   T_RadiusDamage(self, self->activator, self->dmg, NULL, self->dmg + 40, MOD_EXPLOSIVE);
 
@@ -310,7 +310,7 @@ void use_target_splash(edict_t *self, edict_t *other, edict_t *activator) {
   gi.WritePosition(self->s.origin);
   gi.WriteDir(self->movedir);
   gi.WriteByte(self->sounds);
-  gi.multicast(self->s.origin, MULTICAST_PVS);
+  gi.multicast(self->s.cmodel_index, self->s.origin, MULTICAST_PVS);
 
   if(self->dmg)
     T_RadiusDamage(self, activator, self->dmg, NULL, self->dmg + 40, MOD_SPLASH);
@@ -496,7 +496,7 @@ void target_laser_think(edict_t *self) {
         gi.WritePosition(tr.endpos);
         gi.WriteDir(tr.plane.normal);
         gi.WriteByte(self->s.skinnum);
-        gi.multicast(tr.endpos, MULTICAST_PVS);
+        gi.multicast(self->s.cmodel_index, tr.endpos, MULTICAST_PVS);
       }
       break;
     }

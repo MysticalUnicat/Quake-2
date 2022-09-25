@@ -129,7 +129,7 @@ void Killed(edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, ve
 SpawnDamage
 ================
 */
-void SpawnDamage(int type, vec3_t origin, vec3_t normal, int damage) {
+void SpawnDamage(int type, int cmodel_index, vec3_t origin, vec3_t normal, int damage) {
   if(damage > 255)
     damage = 255;
   gi.WriteByte(svc_temp_entity);
@@ -137,7 +137,7 @@ void SpawnDamage(int type, vec3_t origin, vec3_t normal, int damage) {
   //	gi.WriteByte (damage);
   gi.WritePosition(origin);
   gi.WriteDir(normal);
-  gi.multicast(origin, MULTICAST_PVS);
+  gi.multicast(cmodel_index, origin, MULTICAST_PVS);
 }
 
 /*
@@ -227,7 +227,7 @@ static int CheckPowerArmor(edict_t *ent, vec3_t point, vec3_t normal, int damage
   if(save > damage)
     save = damage;
 
-  SpawnDamage(pa_te_type, point, normal, save);
+  SpawnDamage(pa_te_type, ent->s.cmodel_index, point, normal, save);
   ent->powerarmor_time = level.time + 0.2;
 
   power_used = save / damagePerCell;
@@ -273,7 +273,7 @@ static int CheckArmor(edict_t *ent, vec3_t point, vec3_t normal, int damage, int
     return 0;
 
   client->pers.inventory[index] -= save;
-  SpawnDamage(te_sparks, point, normal, save);
+  SpawnDamage(te_sparks, ent->s.cmodel_index, point, normal, save);
 
   return save;
 }
@@ -427,7 +427,7 @@ void T_Damage(edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir, 
   if((targ->flags & FL_GODMODE) && !(dflags & DAMAGE_NO_PROTECTION)) {
     take = 0;
     save = damage;
-    SpawnDamage(te_sparks, point, normal, save);
+    SpawnDamage(te_sparks, targ->s.cmodel_index, point, normal, save);
   }
 
   // check for invincibility
@@ -456,9 +456,9 @@ void T_Damage(edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir, 
   // do the damage
   if(take) {
     if((targ->svflags & SVF_MONSTER) || (client))
-      SpawnDamage(TE_BLOOD, point, normal, take);
+      SpawnDamage(TE_BLOOD, targ->s.cmodel_index, point, normal, take);
     else
-      SpawnDamage(te_sparks, point, normal, take);
+      SpawnDamage(te_sparks, targ->s.cmodel_index, point, normal, take);
 
     dv_adjust(ent_write_health(targ), level.time, -take, cv_get(ent_read_max_health(targ)));
 

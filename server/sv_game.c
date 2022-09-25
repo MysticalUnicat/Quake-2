@@ -209,7 +209,7 @@ void PF_Configstring(int index, char *val) {
     MSG_WriteShort(&sv.multicast, index);
     MSG_WriteString(&sv.multicast, val);
 
-    SV_Multicast(vec3_origin, MULTICAST_ALL_R);
+    SV_Multicast(CMODEL_A, vec3_origin, MULTICAST_ALL_R);
   }
 }
 
