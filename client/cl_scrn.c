@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // cl_scrn.c -- master for refresh, status bar, console, chat, notify, etc
 
+#include <alias/ui.h>
+
 /*
 
   full screen console
@@ -1131,10 +1133,61 @@ This is called every frame, and can also be called explicitly to flush
 text to the screen.
 ==================
 */
-void SCR_UpdateScreen(void) {
-  int numframes;
+static alias_ui_OutputGroup ui_output_groups[1024];
+static uint32_t ui_output_indexes[1 << 10];
+static struct DrawVertex ui_output_vertexes[1 << 10];
+static struct BaseImage *ui_frame_images[1024];
+
+void UI_SetTexture(alias_ui *ui, const char *name) {
   int i;
-  float separation[2] = {0, 0};
+  for(i = 0; ui_frame_images[i]; i++) {
+    if(strcmp(name, ui_frame_images[i]->name) == 0) {
+      alias_ui_SetTexture(ui, i);
+      return;
+    }
+  }
+  ui_frame_images[i] = re.RegisterPic(name);
+  ui_frame_images[i + 1] = NULL;
+  alias_ui_SetTexture(ui, i);
+}
+
+static void UI_TextSize(alias_ui *ui, const char *buffer, alias_R size, alias_R max_width, alias_R *out_width,
+                        alias_R *out_height) {
+  *out_width = strlen(buffer) * 8;
+  *out_height = 8;
+}
+
+static void UI_TextDraw(alias_ui *ui, const char *buffer, alias_R x, alias_R y, alias_R width, alias_R size,
+                        alias_Color color) {
+  UI_SetTexture(ui, "conchars");
+
+  for(int i = 0; buffer[i]; i++, x += 8) {
+    int num = buffer[i];
+
+    int row, col;
+    float frow, fcol, size;
+
+    num &= 255;
+
+    if((num & 127) == 32)
+      continue; // space
+
+    if(y <= -8)
+      continue; // totally off screen
+
+    row = num >> 4;
+    col = num & 15;
+
+    frow = row * 0.0625;
+    fcol = col * 0.0625;
+    size = 0.0625;
+
+    alias_ui_EmitRect(ui, x, y, 8, 8, fcol, frow, fcol + size, frow + size, color.r, color.g, color.b, color.a);
+  }
+}
+
+void SCR_UpdateScreen(void) {
+  static alias_ui *ui = NULL;
 
   // if the screen is disabled (loading plaque is up, or vid mode changing)
   // do nothing at all
@@ -1149,95 +1202,125 @@ void SCR_UpdateScreen(void) {
   if(!scr_initialized || !con.initialized)
     return; // not initialized yet
 
-  /*
-  ** range check cl_camera_separation so we don't inadvertently fry someone's
-  ** brain
-  */
-  if(cl_stereo_separation->value > 1.0)
-    Cvar_SetValue("cl_stereo_separation", 1.0);
-  else if(cl_stereo_separation->value < 0)
-    Cvar_SetValue("cl_stereo_separation", 0.0);
-
-  if(cl_stereo->value) {
-    numframes = 2;
-    separation[0] = -cl_stereo_separation->value / 2;
-    separation[1] = cl_stereo_separation->value / 2;
-  } else {
-    separation[0] = 0;
-    separation[1] = 0;
-    numframes = 1;
+  if(ui == NULL) {
+    alias_ui_initialize(alias_default_MemoryCB(), &ui);
   }
 
-  for(i = 0; i < numframes; i++) {
-    re.BeginFrame(separation[i]);
+  alias_ui_Input ui_input = {.screen_size = {.width = viddef.width, .height = viddef.height},
+                             .text_draw = UI_TextDraw,
+                             .text_size = UI_TextSize};
 
-    if(scr_draw_loading == 2) { //  loading plaque over black screen
-      int w, h;
+  ui_frame_images[0] = NULL;
+  alias_ui_begin_frame(ui, alias_default_MemoryCB(), &ui_input);
 
-      re.CinematicSetPalette(NULL);
-      scr_draw_loading = false;
-      re.DrawGetPicSize(&w, &h, "loading");
-      re.DrawPic((viddef.width - w) / 2, (viddef.height - h) / 2, "loading");
-      //			re.EndFrame();
-      //			return;
-    }
-    // if a cinematic is supposed to be running, handle menus
-    // and console specially
-    else if(cl.cinematictime > 0) {
-      if(cls.key_dest == key_menu) {
-        if(cl.cinematicpalette_active) {
-          re.CinematicSetPalette(NULL);
-          cl.cinematicpalette_active = false;
-        }
-        M_Draw();
-      } else if(cls.key_dest == key_console) {
-        if(cl.cinematicpalette_active) {
-          re.CinematicSetPalette(NULL);
-          cl.cinematicpalette_active = false;
-        }
-        SCR_DrawConsole();
-      } else {
-        SCR_DrawCinematic();
-      }
-    } else {
+  alias_ui_begin_stack(ui);
 
-      // make sure the game palette is active
+  re.BeginFrame(0.0f);
+
+  if(scr_draw_loading == 2) { //  loading plaque over black screen
+    int w, h;
+
+    re.CinematicSetPalette(NULL);
+    scr_draw_loading = false;
+    re.DrawGetPicSize(&w, &h, "loading");
+    re.DrawPic((viddef.width - w) / 2, (viddef.height - h) / 2, "loading");
+    //			re.EndFrame();
+    //			return;
+  }
+  // if a cinematic is supposed to be running, handle menus
+  // and console specially
+  else if(cl.cinematictime > 0) {
+    if(cls.key_dest == key_menu) {
       if(cl.cinematicpalette_active) {
         re.CinematicSetPalette(NULL);
         cl.cinematicpalette_active = false;
       }
-
-      // do 3D refresh drawing, and then update the screen
-      SCR_CalcVrect();
-
-      // clear any dirty part of the background
-      SCR_TileClear();
-
-      V_RenderView(separation[i]);
-
-      SCR_DrawStats();
-      if(cl.frame.playerstate.stats[STAT_LAYOUTS] & 1)
-        SCR_DrawLayout();
-      if(cl.frame.playerstate.stats[STAT_LAYOUTS] & 2)
-        CL_DrawInventory();
-
-      SCR_DrawNet();
-      SCR_CheckDrawCenterString();
-
-      if(scr_timegraph->value)
-        SCR_DebugGraph(cls.frametime * 300, 0);
-
-      if(scr_debuggraph->value || scr_timegraph->value || scr_netgraph->value)
-        SCR_DrawDebugGraph();
-
-      SCR_DrawPause();
-
-      SCR_DrawConsole();
-
       M_Draw();
-
-      SCR_DrawLoading();
+    } else if(cls.key_dest == key_console) {
+      if(cl.cinematicpalette_active) {
+        re.CinematicSetPalette(NULL);
+        cl.cinematicpalette_active = false;
+      }
+      SCR_DrawConsole();
+    } else {
+      SCR_DrawCinematic();
     }
+  } else {
+
+    // make sure the game palette is active
+    if(cl.cinematicpalette_active) {
+      re.CinematicSetPalette(NULL);
+      cl.cinematicpalette_active = false;
+    }
+
+    // do 3D refresh drawing, and then update the screen
+    SCR_CalcVrect();
+
+    // clear any dirty part of the background
+    SCR_TileClear();
+
+    V_RenderView(0.0f);
+
+    SCR_DrawStats();
+    if(cl.frame.playerstate.stats[STAT_LAYOUTS] & 1)
+      SCR_DrawLayout();
+    if(cl.frame.playerstate.stats[STAT_LAYOUTS] & 2)
+      CL_DrawInventory();
+
+    SCR_DrawNet();
+    SCR_CheckDrawCenterString();
+
+    if(scr_timegraph->value)
+      SCR_DebugGraph(cls.frametime * 300, 0);
+
+    if(scr_debuggraph->value || scr_timegraph->value || scr_netgraph->value)
+      SCR_DrawDebugGraph();
+
+    SCR_DrawPause();
+
+    SCR_DrawConsole();
+
+    M_Draw();
+
+    SCR_DrawLoading();
   }
+
+  alias_ui_end(ui);
+
+  alias_ui_Output ui_output = {
+      .groups = ui_output_groups,
+      .num_groups = 0,
+      .max_groups = sizeof(ui_output_groups) / sizeof(ui_output_groups[0]),
+      .num_vertexes = 0,
+      .index_sub_buffer = {.pointer = ui_output_indexes,
+                           .stride = sizeof(ui_output_indexes[0]),
+                           .count = sizeof(ui_output_indexes) / sizeof(ui_output_indexes[0]),
+                           .type_format = alias_memory_Format_Uint32,
+                           .type_length = 1},
+      .num_vertexes = 0,
+      .xy_sub_buffer = {.pointer = &ui_output_vertexes[0].xy[0],
+                        .stride = sizeof(ui_output_vertexes[0]),
+                        .count = sizeof(ui_output_vertexes) / sizeof(ui_output_vertexes[0]),
+                        .type_format = alias_memory_Format_Float32,
+                        .type_length = 2},
+      .st_sub_buffer = {.pointer = &ui_output_vertexes[0].st[0],
+                        .stride = sizeof(ui_output_vertexes[0]),
+                        .count = sizeof(ui_output_vertexes) / sizeof(ui_output_vertexes[0]),
+                        .type_format = alias_memory_Format_Float32,
+                        .type_length = 2},
+      .rgba_sub_buffer = {.pointer = &ui_output_vertexes[0].rgba,
+                          .stride = sizeof(ui_output_vertexes[0]),
+                          .count = sizeof(ui_output_vertexes) / sizeof(ui_output_vertexes[0]),
+                          .type_format = alias_memory_Format_Unorm8,
+                          .type_length = 4},
+  };
+
+  alias_ui_end_frame(ui, alias_default_MemoryCB(), &ui_output);
+
+  for(int i = 0; i < ui_output.num_groups; i++) {
+    re.DrawTriangles(ui_frame_images[ui_output_groups[i].texture_id], ui_output_vertexes, ui_output.num_vertexes,
+                     ui_output_indexes + ui_output_groups[i].index, ui_output_groups[i].length);
+  }
+
   re.EndFrame();
 }

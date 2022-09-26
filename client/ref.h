@@ -44,6 +44,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define SHELL_WHITE_COLOR 0xD7
 
+struct BaseImage {
+  char name[MAX_QPATH];
+  uint32_t width;
+  uint32_t height;
+};
+
 typedef struct entity_s {
   struct model_s *model; // opaque type outside refresh
   float angles[3];
@@ -69,7 +75,7 @@ typedef struct entity_s {
   int lightstyle; // for flashing entities
   float alpha;    // ignore if RF_TRANSLUCENT isn't set
 
-  struct image_s *skin; // NULL for inline skin
+  struct BaseImage *skin; // NULL for inline skin
   int flags;
 
 } entity_t;
@@ -119,6 +125,12 @@ typedef struct {
 
 #define API_VERSION 3
 
+struct DrawVertex {
+  float xy[2];
+  float st[2];
+  uint32_t rgba;
+};
+
 //
 // these are the functions exported by the refresh module
 //
@@ -145,25 +157,28 @@ typedef struct {
   // are flood filled to eliminate mip map edge errors, and pics have
   // an implicit "pics/" prepended to the name. (a pic name that starts with a
   // slash will not use the "pics/" prefix or the ".pcx" postfix)
-  void (*BeginRegistration)(char *map);
-  struct model_s *(*RegisterModel)(int cmodel_index, char *name);
-  struct image_s *(*RegisterSkin)(char *name);
-  struct image_s *(*RegisterPic)(char *name);
-  void (*SetSky)(char *name, float rotate, vec3_t axis);
+  void (*BeginRegistration)(const char *map);
+  struct model_s *(*RegisterModel)(int cmodel_index, const char *name);
+  struct BaseImage *(*RegisterSkin)(const char *name);
+  struct BaseImage *(*RegisterPic)(const char *name);
+  void (*SetSky)(const char *name, float rotate, vec3_t axis);
   void (*EndRegistration)(void);
 
   void (*RenderFrame)(refdef_t *fd);
 
-  void (*DrawGetPicSize)(int *w, int *h, char *name); // will return 0 0 if not found
-  void (*DrawPic)(int x, int y, char *name);
-  void (*DrawStretchPic)(int x, int y, int w, int h, char *name);
+  void (*DrawGetPicSize)(int *w, int *h, const char *name); // will return 0 0 if not found
+  void (*DrawPic)(int x, int y, const char *name);
+  void (*DrawStretchPic)(int x, int y, int w, int h, const char *name);
   void (*DrawChar)(int x, int y, int c);
-  void (*DrawTileClear)(int x, int y, int w, int h, char *name);
+  void (*DrawTileClear)(int x, int y, int w, int h, const char *name);
   void (*DrawFill)(int x, int y, int w, int h, int c);
   void (*DrawFadeScreen)(void);
 
   // Draw images for cinematic rendering (which can have a different palette). Note that calls
   void (*DrawStretchRaw)(int x, int y, int w, int h, int cols, int rows, byte *data);
+
+  void (*DrawTriangles)(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
+                        const uint32_t *indexes, uint32_t num_indexes);
 
   /*
   ** video mode and refresh state management entry points

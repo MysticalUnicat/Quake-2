@@ -276,7 +276,7 @@ void GL_ImageList_f(void) {
     }
 
     ri.Con_Printf(PRINT_ALL, " %3i %3i %s: %s\n", image->upload_width, image->upload_height,
-                  palstrings[image->paletted], image->name);
+                  palstrings[image->paletted], image->base.name);
   }
   ri.Con_Printf(PRINT_ALL, "Total texel count (not counting mipmaps): %i\n", texels);
 }
@@ -359,7 +359,7 @@ PCX LOADING
 LoadPCX
 ==============
 */
-void LoadPCX(char *filename, byte **pic, byte **palette, int *width, int *height) {
+void LoadPCX(const char *filename, byte **pic, byte **palette, int *width, int *height) {
   byte *raw;
   pcx_t *pcx;
   int x, y;
@@ -462,7 +462,7 @@ typedef struct _TargaHeader {
 LoadTGA
 =============
 */
-void LoadTGA(char *name, byte **pic, int *width, int *height) {
+void LoadTGA(const char *name, byte **pic, int *width, int *height) {
   int columns, rows, numPixels;
   byte *pixbuf;
   int row, column;
@@ -1068,7 +1068,7 @@ GL_LoadPic
 This is also used as an entry point for the generated r_notexture
 ================
 */
-image_t *GL_LoadPic(char *name, byte *pic, int width, int height, imagetype_t type, int bits) {
+image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetype_t type, int bits) {
   image_t *image;
   int i;
 
@@ -1084,9 +1084,9 @@ image_t *GL_LoadPic(char *name, byte *pic, int width, int height, imagetype_t ty
   }
   image = &gltextures[i];
 
-  if(strlen(name) >= sizeof(image->name))
+  if(strlen(name) >= sizeof(image->base.name))
     ri.Sys_Error(ERR_DROP, "Draw_LoadPic: \"%s\" is too long", name);
-  strcpy(image->name, name);
+  strcpy(image->base.name, name);
   image->registration_sequence = registration_sequence;
 
   image->width = width;
@@ -1146,7 +1146,7 @@ image_t *GL_LoadPic(char *name, byte *pic, int width, int height, imagetype_t ty
 GL_LoadWal
 ================
 */
-image_t *GL_LoadWal(char *name) {
+image_t *GL_LoadWal(const char *name) {
   miptex_t *mt;
   int width, height, ofs;
   image_t *image;
@@ -1175,7 +1175,7 @@ GL_FindImage
 Finds or loads the given image
 ===============
 */
-image_t *GL_FindImage(char *name, imagetype_t type) {
+image_t *GL_FindImage(const char *name, imagetype_t type) {
   image_t *image;
   int i, len;
   byte *pic, *palette;
@@ -1189,7 +1189,7 @@ image_t *GL_FindImage(char *name, imagetype_t type) {
 
   // look for it
   for(i = 0, image = gltextures; i < numgltextures; i++, image++) {
-    if(!strcmp(name, image->name)) {
+    if(!strcmp(name, image->base.name)) {
       image->registration_sequence = registration_sequence;
       return image;
     }
@@ -1228,8 +1228,8 @@ image_t *GL_FindImage(char *name, imagetype_t type) {
 R_RegisterSkin
 ===============
 */
-struct image_s *R_RegisterSkin(char *name) {
-  return GL_FindImage(name, it_skin);
+struct BaseImage *R_RegisterSkin(const char *name) {
+  return &GL_FindImage(name, it_skin)->base;
 }
 
 /*

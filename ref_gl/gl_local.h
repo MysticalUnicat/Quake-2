@@ -75,8 +75,9 @@ extern viddef_t vid;
 
 typedef enum { it_skin, it_sprite, it_wall, it_pic, it_sky } imagetype_t;
 
-typedef struct image_s {
-  char name[MAX_QPATH]; // game path, including extension
+typedef struct Image {
+  struct BaseImage base;
+
   imagetype_t type;
   int width, height;               // source image
   int upload_width, upload_height; // after power of two and picmip
@@ -295,11 +296,11 @@ char	*va(char *format, ...);
 
 void COM_StripExtension(char *in, char *out);
 
-void Draw_GetPicSize(int *w, int *h, char *name);
-void Draw_Pic(int x, int y, char *name);
-void Draw_StretchPic(int x, int y, int w, int h, char *name);
+void Draw_GetPicSize(int *w, int *h, const char *name);
+void Draw_Pic(int x, int y, const char *name);
+void Draw_StretchPic(int x, int y, int w, int h, const char *name);
 void Draw_Char(int x, int y, int c);
-void Draw_TileClear(int x, int y, int w, int h, char *name);
+void Draw_TileClear(int x, int y, int w, int h, const char *name);
 void Draw_Fill(int x, int y, int w, int h, int c);
 void Draw_FadeScreen(void);
 void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data);
@@ -312,11 +313,11 @@ int Draw_GetPalette(void);
 
 void GL_ResampleTexture(unsigned *in, int inwidth, int inheight, unsigned *out, int outwidth, int outheight);
 
-struct image_s *R_RegisterSkin(char *name);
+struct BaseImage *R_RegisterSkin(const char *name);
 
-void LoadPCX(char *filename, byte **pic, byte **palette, int *width, int *height);
-image_t *GL_LoadPic(char *name, byte *pic, int width, int height, imagetype_t type, int bits);
-image_t *GL_FindImage(char *name, imagetype_t type);
+void LoadPCX(const char *filename, byte **pic, byte **palette, int *width, int *height);
+image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetype_t type, int bits);
+image_t *GL_FindImage(const char *name, imagetype_t type);
 void GL_TextureMode(char *string);
 void GL_ImageList_f(void);
 

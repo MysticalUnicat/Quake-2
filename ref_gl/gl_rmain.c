@@ -339,7 +339,7 @@ void R_DrawEntitiesOnList(void) {
         break;
       default:
         R_DrawNullModel();
-        //ri.Sys_Error(ERR_DROP, "Bad modeltype");
+        // ri.Sys_Error(ERR_DROP, "Bad modeltype");
         break;
       }
     }
@@ -374,7 +374,7 @@ void R_DrawEntitiesOnList(void) {
         break;
       default:
         R_DrawNullModel();
-        //ri.Sys_Error(ERR_DROP, "Bad modeltype");
+        // ri.Sys_Error(ERR_DROP, "Bad modeltype");
         break;
       }
     }
@@ -1442,21 +1442,23 @@ void R_DrawBeam(entity_t *e) {
 
 //===================================================================
 
-void R_BeginRegistration(char *map);
-struct model_s *R_RegisterModel(int cmodel_index, char *name);
-struct image_s *R_RegisterSkin(char *name);
-void R_SetSky(char *name, float rotate, vec3_t axis);
+void R_BeginRegistration(const char *map);
+struct model_s *R_RegisterModel(int cmodel_index, const char *name);
+struct BaseImage *R_RegisterSkin(const char *name);
+void R_SetSky(const char *name, float rotate, vec3_t axis);
 void R_EndRegistration(void);
 
 void R_RenderFrame(refdef_t *fd);
 
-struct image_s *Draw_FindPic(char *name);
+struct BaseImage *Draw_FindPic(const char *name);
 
-void Draw_Pic(int x, int y, char *name);
+void Draw_Pic(int x, int y, const char *name);
 void Draw_Char(int x, int y, int c);
-void Draw_TileClear(int x, int y, int w, int h, char *name);
+void Draw_TileClear(int x, int y, int w, int h, const char *name);
 void Draw_Fill(int x, int y, int w, int h, int c);
 void Draw_FadeScreen(void);
+void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
+                    const uint32_t *indexes, uint32_t num_indexes);
 
 /*
 @@@@@@@@@@@@@@@@@@@@@
@@ -1489,6 +1491,7 @@ refexport_t GetRefAPI(refimport_t rimp) {
   re.DrawFadeScreen = Draw_FadeScreen;
 
   re.DrawStretchRaw = Draw_StretchRaw;
+  re.DrawTriangles = Draw_Triangles;
 
   re.Init = R_Init;
   re.Shutdown = R_Shutdown;
