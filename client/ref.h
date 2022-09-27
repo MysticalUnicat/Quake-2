@@ -48,6 +48,10 @@ struct BaseImage {
   char name[MAX_QPATH];
   uint32_t width;
   uint32_t height;
+  float s0;
+  float t0;
+  float s1;
+  float t1;
 };
 
 typedef struct entity_s {
@@ -128,7 +132,7 @@ typedef struct {
 struct DrawVertex {
   float xy[2];
   float st[2];
-  uint32_t rgba;
+  uint8_t rgba[4];
 };
 
 //

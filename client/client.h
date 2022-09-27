@@ -578,6 +578,20 @@ void CL_DrawInventory(void);
 //
 void CL_PredictMovement(void);
 
+// UI
+void UI_SetTexture(const char *name);
+void UI_Align(float align_x, float align_y);
+static inline void UI_Center(void) { UI_Align(0.5f, 0.5f); }
+void UI_Picture(const char *name, ...);
+void UI_Fill(float r, float g, float b, float a);
+void UI_Horizontal(void);
+void UI_Vertical(void);
+void UI_End(void);
+void UI_Text(const char *format, ...);
+void UI_ForceSize(float w, float h);
+void UI_ForceWidth(float w);
+void UI_ForceHeight(float h);
+
 #if id386
 void x86_TimerStart(void);
 void x86_TimerStop(void);

@@ -1171,6 +1171,8 @@ static void frame_uv_timer_cb(uv_timer_t *timer) {
   uint64_t delta = time - old_time;
   old_time = time;
 
+  curtime = Sys_Milliseconds();
+
   Qcommon_Frame((int)delta);
 }
 

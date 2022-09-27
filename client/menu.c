@@ -345,6 +345,7 @@ MAIN MENU
 #define MAIN_ITEMS 5
 
 void M_Main_Draw(void) {
+#if 0
   int i;
   int w, h;
   int ystart;
@@ -379,6 +380,38 @@ void M_Main_Draw(void) {
   re.DrawPic(xoffset - 30 - w, ystart, "m_main_plaque");
 
   re.DrawPic(xoffset - 30 - w, ystart + h + 5, "m_main_logo");
+#else
+  static const char *names[] = {"m_main_game", "m_main_multiplayer", "m_main_options", "m_main_video", "m_main_quit"};
+  char name[32];
+
+  UI_Center();
+  UI_Horizontal();
+
+  UI_Vertical();
+  UI_Picture("m_main_plaque");
+  UI_Picture("m_main_logo");
+  UI_End();
+
+  UI_Vertical();
+  for(int i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+    strcpy(name, names[i]);
+    UI_Align(0.0f, 0.5f);
+    UI_ForceHeight(40);
+    UI_Horizontal();
+    if(i == m_main_cursor) {
+      strcat(name, "_sel");
+      UI_Picture("m_cursor%d", (int)(cls.realtime / 100) % NUM_CURSOR_FRAMES);
+    } else {
+      UI_ForceSize(24, 24);
+      UI_Fill(0, 0, 0, 0);
+    }
+    UI_Picture(name);
+    UI_End();
+  }
+  UI_End();
+
+  UI_End();
+#endif
 }
 
 const char *M_Main_Key(int key) {
@@ -3535,7 +3568,8 @@ void M_Draw(void) {
 
   // dim everything behind it down
   if(cl.cinematictime > 0)
-    re.DrawFill(0, 0, viddef.width, viddef.height, 0);
+    UI_Fill(0, 0, 0, 0);
+  // re.DrawFill(0, 0, viddef.width, viddef.height, 0);
   else
     re.DrawFadeScreen();
 

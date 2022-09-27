@@ -1089,36 +1089,36 @@ image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetyp
   strcpy(image->base.name, name);
   image->registration_sequence = registration_sequence;
 
-  image->width = width;
-  image->height = height;
+  image->base.width = width;
+  image->base.height = height;
   image->type = type;
 
   if(type == it_skin && bits == 8)
     R_FloodFillSkin(pic, width, height);
 
   // load little pics into the scrap
-  if(image->type == it_pic && bits == 8 && image->width < 64 && image->height < 64) {
+  if(image->type == it_pic && bits == 8 && image->base.width < 64 && image->base.height < 64) {
     int x, y;
     int i, j, k;
     int texnum;
 
-    texnum = Scrap_AllocBlock(image->width, image->height, &x, &y);
+    texnum = Scrap_AllocBlock(image->base.width, image->base.height, &x, &y);
     if(texnum == -1)
       goto nonscrap;
     scrap_dirty = true;
 
     // copy the texels into the scrap block
     k = 0;
-    for(i = 0; i < image->height; i++)
-      for(j = 0; j < image->width; j++, k++)
+    for(i = 0; i < image->base.height; i++)
+      for(j = 0; j < image->base.width; j++, k++)
         scrap_texels[texnum][(y + i) * BLOCK_WIDTH + x + j] = pic[k];
     image->texnum = TEXNUM_SCRAPS + texnum;
     image->scrap = true;
     image->has_alpha = true;
-    image->sl = (x + 0.01) / (float)BLOCK_WIDTH;
-    image->sh = (x + image->width - 0.01) / (float)BLOCK_WIDTH;
-    image->tl = (y + 0.01) / (float)BLOCK_WIDTH;
-    image->th = (y + image->height - 0.01) / (float)BLOCK_WIDTH;
+    image->base.s0 = (x + 0.01) / (float)BLOCK_WIDTH;
+    image->base.s1 = (x + image->base.width - 0.01) / (float)BLOCK_WIDTH;
+    image->base.t0 = (y + 0.01) / (float)BLOCK_WIDTH;
+    image->base.t1 = (y + image->base.height - 0.01) / (float)BLOCK_WIDTH;
   } else {
   nonscrap:
     image->scrap = false;
@@ -1132,10 +1132,10 @@ image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetyp
     image->upload_width = upload_width; // after power of 2 and scales
     image->upload_height = upload_height;
     image->paletted = uploaded_paletted;
-    image->sl = 0;
-    image->sh = 1;
-    image->tl = 0;
-    image->th = 1;
+    image->base.s0 = 0;
+    image->base.s1 = 1;
+    image->base.t0 = 0;
+    image->base.t1 = 1;
   }
 
   return image;
@@ -1246,6 +1246,7 @@ void GL_FreeUnusedImages(void) {
 
   // never free r_notexture or particle texture
   r_notexture->registration_sequence = registration_sequence;
+  r_whitepcx->registration_sequence = registration_sequence;
   r_particletexture->registration_sequence = registration_sequence;
 
   for(i = 0, image = gltextures; i < numgltextures; i++, image++) {

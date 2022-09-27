@@ -113,8 +113,8 @@ void Draw_GetPicSize(int *w, int *h, const char *pic) {
     *w = *h = -1;
     return;
   }
-  *w = gl->width;
-  *h = gl->height;
+  *w = gl->base.width;
+  *h = gl->base.height;
 }
 
 /*
@@ -139,13 +139,13 @@ void Draw_StretchPic(int x, int y, int w, int h, const char *pic) {
 
   GL_Bind(gl->texnum);
   qglBegin(GL_QUADS);
-  qglTexCoord2f(gl->sl, gl->tl);
+  qglTexCoord2f(gl->base.s0, gl->base.t0);
   qglVertex2f(x, y);
-  qglTexCoord2f(gl->sh, gl->tl);
+  qglTexCoord2f(gl->base.s1, gl->base.t0);
   qglVertex2f(x + w, y);
-  qglTexCoord2f(gl->sh, gl->th);
+  qglTexCoord2f(gl->base.s1, gl->base.t1);
   qglVertex2f(x + w, y + h);
-  qglTexCoord2f(gl->sl, gl->th);
+  qglTexCoord2f(gl->base.s0, gl->base.t1);
   qglVertex2f(x, y + h);
   qglEnd();
 
@@ -174,14 +174,14 @@ void Draw_Pic(int x, int y, const char *pic) {
 
   GL_Bind(gl->texnum);
   qglBegin(GL_QUADS);
-  qglTexCoord2f(gl->sl, gl->tl);
+  qglTexCoord2f(gl->base.s0, gl->base.t0);
   qglVertex2f(x, y);
-  qglTexCoord2f(gl->sh, gl->tl);
-  qglVertex2f(x + gl->width, y);
-  qglTexCoord2f(gl->sh, gl->th);
-  qglVertex2f(x + gl->width, y + gl->height);
-  qglTexCoord2f(gl->sl, gl->th);
-  qglVertex2f(x, y + gl->height);
+  qglTexCoord2f(gl->base.s1, gl->base.t0);
+  qglVertex2f(x + gl->base.width, y);
+  qglTexCoord2f(gl->base.s1, gl->base.t1);
+  qglVertex2f(x + gl->base.width, y + gl->base.height);
+  qglTexCoord2f(gl->base.s0, gl->base.t1);
+  qglVertex2f(x, y + gl->base.height);
   qglEnd();
 
   if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !gl->has_alpha)
@@ -375,14 +375,21 @@ void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vert
 
   GL_Bind(((image_t *)image)->texnum);
 
+  GL_TexEnv(GL_MODULATE);
+
+  qglEnable(GL_BLEND);
+  qglDisable(GL_ALPHA_TEST);
   qglBegin(GL_TRIANGLES);
 
   for(int i = 0; i < num_indexes; i++) {
     uint32_t index = indexes[i];
     qglTexCoord2fv(vertexes[index].st);
-    qglColor4bv((GLbyte *)&vertexes[index].rgba);
+    qglColor4ub(vertexes[index].rgba[0], vertexes[index].rgba[1], vertexes[index].rgba[2], vertexes[index].rgba[3]);
     qglVertex2fv(vertexes[index].xy);
   }
 
   qglEnd();
+  qglDisable(GL_BLEND);
+  qglEnable(GL_ALPHA_TEST);
+  //   GL_TexEnv(GL_REPLACE);
 }

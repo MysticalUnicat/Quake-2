@@ -1294,10 +1294,10 @@ void GL_BuildPolygonFromSurface(msurface_t *fa, struct HunkAllocator *hunk) {
       vec = currentmodel->vertexes[r_pedge->v[1]].position;
     }
     s = DotProduct(vec, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3];
-    s /= fa->texinfo->image->width;
+    s /= fa->texinfo->image->base.width;
 
     t = DotProduct(vec, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3];
-    t /= fa->texinfo->image->height;
+    t /= fa->texinfo->image->base.height;
 
     VectorAdd(total, vec, total);
     VectorCopy(vec, poly->verts[i]);

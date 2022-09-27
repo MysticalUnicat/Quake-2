@@ -112,16 +112,18 @@ Sys_Milliseconds
 */
 int curtime;
 int Sys_Milliseconds(void) {
-  static int base;
-  static bool initialized = false;
-
-  if(!initialized) { // let base retain 16 bits of effectively random data
-    base = timeGetTime() & 0xffff0000;
-    initialized = true;
-  }
-  curtime = timeGetTime() - base;
-
+  curtime = (int)(uv_hrtime() / (uint64_t)1000000);
   return curtime;
+  // static int base;
+  // static bool initialized = false;
+
+  // if(!initialized) { // let base retain 16 bits of effectively random data
+  //   base = timeGetTime() & 0xffff0000;
+  //   initialized = true;
+  // }
+  // curtime = timeGetTime() - base;
+
+  // return curtime;
 }
 
 void Sys_Mkdir(char *path) { _mkdir(path); }

@@ -429,8 +429,10 @@ void SCR_DrawPause(void) {
   if(!cl_paused->value)
     return;
 
-  re.DrawGetPicSize(&w, &h, "pause");
-  re.DrawPic((viddef.width - w) / 2, viddef.height / 2 + 8, "pause");
+  UI_Align(0.5f, 0.5f);
+  UI_Picture("pause");
+  // re.DrawGetPicSize(&w, &h, "pause");
+  // re.DrawPic((viddef.width - w) / 2, viddef.height / 2 + 8, "pause");
 }
 
 /*
@@ -445,8 +447,11 @@ void SCR_DrawLoading(void) {
     return;
 
   scr_draw_loading = false;
-  re.DrawGetPicSize(&w, &h, "loading");
-  re.DrawPic((viddef.width - w) / 2, (viddef.height - h) / 2, "loading");
+
+  UI_Align(0.5f, 0.5f);
+  UI_Picture("loading");
+  // re.DrawGetPicSize(&w, &h, "loading");
+  // re.DrawPic((viddef.width - w) / 2, (viddef.height - h) / 2, "loading");
 }
 
 //=============================================================================
@@ -1137,29 +1142,59 @@ static alias_ui_OutputGroup ui_output_groups[1024];
 static uint32_t ui_output_indexes[1 << 10];
 static struct DrawVertex ui_output_vertexes[1 << 10];
 static struct BaseImage *ui_frame_images[1024];
+static alias_ui *frame_ui = NULL;
 
-void UI_SetTexture(alias_ui *ui, const char *name) {
-  int i;
+uint32_t UI_GetTextureIndex(const char *name) {
+  uint32_t i;
   for(i = 0; ui_frame_images[i]; i++) {
     if(strcmp(name, ui_frame_images[i]->name) == 0) {
-      alias_ui_SetTexture(ui, i);
-      return;
+      return i;
     }
   }
   ui_frame_images[i] = re.RegisterPic(name);
   ui_frame_images[i + 1] = NULL;
-  alias_ui_SetTexture(ui, i);
+  return i;
 }
 
-static void UI_TextSize(alias_ui *ui, const char *buffer, alias_R size, alias_R max_width, alias_R *out_width,
-                        alias_R *out_height) {
+void UI_SetTexture(const char *name) { alias_ui_SetTexture(frame_ui, UI_GetTextureIndex(name)); }
+
+void UI_Align(float align_x, float align_y) { alias_ui_align_fractions(frame_ui, align_x, align_y); }
+
+void UI_Horizontal(void) { alias_ui_begin_horizontal(frame_ui); }
+void UI_Vertical(void) { alias_ui_begin_vertical(frame_ui); }
+void UI_End(void) { alias_ui_end(frame_ui); }
+
+void UI_ForceSize(float w, float h) { alias_ui_override_size(frame_ui, w, h); }
+
+void UI_ForceWidth(float w) { alias_ui_override_width(frame_ui, w); }
+void UI_ForceHeight(float h) { alias_ui_override_height(frame_ui, h); }
+
+void UI_Picture(const char *name, ...) {
+  char path[MAX_QPATH];
+
+  va_list ap;
+  va_start(ap, name);
+  vsprintf(path, name, ap);
+  va_end(ap);
+
+  int index = UI_GetTextureIndex(path);
+  const struct BaseImage *image = ui_frame_images[index];
+  alias_ui_image(frame_ui, image->width, image->height, image->s0, image->t0, image->s1, image->t1, index);
+}
+
+void UI_Fill(float r, float g, float b, float a) {
+  alias_ui_fill(frame_ui, (alias_Color){.r = r, .g = g, .b = b, .a = a});
+}
+
+static void text_size(alias_ui *ui, const char *buffer, alias_R size, alias_R max_width, alias_R *out_width,
+                      alias_R *out_height) {
   *out_width = strlen(buffer) * 8;
   *out_height = 8;
 }
 
-static void UI_TextDraw(alias_ui *ui, const char *buffer, alias_R x, alias_R y, alias_R width, alias_R size,
-                        alias_Color color) {
-  UI_SetTexture(ui, "conchars");
+static void text_draw(alias_ui *ui, const char *buffer, alias_R x, alias_R y, alias_R width, alias_R size,
+                      alias_Color color) {
+  UI_SetTexture("conchars");
 
   for(int i = 0; buffer[i]; i++, x += 8) {
     int num = buffer[i];
@@ -1186,9 +1221,14 @@ static void UI_TextDraw(alias_ui *ui, const char *buffer, alias_R x, alias_R y, 
   }
 }
 
-void SCR_UpdateScreen(void) {
-  static alias_ui *ui = NULL;
+void UI_Text(const char *format, ...) {
+  va_list ap;
+  va_start(ap, format);
+  alias_ui_textv(frame_ui, format, ap);
+  va_end(ap);
+}
 
+void SCR_UpdateScreen(void) {
   // if the screen is disabled (loading plaque is up, or vid mode changing)
   // do nothing at all
   if(cls.disable_screen) {
@@ -1202,18 +1242,19 @@ void SCR_UpdateScreen(void) {
   if(!scr_initialized || !con.initialized)
     return; // not initialized yet
 
-  if(ui == NULL) {
-    alias_ui_initialize(alias_default_MemoryCB(), &ui);
+  if(frame_ui == NULL) {
+    alias_ui_initialize(alias_default_MemoryCB(), &frame_ui);
   }
 
-  alias_ui_Input ui_input = {.screen_size = {.width = viddef.width, .height = viddef.height},
-                             .text_draw = UI_TextDraw,
-                             .text_size = UI_TextSize};
+  alias_ui_Input ui_input = {
+      .screen_size = {.width = viddef.width, .height = viddef.height}, .text_draw = text_draw, .text_size = text_size};
 
   ui_frame_images[0] = NULL;
-  alias_ui_begin_frame(ui, alias_default_MemoryCB(), &ui_input);
+  UI_GetTextureIndex("white");
 
-  alias_ui_begin_stack(ui);
+  alias_ui_begin_frame(frame_ui, alias_default_MemoryCB(), &ui_input);
+
+  alias_ui_begin_stack(frame_ui);
 
   re.BeginFrame(0.0f);
 
@@ -1222,8 +1263,11 @@ void SCR_UpdateScreen(void) {
 
     re.CinematicSetPalette(NULL);
     scr_draw_loading = false;
-    re.DrawGetPicSize(&w, &h, "loading");
-    re.DrawPic((viddef.width - w) / 2, (viddef.height - h) / 2, "loading");
+
+    UI_Align(0.5f, 0.5f);
+    UI_Picture("loading");
+    // re.DrawGetPicSize(&w, &h, "loading");
+    // re.DrawPic((viddef.width - w) / 2, (viddef.height - h) / 2, "loading");
     //			re.EndFrame();
     //			return;
   }
@@ -1257,13 +1301,14 @@ void SCR_UpdateScreen(void) {
     SCR_CalcVrect();
 
     // clear any dirty part of the background
-    SCR_TileClear();
+    // SCR_TileClear();
 
     V_RenderView(0.0f);
 
     SCR_DrawStats();
     if(cl.frame.playerstate.stats[STAT_LAYOUTS] & 1)
       SCR_DrawLayout();
+
     if(cl.frame.playerstate.stats[STAT_LAYOUTS] & 2)
       CL_DrawInventory();
 
@@ -1285,7 +1330,10 @@ void SCR_UpdateScreen(void) {
     SCR_DrawLoading();
   }
 
-  alias_ui_end(ui);
+  UI_Align(1, 1);
+  UI_Text("Elysian Break pre-alpha");
+
+  alias_ui_end(frame_ui);
 
   alias_ui_Output ui_output = {
       .groups = ui_output_groups,
@@ -1315,7 +1363,7 @@ void SCR_UpdateScreen(void) {
                           .type_length = 4},
   };
 
-  alias_ui_end_frame(ui, alias_default_MemoryCB(), &ui_output);
+  alias_ui_end_frame(frame_ui, alias_default_MemoryCB(), &ui_output);
 
   for(int i = 0; i < ui_output.num_groups; i++) {
     re.DrawTriangles(ui_frame_images[ui_output_groups[i].texture_id], ui_output_vertexes, ui_output.num_vertexes,

@@ -11,6 +11,7 @@
         "deque": "c",
         "string": "c",
         "unordered_map": "c",
-        "vector": "c"
+        "vector": "c",
+        "client.h": "c"
     }
 }
