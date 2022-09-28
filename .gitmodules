@@ -4,3 +4,6 @@
 [submodule "ext/alias"]
 	path = ext/alias
 	url = https://github.com/MysticalUnicat/alias.git
+[submodule "ext/libuv"]
+	path = ext/libuv
+	url = https://github.com/libuv/libuv.git
