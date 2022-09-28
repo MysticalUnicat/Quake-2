@@ -1,0 +1,3 @@
+[submodule "tools"]
+	path = tools
+	url = https://github.com/MysticalUnicat/Quake-2-Tools.git
