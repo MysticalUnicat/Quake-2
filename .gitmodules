@@ -4,3 +4,6 @@
 [submodule "ext/libuv"]
 	path = ext/libuv
 	url = https://github.com/libuv/libuv.git
+[submodule "tools"]
+	path = tools
+	url = https://github.com/MysticalUnicat/q2tools-220.git

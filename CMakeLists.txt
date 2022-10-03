@@ -1,61 +1,56 @@
 cmake_minimum_required(VERSION 3.11)
 project(alias_q2 LANGUAGES C)
 
-add_subdirectory(../alias ${CMAKE_BINARY_DIR}/alias)
-add_subdirectory(../libuv ${CMAKE_BINARY_DIR}/libuv)
+add_subdirectory(ext/alias)
+add_subdirectory(ext/libuv)
 
-# add_library(tools-common STATIC
-#     ext/Quake-2-Tools/common/bspfile.c
-#     ext/Quake-2-Tools/common/cmdlib.c
-#     ext/Quake-2-Tools/common/l3dslib.c
-#     ext/Quake-2-Tools/common/lbmlib.c
-#     ext/Quake-2-Tools/common/mathlib.c
-#     ext/Quake-2-Tools/common/mdfour.c
-#     ext/Quake-2-Tools/common/polylib.c
-#     ext/Quake-2-Tools/common/scriplib.c
-#     ext/Quake-2-Tools/common/threads.c
-#     ext/Quake-2-Tools/common/trilib.c
-# )
-# target_include_directories(tools-common
-#     INTERFACE ext/Quake-2-Tools/common
-# )
+add_library(tools-common STATIC
+    tools/common/bspfile.c
+    tools/common/cmdlib.c
+    tools/common/l3dslib.c
+    tools/common/lbmlib.c
+    tools/common/llwolib.c
+    tools/common/mathlib.c
+    tools/common/mdfour.c
+    tools/common/polylib.c
+    tools/common/scriplib.c
+    tools/common/threads.c
+    tools/common/trilib.c
+)
+target_include_directories(tools-common
+    PUBLIC tools/include
+    INTERFACE tools/common tools/include
+)
+target_link_libraries(tools-common uv_a)
 
-# add_executable(bspinfo3
-#     ext/Quake-2-Tools/bsp/bspinfo3/bspinfo3.c
-# )
-# target_link_libraries(bspinfo3 tools-common)
+add_executable(4bsp
+    tools/4bsp/4bsp.c
+    tools/4bsp/brushbsp.c
+    tools/4bsp/csg.c
+    tools/4bsp/faces.c
+    tools/4bsp/leakfile.c
+    tools/4bsp/map.c
+    tools/4bsp/portals.c
+    tools/4bsp/prtfile.c
+    tools/4bsp/textures.c
+    tools/4bsp/tree.c
+    tools/4bsp/writebsp.c
+)
+target_link_libraries(4bsp tools-common)
 
-# add_executable(qbsp3
-#     ext/Quake-2-Tools/bsp/qbsp3/brushbsp.c
-#     ext/Quake-2-Tools/bsp/qbsp3/csg.c
-#     ext/Quake-2-Tools/bsp/qbsp3/faces.c
-#     #ext/Quake-2-Tools/bsp/qbsp3/gldraw.c
-#     ext/Quake-2-Tools/bsp/qbsp3/glfile.c
-#     ext/Quake-2-Tools/bsp/qbsp3/leakfile.c
-#     ext/Quake-2-Tools/bsp/qbsp3/map.c
-#     ext/Quake-2-Tools/bsp/qbsp3/nodraw.c
-#     ext/Quake-2-Tools/bsp/qbsp3/portals.c
-#     ext/Quake-2-Tools/bsp/qbsp3/prtfile.c
-#     ext/Quake-2-Tools/bsp/qbsp3/qbsp3.c
-#     ext/Quake-2-Tools/bsp/qbsp3/textures.c
-#     ext/Quake-2-Tools/bsp/qbsp3/tree.c
-#     ext/Quake-2-Tools/bsp/qbsp3/writebsp.c
-# )
-# target_link_libraries(qbsp3 tools-common)
+add_executable(4vis
+    tools/4vis/4vis.c
+    tools/4vis/flow.c
+)
+target_link_libraries(4vis tools-common)
 
-# add_executable(qrad3
-#     ext/Quake-2-Tools/bsp/qrad3/lightmap.c
-#     ext/Quake-2-Tools/bsp/qrad3/patches.c
-#     ext/Quake-2-Tools/bsp/qrad3/qrad3.c
-#     ext/Quake-2-Tools/bsp/qrad3/trace.c
-# )
-# target_link_libraries(qrad3 tools-common)
-
-# add_executable(qvis3
-#     ext/Quake-2-Tools/bsp/qvis3/flow.c
-#     ext/Quake-2-Tools/bsp/qvis3/qvis3.c
-# )
-# target_link_libraries(qvis3 tools-common)
+add_executable(4rad
+    tools/4rad/4rad.c
+    tools/4rad/lightmap.c
+    tools/4rad/patches.c
+    tools/4rad/trace.c
+)
+target_link_libraries(4rad tools-common)
 
 add_library(shared STATIC
     game/q_shared.c
@@ -125,6 +120,7 @@ add_library(common STATIC
     qcommon/files.c
     qcommon/md4.c
     qcommon/net_chan.c
+    # qcommon/net_libuv.c
     qcommon/pmove.c
 )
 target_link_libraries(common shared uv_a)
