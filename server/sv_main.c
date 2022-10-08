@@ -531,6 +531,52 @@ void SV_GiveMsec(void) {
   }
 }
 
+void SV_ReadPacket(netadr_t from, const void *buffer, uint32_t length) {
+  net_from = from;
+  net_message.data = buffer;
+  net_message.cursize = length;
+
+  // check for connectionless packet (0xffffffff) first
+  if(*(int *)net_message.data == -1) {
+    SV_ConnectionlessPacket();
+    return;
+  }
+
+  // read the qport out of the message so we can fix up
+  // stupid address translating routers
+  MSG_BeginReading(&net_message);
+  MSG_ReadLong(&net_message); // sequence number
+  MSG_ReadLong(&net_message); // sequence number
+  int qport = MSG_ReadShort(&net_message) & 0xffff;
+
+  client_t *cl;
+  int i;
+
+  // check for packets from connected clients
+  for(i = 0, cl = svs.clients; i < maxclients->value; i++, cl++) {
+    if(cl->state == cs_free)
+      continue;
+    if(!NET_CompareBaseAdr(net_from, cl->netchan.remote_address))
+      continue;
+    if(cl->netchan.qport != qport)
+      continue;
+    if(cl->netchan.remote_address.port != net_from.port) {
+      Com_Printf("SV_ReadPackets: fixing up a translated port\n");
+      cl->netchan.remote_address.port = net_from.port;
+    }
+
+    if(Netchan_Process(&cl->netchan, &net_message)) { // this is a valid, sequenced packet, so process it
+      if(cl->state != cs_zombie) {
+        cl->lastmessage = svs.realtime; // don't timeout
+        SV_ExecuteClientMessage(cl);
+      }
+    }
+    break;
+  }
+
+  net_message.data = net_message_buffer;
+}
+
 /*
 =================
 SV_ReadPackets
@@ -539,43 +585,9 @@ SV_ReadPackets
 void SV_ReadPackets(void) {
   int i;
   client_t *cl;
-  int qport;
 
   while(NET_GetPacket(NS_SERVER, &net_from, &net_message)) {
-    // check for connectionless packet (0xffffffff) first
-    if(*(int *)net_message.data == -1) {
-      SV_ConnectionlessPacket();
-      continue;
-    }
-
-    // read the qport out of the message so we can fix up
-    // stupid address translating routers
-    MSG_BeginReading(&net_message);
-    MSG_ReadLong(&net_message); // sequence number
-    MSG_ReadLong(&net_message); // sequence number
-    qport = MSG_ReadShort(&net_message) & 0xffff;
-
-    // check for packets from connected clients
-    for(i = 0, cl = svs.clients; i < maxclients->value; i++, cl++) {
-      if(cl->state == cs_free)
-        continue;
-      if(!NET_CompareBaseAdr(net_from, cl->netchan.remote_address))
-        continue;
-      if(cl->netchan.qport != qport)
-        continue;
-      if(cl->netchan.remote_address.port != net_from.port) {
-        Com_Printf("SV_ReadPackets: fixing up a translated port\n");
-        cl->netchan.remote_address.port = net_from.port;
-      }
-
-      if(Netchan_Process(&cl->netchan, &net_message)) { // this is a valid, sequenced packet, so process it
-        if(cl->state != cs_zombie) {
-          cl->lastmessage = svs.realtime; // don't timeout
-          SV_ExecuteClientMessage(cl);
-        }
-      }
-      break;
-    }
+    SV_ReadPacket(net_from, net_message.data, net_message.cursize);
 
     if(i != maxclients->value)
       continue;

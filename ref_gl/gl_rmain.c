@@ -754,7 +754,7 @@ void R_RenderView(refdef_t *fd) {
 
   r_newrefdef = *fd;
 
-  if(!r_worldmodel && !(r_newrefdef.rdflags & RDF_NOWORLDMODEL))
+  if(!r_worldmodel[r_newrefdef.cmodel_index] && !(r_newrefdef.rdflags & RDF_NOWORLDMODEL))
     ri.Sys_Error(ERR_DROP, "R_RenderView: NULL worldmodel");
 
   if(r_speeds->value) {

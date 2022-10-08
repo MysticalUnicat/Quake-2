@@ -947,18 +947,18 @@ void initialize_worlds(void) {
   gi.configstring(CS_LIGHTS + 63, "a");
 
   // TEST CODE
-  const char *maps[] = {"maps/q2dm2.bsp", "maps/q2dm3.bsp", "maps/q2dm4.bsp", "maps/q2dm5.bsp",
-                        "maps/q2dm6.bsp", "maps/q2dm7.bsp", "maps/q2dm8.bsp"};
+  // const char *maps[] = {"maps/q2dm2.bsp", "maps/q2dm3.bsp", "maps/q2dm4.bsp", "maps/q2dm5.bsp",
+  //                       "maps/q2dm6.bsp", "maps/q2dm7.bsp", "maps/q2dm8.bsp"};
 
-  int b, c;
-  do {
-    b = rand() % (sizeof(maps) / sizeof(maps[0]));
-    c = rand() % (sizeof(maps) / sizeof(maps[0]));
-  } while(b == c);
+  // int b, c;
+  // do {
+  //   b = rand() % (sizeof(maps) / sizeof(maps[0]));
+  //   c = rand() % (sizeof(maps) / sizeof(maps[0]));
+  // } while(b == c);
 
-  edict_t *other = G_Spawn(CMODEL_B);
-  gi.setmodel(other, maps[b]);
+  // edict_t *other = G_Spawn(CMODEL_B);
+  // gi.setmodel(other, maps[b]);
 
-  edict_t *other2 = G_Spawn(CMODEL_C);
-  gi.setmodel(other2, maps[c]);
+  // edict_t *other2 = G_Spawn(CMODEL_C);
+  // gi.setmodel(other2, maps[c]);
 }

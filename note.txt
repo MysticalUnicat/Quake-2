@@ -1,0 +1,27 @@
+SH lighting:
+https://grahamhazel.com/blog/
+https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/gdc2018-precomputedgiobalilluminationinfrostbite.pdf
+
+
+
+shader:
+float sh_irradiance(float r0, vec3 r1, vec3 surface_normal) {
+    float r1_over_r0 = length(r1) / r0
+    float q = 0.5 * (1 + dot(normalize(r1), surface_normal))
+    float p = 1 + 2 * r1_over_r0;
+    float a = (1 - r1_over_r0) / (1 + r1_over_r0);
+    return r0 * (a + (1 - a) * (p + 1) * pow(q, p));
+}
+
+vec3 surface_normal = in_vertex_normal_mat * texture(normalmap, st1) * 2 - 1;
+
+vec3 lm_0 = texture(lightmap0, st2).rgb;
+vec3 lm_r = texture(lightmap1, st2).rgb;
+vec3 lm_g = texture(lightmap2, st2).rgb;
+vec3 lm_b = texture(lightmap3, st2).rgb;
+
+vec3 irradiance = vec3(
+    sh_irradiance(lm_0.r, lm_r, surface_normal),
+    sh_irradiance(lm_0.g, lm_g, surface_normal),
+    sh_irradiance(lm_0.b, lm_b, surface_normal)
+);

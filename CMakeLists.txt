@@ -3,54 +3,7 @@ project(alias_q2 LANGUAGES C)
 
 add_subdirectory(ext/alias)
 add_subdirectory(ext/libuv)
-
-add_library(tools-common STATIC
-    tools/common/bspfile.c
-    tools/common/cmdlib.c
-    tools/common/l3dslib.c
-    tools/common/lbmlib.c
-    tools/common/llwolib.c
-    tools/common/mathlib.c
-    tools/common/mdfour.c
-    tools/common/polylib.c
-    tools/common/scriplib.c
-    tools/common/threads.c
-    tools/common/trilib.c
-)
-target_include_directories(tools-common
-    PUBLIC tools/include
-    INTERFACE tools/common tools/include
-)
-target_link_libraries(tools-common uv_a)
-
-add_executable(4bsp
-    tools/4bsp/4bsp.c
-    tools/4bsp/brushbsp.c
-    tools/4bsp/csg.c
-    tools/4bsp/faces.c
-    tools/4bsp/leakfile.c
-    tools/4bsp/map.c
-    tools/4bsp/portals.c
-    tools/4bsp/prtfile.c
-    tools/4bsp/textures.c
-    tools/4bsp/tree.c
-    tools/4bsp/writebsp.c
-)
-target_link_libraries(4bsp tools-common)
-
-add_executable(4vis
-    tools/4vis/4vis.c
-    tools/4vis/flow.c
-)
-target_link_libraries(4vis tools-common)
-
-add_executable(4rad
-    tools/4rad/4rad.c
-    tools/4rad/lightmap.c
-    tools/4rad/patches.c
-    tools/4rad/trace.c
-)
-target_link_libraries(4rad tools-common)
+add_subdirectory(tools)
 
 add_library(shared STATIC
     game/q_shared.c

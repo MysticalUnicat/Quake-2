@@ -24,6 +24,44 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "client.h"
 #include "../client/qmenu.h"
 
+/*
+
+new menu
+
+main menu:
+  +------------------------+    Elysian Break logo   (character item shows delete and on click advance to play)
+  | local character list   |
+  | then remote list       |
+  |                        |
+  |  +---------------------+     character display
+  | / new character button |
+  +------------------------+
+   \ login/logout button   |
+    +----------------------+
+
+  +-----------------+
+  | settings | exit |
+  +-----------------+
+
+character create:
++------------------------+   character display
+| name                   |
+| model                v |
+| skin                 v |
+| armor select         v |
+| weapon select        v |
++------------------------+
+  \ create               |
+  +----------------------+
+
+settings:
++----------------------+
+| ....                 |
++----------------------+
+
+
+*/
+
 static int m_main_cursor;
 
 #define NUM_CURSOR_FRAMES 15
@@ -394,10 +432,11 @@ void M_Main_Draw(void) {
 
   UI_Vertical();
   for(int i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
-    strcpy(name, names[i]);
     UI_Align(0.0f, 0.5f);
     UI_ForceHeight(40);
     UI_Horizontal();
+
+    strcpy(name, names[i]);
     if(i == m_main_cursor) {
       strcat(name, "_sel");
       UI_Picture("m_cursor%d", (int)(cls.realtime / 100) % NUM_CURSOR_FRAMES);
@@ -406,6 +445,7 @@ void M_Main_Draw(void) {
       UI_Fill(0, 0, 0, 0);
     }
     UI_Picture(name);
+
     UI_End();
   }
   UI_End();
