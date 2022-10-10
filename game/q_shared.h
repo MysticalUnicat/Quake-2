@@ -247,9 +247,9 @@ SYSTEM SPECIFIC
 ==============================================================
 */
 
-extern int curtime; // time returned by last Sys_Milliseconds
+extern unsigned int curtime; // time returned by last Sys_Milliseconds
 
-int Sys_Milliseconds(void);
+unsigned int Sys_Milliseconds(void);
 void Sys_Mkdir(char *path);
 
 struct HunkAllocator {

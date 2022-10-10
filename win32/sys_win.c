@@ -116,74 +116,6 @@ void WinError(void) {
 
 //================================================================
 
-/*
-================
-Sys_ScanForCD
-
-================
-*/
-// char *Sys_ScanForCD (void)
-// {
-// 	static char	cddir[MAX_OSPATH];
-// 	static bool	done;
-// #ifndef DEMO
-// 	char		drive[4];
-// 	FILE		*f;
-// 	char		test[MAX_QPATH];
-
-// 	if (done)		// don't re-check
-// 		return cddir;
-
-// 	// no abort/retry/fail errors
-// 	SetErrorMode (SEM_FAILCRITICALERRORS);
-
-// 	drive[0] = 'c';
-// 	drive[1] = ':';
-// 	drive[2] = '\\';
-// 	drive[3] = 0;
-
-// 	done = true;
-
-// 	// scan the drives
-// 	for (drive[0] = 'c' ; drive[0] <= 'z' ; drive[0]++)
-// 	{
-// 		// where activision put the stuff...
-// 		sprintf (cddir, "%sinstall\\data", drive);
-// 		sprintf (test, "%sinstall\\data\\quake2.exe", drive);
-// 		f = fopen(test, "r");
-// 		if (f)
-// 		{
-// 			fclose (f);
-// 			if (GetDriveType (drive) == DRIVE_CDROM)
-// 				return cddir;
-// 		}
-// 	}
-// #endif
-
-// 	cddir[0] = 0;
-
-// 	return NULL;
-// }
-
-/*
-================
-Sys_CopyProtect
-
-================
-*/
-// void	Sys_CopyProtect (void)
-// {
-// #ifndef DEMO
-// 	char	*cddir;
-
-// 	cddir = Sys_ScanForCD();
-// 	if (!cddir[0])
-// 		Com_Error (ERR_FATAL, "You must have the Quake2 CD in the drive to play.");
-// #endif
-// }
-
-//================================================================
-
 static void windows_uv_idle_cb(uv_idle_t *handle) {
   extern GLFWwindow *glfw_window;
 
@@ -191,7 +123,7 @@ static void windows_uv_idle_cb(uv_idle_t *handle) {
     Com_Quit();
   }
 
-  sys_msg_time = uv_now(&global_uv_loop);
+  sys_msg_time = Sys_Milliseconds();
 
   glfwPollEvents();
 }
@@ -341,16 +273,6 @@ Send Key_Event calls
 ================
 */
 void Sys_SendKeyEvents(void) {
-  // MSG msg;
-
-  // while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-  //   if(!GetMessage(&msg, NULL, 0, 0))
-  //     Sys_Quit();
-  //   sys_msg_time = msg.time;
-  //   TranslateMessage(&msg);
-  //   DispatchMessage(&msg);
-  // }
-
   extern GLFWwindow *glfw_window;
 
   if(glfw_window != NULL && glfwWindowShouldClose(glfw_window)) {
@@ -360,7 +282,7 @@ void Sys_SendKeyEvents(void) {
   glfwPollEvents();
 
   // grab frame time
-  sys_frame_time = uv_now(&global_uv_loop); // FIXME: should this be at start?
+  sys_frame_time = Sys_Milliseconds(); // FIXME: should this be at start?
 }
 
 /*
@@ -414,18 +336,12 @@ GAME DLL
 ========================================================================
 */
 
-// static HINSTANCE	game_library;
-
 /*
 =================
 Sys_UnloadGame
 =================
 */
-void Sys_UnloadGame(void) {
-  // if (!FreeLibrary (game_library))
-  // 	Com_Error (ERR_FATAL, "FreeLibrary failed for game library");
-  // game_library = NULL;
-}
+void Sys_UnloadGame(void) {}
 
 /*
 =================
@@ -435,61 +351,6 @@ Loads the game dll
 =================
 */
 void *Sys_GetGameAPI(void *parms) {
-  // void	*(*GetGameAPI) (void *);
-  // char	name[MAX_OSPATH];
-  // char	*path;
-  // char	cwd[MAX_OSPATH];
-
-  // const char *gamename = "gamex86.dll";
-  // const char *debugdir = "debug";
-
-  // if (game_library)
-  // 	Com_Error (ERR_FATAL, "Sys_GetGameAPI without Sys_UnloadingGame");
-
-  // // check the current debug directory first for development purposes
-  // _getcwd (cwd, sizeof(cwd));
-  // Com_sprintf (name, sizeof(name), "%s/%s/%s", cwd, debugdir, gamename);
-  // game_library = LoadLibrary ( name );
-  // if (game_library)
-  // {
-  // 	Com_DPrintf ("LoadLibrary (%s)\n", name);
-  // }
-  // else
-  // {
-  // 	// check the current directory for other development purposes
-  // 	Com_sprintf (name, sizeof(name), "%s/%s", cwd, gamename);
-  // 	game_library = LoadLibrary ( name );
-  // 	if (game_library)
-  // 	{
-  // 		Com_DPrintf ("LoadLibrary (%s)\n", name);
-  // 	}
-  // 	else
-  // 	{
-  // 		// now run through the search paths
-  // 		path = NULL;
-  // 		while (1)
-  // 		{
-  // 			path = FS_NextPath (path);
-  // 			if (!path)
-  // 				return NULL;		// couldn't find one anywhere
-  // 			Com_sprintf (name, sizeof(name), "%s/%s", path, gamename);
-  // 			game_library = LoadLibrary (name);
-  // 			if (game_library)
-  // 			{
-  // 				Com_DPrintf ("LoadLibrary (%s)\n",name);
-  // 				break;
-  // 			}
-  // 		}
-  // 	}
-  // }
-
-  // // GetGameAPI = (void *)GetProcAddress (game_library, "GetGameAPI");
-  // if (!GetGameAPI)
-  // {
-  // 	Sys_UnloadGame ();
-  // 	return NULL;
-  // }
-
   extern void *GetGameAPI(void *);
   return GetGameAPI(parms);
 }
@@ -546,61 +407,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
   ParseCommandLine(lpCmdLine);
 
-  // if we find the CD, add a +set cddir xxx command line
-  // cddir = Sys_ScanForCD ();
-  // if (cddir && argc < MAX_NUM_ARGVS - 3)
-  // {
-  // 	int		i;
-
-  // 	// don't override a cddir on the command line
-  // 	for (i=0 ; i<argc ; i++)
-  // 		if (!strcmp(argv[i], "cddir"))
-  // 			break;
-  // 	if (i == argc)
-  // 	{
-  // 		argv[argc++] = "+set";
-  // 		argv[argc++] = "cddir";
-  // 		argv[argc++] = cddir;
-  // 	}
-  // }
-
   Qcommon_Init(argc, argv);
   return Qcommon_RunFrames();
-
-  { // Qcommon_RunFrames()
-    return uv_run(&global_uv_loop, UV_RUN_DEFAULT);
-  }
-
-  // oldtime = Sys_Milliseconds();
-
-  // /* main window message loop */
-  // while(1) {
-  //   // if at a full screen console, don't update unless needed
-  //   if(Minimized || (dedicated && dedicated->value)) {
-  //     Sleep(1);
-  //   }
-
-  //   while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-  //     if(!GetMessage(&msg, NULL, 0, 0))
-  //       Com_Quit();
-  //     sys_msg_time = msg.time;
-  //     TranslateMessage(&msg);
-  //     DispatchMessage(&msg);
-  //   }
-
-  //   do {
-  //     newtime = Sys_Milliseconds();
-  //     time = newtime - oldtime;
-  //   } while(time < 1);
-  //   //			Con_Printf ("time:%5.2f - %5.2f = %5.2f\n", newtime, oldtime, time);
-
-  //   //	_controlfp( ~( _EM_ZERODIVIDE /*| _EM_INVALID*/ ), _MCW_EM );
-  //   _controlfp(_PC_24, _MCW_PC);
-  //   Qcommon_Frame(time);
-
-  //   oldtime = newtime;
-  // }
-
-  // never gets here
-  return TRUE;
 }

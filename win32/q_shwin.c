@@ -110,9 +110,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 Sys_Milliseconds
 ================
 */
-int curtime;
-int Sys_Milliseconds(void) {
-  curtime = (int)(uv_hrtime() / (uint64_t)1000000);
+unsigned int curtime;
+unsigned int sys_milliseconds_base;
+
+void sys_milliseconds_init(void) { sys_milliseconds_base = (unsigned int)(uv_hrtime() / (uint64_t)1000000); }
+
+unsigned int Sys_Milliseconds(void) {
+  static uv_once_t init = UV_ONCE_INIT;
+  uv_once(&init, sys_milliseconds_init);
+  curtime = (unsigned int)(uv_hrtime() / (uint64_t)1000000) - sys_milliseconds_base;
   return curtime;
   // static int base;
   // static bool initialized = false;

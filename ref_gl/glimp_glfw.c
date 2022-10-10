@@ -155,7 +155,6 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
   if(action == GLFW_REPEAT || key == GLFW_KEY_UNKNOWN)
     return;
   key = key_map[key];
-  Com_Printf("key callback: %i %c %i %i\n", key, key, action, uv_now(&global_uv_loop));
   if(key > 0)
     Key_Event(key, action == GLFW_PRESS, uv_now(&global_uv_loop));
 }
