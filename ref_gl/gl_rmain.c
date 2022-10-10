@@ -20,6 +20,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 #include "gl_local.h"
 
+#include <GLFW/glfw3.h>
+
+#include "../client/keys.h"
+
+// -------------------------------------------------
+
 void R_Clear(void);
 
 viddef_t vid;
@@ -1029,16 +1035,8 @@ bool R_Init(void *hinstance, void *hWnd) {
 
   R_Register();
 
-  // initialize our QGL dynamic bindings
-  if(!QGL_Init(gl_driver->string)) {
-    QGL_Shutdown();
-    ri.Con_Printf(PRINT_ALL, "ref_gl::R_Init() - could not load \"%s\"\n", gl_driver->string);
-    return -1;
-  }
-
   // initialize OS-specific parts of OpenGL
   if(!GLimp_Init(hinstance, hWnd)) {
-    QGL_Shutdown();
     return -1;
   }
 
@@ -1047,8 +1045,13 @@ bool R_Init(void *hinstance, void *hWnd) {
 
   // create the window and set up the context
   if(!R_SetMode()) {
-    QGL_Shutdown();
     ri.Con_Printf(PRINT_ALL, "ref_gl::R_Init() - could not R_SetMode()\n");
+    return -1;
+  }
+
+  // initialize our QGL dynamic bindings
+  if(!QGL_Init(gl_driver->string)) {
+    ri.Con_Printf(PRINT_ALL, "ref_gl::R_Init() - could not load \"%s\"\n", gl_driver->string);
     return -1;
   }
 
@@ -1139,14 +1142,14 @@ bool R_Init(void *hinstance, void *hWnd) {
   if(strstr(gl_config.extensions_string, "GL_EXT_compiled_vertex_array") ||
      strstr(gl_config.extensions_string, "GL_SGI_compiled_vertex_array")) {
     ri.Con_Printf(PRINT_ALL, "...enabling GL_EXT_compiled_vertex_array\n");
-    qglLockArraysEXT = (void *)qwglGetProcAddress("glLockArraysEXT");
-    qglUnlockArraysEXT = (void *)qwglGetProcAddress("glUnlockArraysEXT");
+    qglLockArraysEXT = (void *)glfwGetProcAddress("glLockArraysEXT");
+    qglUnlockArraysEXT = (void *)glfwGetProcAddress("glUnlockArraysEXT");
   } else {
     ri.Con_Printf(PRINT_ALL, "...GL_EXT_compiled_vertex_array not found\n");
   }
 
   if(strstr(gl_config.extensions_string, "WGL_EXT_swap_control")) {
-    qwglSwapIntervalEXT = (BOOL(WINAPI *)(int))qwglGetProcAddress("wglSwapIntervalEXT");
+    qwglSwapIntervalEXT = (BOOL(WINAPI *)(int))glfwGetProcAddress("wglSwapIntervalEXT");
     ri.Con_Printf(PRINT_ALL, "...enabling WGL_EXT_swap_control\n");
   } else {
     ri.Con_Printf(PRINT_ALL, "...WGL_EXT_swap_control not found\n");
@@ -1154,8 +1157,8 @@ bool R_Init(void *hinstance, void *hWnd) {
 
   if(strstr(gl_config.extensions_string, "GL_EXT_point_parameters")) {
     if(gl_ext_pointparameters->value) {
-      qglPointParameterfEXT = (void(APIENTRY *)(GLenum, GLfloat))qwglGetProcAddress("glPointParameterfEXT");
-      qglPointParameterfvEXT = (void(APIENTRY *)(GLenum, const GLfloat *))qwglGetProcAddress("glPointParameterfvEXT");
+      qglPointParameterfEXT = (void(APIENTRY *)(GLenum, GLfloat))glfwGetProcAddress("glPointParameterfEXT");
+      qglPointParameterfvEXT = (void(APIENTRY *)(GLenum, const GLfloat *))glfwGetProcAddress("glPointParameterfvEXT");
       ri.Con_Printf(PRINT_ALL, "...using GL_EXT_point_parameters\n");
     } else {
       ri.Con_Printf(PRINT_ALL, "...ignoring GL_EXT_point_parameters\n");
@@ -1168,7 +1171,7 @@ bool R_Init(void *hinstance, void *hWnd) {
      strstr(gl_config.extensions_string, "GL_EXT_shared_texture_palette")) {
     if(gl_ext_palettedtexture->value) {
       ri.Con_Printf(PRINT_ALL, "...using GL_EXT_shared_texture_palette\n");
-      qglColorTableEXT = (void(APIENTRY *)(int, int, int, int, int, const void *))qwglGetProcAddress("glColorTableEXT");
+      qglColorTableEXT = (void(APIENTRY *)(int, int, int, int, int, const void *))glfwGetProcAddress("glColorTableEXT");
     } else {
       ri.Con_Printf(PRINT_ALL, "...ignoring GL_EXT_shared_texture_palette\n");
     }
@@ -1179,8 +1182,8 @@ bool R_Init(void *hinstance, void *hWnd) {
   if(strstr(gl_config.extensions_string, "GL_SGIS_multitexture")) {
     if(gl_ext_multitexture->value) {
       ri.Con_Printf(PRINT_ALL, "...using GL_SGIS_multitexture\n");
-      qglMTexCoord2fSGIS = (void *)qwglGetProcAddress("glMTexCoord2fSGIS");
-      qglSelectTextureSGIS = (void *)qwglGetProcAddress("glSelectTextureSGIS");
+      qglMTexCoord2fSGIS = (void *)glfwGetProcAddress("glMTexCoord2fSGIS");
+      qglSelectTextureSGIS = (void *)glfwGetProcAddress("glSelectTextureSGIS");
     } else {
       ri.Con_Printf(PRINT_ALL, "...ignoring GL_SGIS_multitexture\n");
     }

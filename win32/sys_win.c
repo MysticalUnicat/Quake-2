@@ -31,6 +31,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <io.h>
 #include <stdio.h>
 
+#include <GLFW/glfw3.h>
+
 #define MINIMUM_WIN_MEMORY 0x0a00000
 #define MAXIMUM_WIN_MEMORY 0x1000000
 
@@ -183,18 +185,15 @@ Sys_CopyProtect
 //================================================================
 
 static void windows_uv_idle_cb(uv_idle_t *handle) {
-  (void)handle;
-  MSG msg;
+  extern GLFWwindow *glfw_window;
 
-  while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-    if(!GetMessage(&msg, NULL, 0, 0)) {
-      Com_Quit();
-      // uv_stop(&global_uv_loop);
-    }
-    sys_msg_time = msg.time;
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
+  if(glfw_window != NULL && glfwWindowShouldClose(glfw_window)) {
+    Com_Quit();
   }
+
+  sys_msg_time = uv_now(&global_uv_loop);
+
+  glfwPollEvents();
 }
 
 /*
@@ -342,18 +341,26 @@ Send Key_Event calls
 ================
 */
 void Sys_SendKeyEvents(void) {
-  MSG msg;
+  // MSG msg;
 
-  while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-    if(!GetMessage(&msg, NULL, 0, 0))
-      Sys_Quit();
-    sys_msg_time = msg.time;
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
+  // while(PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+  //   if(!GetMessage(&msg, NULL, 0, 0))
+  //     Sys_Quit();
+  //   sys_msg_time = msg.time;
+  //   TranslateMessage(&msg);
+  //   DispatchMessage(&msg);
+  // }
+
+  extern GLFWwindow *glfw_window;
+
+  if(glfw_window != NULL && glfwWindowShouldClose(glfw_window)) {
+    Com_Quit();
   }
 
+  glfwPollEvents();
+
   // grab frame time
-  sys_frame_time = timeGetTime(); // FIXME: should this be at start?
+  sys_frame_time = uv_now(&global_uv_loop); // FIXME: should this be at start?
 }
 
 /*
@@ -395,8 +402,8 @@ Sys_AppActivate
 =================
 */
 void Sys_AppActivate(void) {
-  ShowWindow(cl_hwnd, SW_RESTORE);
-  SetForegroundWindow(cl_hwnd);
+  // ShowWindow(cl_hwnd, SW_RESTORE);
+  // SetForegroundWindow(cl_hwnd);
 }
 
 /*

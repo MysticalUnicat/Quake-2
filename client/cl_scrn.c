@@ -1179,6 +1179,8 @@ void UI_Picture(const char *name, ...) {
 
   int index = UI_GetTextureIndex(path);
   const struct BaseImage *image = ui_frame_images[index];
+  if(image == NULL)
+    return;
   alias_ui_image(frame_ui, image->width, image->height, image->s0, image->t0, image->s1, image->t1, index);
 }
 

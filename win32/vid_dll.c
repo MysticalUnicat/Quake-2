@@ -50,11 +50,11 @@ viddef_t viddef;          // global video state; used by other modules
 HINSTANCE reflib_library; // Handle to refresh DLL
 bool reflib_active = 0;
 
-HWND cl_hwnd; // Main window handle for life of program
+// HWND cl_hwnd; // Main window handle for life of program
 
 #define VID_NUM_MODES (sizeof(vid_modes) / sizeof(vid_modes[0]))
 
-LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+// LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 static bool s_alttab_disabled;
 
@@ -63,37 +63,37 @@ extern unsigned sys_msg_time;
 /*
 ** WIN32 helper functions
 */
-extern bool s_win95;
+// extern bool s_win95;
 
-static void WIN_DisableAltTab(void) {
-  if(s_alttab_disabled)
-    return;
+// static void WIN_DisableAltTab(void) {
+//   if(s_alttab_disabled)
+//     return;
 
-  if(s_win95) {
-    BOOL old;
+//   if(s_win95) {
+//     BOOL old;
 
-    SystemParametersInfo(SPI_SCREENSAVERRUNNING, 1, &old, 0);
-  } else {
-    RegisterHotKey(0, 0, MOD_ALT, VK_TAB);
-    RegisterHotKey(0, 1, MOD_ALT, VK_RETURN);
-  }
-  s_alttab_disabled = true;
-}
+//     SystemParametersInfo(SPI_SCREENSAVERRUNNING, 1, &old, 0);
+//   } else {
+//     RegisterHotKey(0, 0, MOD_ALT, VK_TAB);
+//     RegisterHotKey(0, 1, MOD_ALT, VK_RETURN);
+//   }
+//   s_alttab_disabled = true;
+// }
 
-static void WIN_EnableAltTab(void) {
-  if(s_alttab_disabled) {
-    if(s_win95) {
-      BOOL old;
+// static void WIN_EnableAltTab(void) {
+//   if(s_alttab_disabled) {
+//     if(s_win95) {
+//       BOOL old;
 
-      SystemParametersInfo(SPI_SCREENSAVERRUNNING, 0, &old, 0);
-    } else {
-      UnregisterHotKey(0, 0);
-      UnregisterHotKey(0, 1);
-    }
+//       SystemParametersInfo(SPI_SCREENSAVERRUNNING, 0, &old, 0);
+//     } else {
+//       UnregisterHotKey(0, 0);
+//       UnregisterHotKey(0, 1);
+//     }
 
-    s_alttab_disabled = false;
-  }
-}
+//     s_alttab_disabled = false;
+//   }
+// }
 
 /*
 ==========================================================================
@@ -173,58 +173,58 @@ MapKey
 Map from windows to quake keynums
 =======
 */
-int MapKey(int key) {
-  int result;
-  int modified = (key >> 16) & 255;
-  bool is_extended = false;
+// int MapKey(int key) {
+//   int result;
+//   int modified = (key >> 16) & 255;
+//   bool is_extended = false;
 
-  if(modified > 127)
-    return 0;
+//   if(modified > 127)
+//     return 0;
 
-  if(key & (1 << 24))
-    is_extended = true;
+//   if(key & (1 << 24))
+//     is_extended = true;
 
-  result = scantokey[modified];
+//   result = scantokey[modified];
 
-  if(!is_extended) {
-    switch(result) {
-    case K_HOME:
-      return K_KP_HOME;
-    case K_UPARROW:
-      return K_KP_UPARROW;
-    case K_PGUP:
-      return K_KP_PGUP;
-    case K_LEFTARROW:
-      return K_KP_LEFTARROW;
-    case K_RIGHTARROW:
-      return K_KP_RIGHTARROW;
-    case K_END:
-      return K_KP_END;
-    case K_DOWNARROW:
-      return K_KP_DOWNARROW;
-    case K_PGDN:
-      return K_KP_PGDN;
-    case K_INS:
-      return K_KP_INS;
-    case K_DEL:
-      return K_KP_DEL;
-    default:
-      return result;
-    }
-  } else {
-    switch(result) {
-    case 0x0D:
-      return K_KP_ENTER;
-    case 0x2F:
-      return K_KP_SLASH;
-    case 0xAF:
-      return K_KP_PLUS;
-    }
-    return result;
-  }
-}
+//   if(!is_extended) {
+//     switch(result) {
+//     case K_HOME:
+//       return K_KP_HOME;
+//     case K_UPARROW:
+//       return K_KP_UPARROW;
+//     case K_PGUP:
+//       return K_KP_PGUP;
+//     case K_LEFTARROW:
+//       return K_KP_LEFTARROW;
+//     case K_RIGHTARROW:
+//       return K_KP_RIGHTARROW;
+//     case K_END:
+//       return K_KP_END;
+//     case K_DOWNARROW:
+//       return K_KP_DOWNARROW;
+//     case K_PGDN:
+//       return K_KP_PGDN;
+//     case K_INS:
+//       return K_KP_INS;
+//     case K_DEL:
+//       return K_KP_DEL;
+//     default:
+//       return result;
+//     }
+//   } else {
+//     switch(result) {
+//     case 0x0D:
+//       return K_KP_ENTER;
+//     case 0x2F:
+//       return K_KP_SLASH;
+//     case 0xAF:
+//       return K_KP_PLUS;
+//     }
+//     return result;
+//   }
+// }
 
-void AppActivate(BOOL fActive, BOOL minimize) {
+void AppActivate(bool fActive, bool minimize) {
   Minimized = minimize;
 
   Key_ClearStates();
@@ -239,18 +239,18 @@ void AppActivate(BOOL fActive, BOOL minimize) {
   if(!ActiveApp) {
     IN_Activate(false);
     // CDAudio_Activate (false);
-    S_Activate(false);
+    // S_Activate(false);
 
-    if(win_noalttab->value) {
-      WIN_EnableAltTab();
-    }
+    // if(win_noalttab->value) {
+    //   WIN_EnableAltTab();
+    // }
   } else {
     IN_Activate(true);
     // CDAudio_Activate (true);
-    S_Activate(true);
-    if(win_noalttab->value) {
-      WIN_DisableAltTab();
-    }
+    // S_Activate(true);
+    // if(win_noalttab->value) {
+    //   WIN_DisableAltTab();
+    // }
   }
 }
 
@@ -261,154 +261,154 @@ MainWndProc
 main window procedure
 ====================
 */
-LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-  LONG lRet = 0;
+// LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+//   LONG lRet = 0;
 
-  if(uMsg == MSH_MOUSEWHEEL) {
-    if(((int)wParam) > 0) {
-      Key_Event(K_MWHEELUP, true, sys_msg_time);
-      Key_Event(K_MWHEELUP, false, sys_msg_time);
-    } else {
-      Key_Event(K_MWHEELDOWN, true, sys_msg_time);
-      Key_Event(K_MWHEELDOWN, false, sys_msg_time);
-    }
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
-  }
+//   if(uMsg == MSH_MOUSEWHEEL) {
+//     if(((int)wParam) > 0) {
+//       Key_Event(K_MWHEELUP, true, sys_msg_time);
+//       Key_Event(K_MWHEELUP, false, sys_msg_time);
+//     } else {
+//       Key_Event(K_MWHEELDOWN, true, sys_msg_time);
+//       Key_Event(K_MWHEELDOWN, false, sys_msg_time);
+//     }
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//   }
 
-  switch(uMsg) {
-  case WM_MOUSEWHEEL:
-    /*
-    ** this chunk of code theoretically only works under NT4 and Win98
-    ** since this message doesn't exist under Win95
-    */
-    if((short)HIWORD(wParam) > 0) {
-      Key_Event(K_MWHEELUP, true, sys_msg_time);
-      Key_Event(K_MWHEELUP, false, sys_msg_time);
-    } else {
-      Key_Event(K_MWHEELDOWN, true, sys_msg_time);
-      Key_Event(K_MWHEELDOWN, false, sys_msg_time);
-    }
-    break;
+//   switch(uMsg) {
+//   case WM_MOUSEWHEEL:
+//     /*
+//     ** this chunk of code theoretically only works under NT4 and Win98
+//     ** since this message doesn't exist under Win95
+//     */
+//     if((short)HIWORD(wParam) > 0) {
+//       Key_Event(K_MWHEELUP, true, sys_msg_time);
+//       Key_Event(K_MWHEELUP, false, sys_msg_time);
+//     } else {
+//       Key_Event(K_MWHEELDOWN, true, sys_msg_time);
+//       Key_Event(K_MWHEELDOWN, false, sys_msg_time);
+//     }
+//     break;
 
-  case WM_HOTKEY:
-    return 0;
+//   case WM_HOTKEY:
+//     return 0;
 
-  case WM_CREATE:
-    cl_hwnd = hWnd;
+//   case WM_CREATE:
+//     cl_hwnd = hWnd;
 
-    MSH_MOUSEWHEEL = RegisterWindowMessage("MSWHEEL_ROLLMSG");
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//     MSH_MOUSEWHEEL = RegisterWindowMessage("MSWHEEL_ROLLMSG");
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 
-  case WM_PAINT:
-    SCR_DirtyScreen(); // force entire screen to update next frame
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//   case WM_PAINT:
+//     SCR_DirtyScreen(); // force entire screen to update next frame
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 
-  case WM_DESTROY:
-    // let sound and input know about this?
-    cl_hwnd = NULL;
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//   case WM_DESTROY:
+//     // let sound and input know about this?
+//     cl_hwnd = NULL;
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 
-  case WM_ACTIVATE: {
-    int fActive, fMinimized;
+//   case WM_ACTIVATE: {
+//     int fActive, fMinimized;
 
-    // KJB: Watch this for problems in fullscreen modes with Alt-tabbing.
-    fActive = LOWORD(wParam);
-    fMinimized = (BOOL)HIWORD(wParam);
+//     // KJB: Watch this for problems in fullscreen modes with Alt-tabbing.
+//     fActive = LOWORD(wParam);
+//     fMinimized = (BOOL)HIWORD(wParam);
 
-    AppActivate(fActive != WA_INACTIVE, fMinimized);
+//     AppActivate(fActive != WA_INACTIVE, fMinimized);
 
-    if(reflib_active)
-      re.AppActivate(!(fActive == WA_INACTIVE));
-  }
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//     if(reflib_active)
+//       re.AppActivate(!(fActive == WA_INACTIVE));
+//   }
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 
-  case WM_MOVE: {
-    int xPos, yPos;
-    RECT r;
-    int style;
+//   case WM_MOVE: {
+//     int xPos, yPos;
+//     RECT r;
+//     int style;
 
-    if(!vid_fullscreen->value) {
-      xPos = (short)LOWORD(lParam); // horizontal position
-      yPos = (short)HIWORD(lParam); // vertical position
+//     if(!vid_fullscreen->value) {
+//       xPos = (short)LOWORD(lParam); // horizontal position
+//       yPos = (short)HIWORD(lParam); // vertical position
 
-      r.left = 0;
-      r.top = 0;
-      r.right = 1;
-      r.bottom = 1;
+//       r.left = 0;
+//       r.top = 0;
+//       r.right = 1;
+//       r.bottom = 1;
 
-      style = GetWindowLong(hWnd, GWL_STYLE);
-      AdjustWindowRect(&r, style, FALSE);
+//       style = GetWindowLong(hWnd, GWL_STYLE);
+//       AdjustWindowRect(&r, style, FALSE);
 
-      Cvar_SetValue("vid_xpos", xPos + r.left);
-      Cvar_SetValue("vid_ypos", yPos + r.top);
-      vid_xpos->modified = false;
-      vid_ypos->modified = false;
-      if(ActiveApp)
-        IN_Activate(true);
-    }
-  }
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//       Cvar_SetValue("vid_xpos", xPos + r.left);
+//       Cvar_SetValue("vid_ypos", yPos + r.top);
+//       vid_xpos->modified = false;
+//       vid_ypos->modified = false;
+//       if(ActiveApp)
+//         IN_Activate(true);
+//     }
+//   }
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 
-    // this is complicated because Win32 seems to pack multiple mouse events into
-    // one update sometimes, so we always check all states and look for events
-  case WM_LBUTTONDOWN:
-  case WM_LBUTTONUP:
-  case WM_RBUTTONDOWN:
-  case WM_RBUTTONUP:
-  case WM_MBUTTONDOWN:
-  case WM_MBUTTONUP:
-  case WM_MOUSEMOVE: {
-    int temp;
+//     // this is complicated because Win32 seems to pack multiple mouse events into
+//     // one update sometimes, so we always check all states and look for events
+//   case WM_LBUTTONDOWN:
+//   case WM_LBUTTONUP:
+//   case WM_RBUTTONDOWN:
+//   case WM_RBUTTONUP:
+//   case WM_MBUTTONDOWN:
+//   case WM_MBUTTONUP:
+//   case WM_MOUSEMOVE: {
+//     int temp;
 
-    temp = 0;
+//     temp = 0;
 
-    if(wParam & MK_LBUTTON)
-      temp |= 1;
+//     if(wParam & MK_LBUTTON)
+//       temp |= 1;
 
-    if(wParam & MK_RBUTTON)
-      temp |= 2;
+//     if(wParam & MK_RBUTTON)
+//       temp |= 2;
 
-    if(wParam & MK_MBUTTON)
-      temp |= 4;
+//     if(wParam & MK_MBUTTON)
+//       temp |= 4;
 
-    IN_MouseEvent(temp);
-  } break;
+//     IN_MouseEvent(temp);
+//   } break;
 
-  case WM_SYSCOMMAND:
-    if(wParam == SC_SCREENSAVE)
-      return 0;
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
-  case WM_SYSKEYDOWN:
-    if(wParam == 13) {
-      if(vid_fullscreen) {
-        Cvar_SetValue("vid_fullscreen", !vid_fullscreen->value);
-      }
-      return 0;
-    }
-    // fall through
-  case WM_KEYDOWN:
-    Key_Event(MapKey(lParam), true, sys_msg_time);
-    break;
+//   case WM_SYSCOMMAND:
+//     if(wParam == SC_SCREENSAVE)
+//       return 0;
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//   case WM_SYSKEYDOWN:
+//     if(wParam == 13) {
+//       if(vid_fullscreen) {
+//         Cvar_SetValue("vid_fullscreen", !vid_fullscreen->value);
+//       }
+//       return 0;
+//     }
+//     // fall through
+//   case WM_KEYDOWN:
+//     Key_Event(MapKey(lParam), true, sys_msg_time);
+//     break;
 
-  case WM_SYSKEYUP:
-  case WM_KEYUP:
-    Key_Event(MapKey(lParam), false, sys_msg_time);
-    break;
+//   case WM_SYSKEYUP:
+//   case WM_KEYUP:
+//     Key_Event(MapKey(lParam), false, sys_msg_time);
+//     break;
 
-    // case MM_MCINOTIFY:
-    // 	{
-    // 		LONG CDAudio_MessageHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-    // 		lRet = CDAudio_MessageHandler (hWnd, uMsg, wParam, lParam);
-    // 	}
-    // 	break;
+//     // case MM_MCINOTIFY:
+//     // 	{
+//     // 		LONG CDAudio_MessageHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+//     // 		lRet = CDAudio_MessageHandler (hWnd, uMsg, wParam, lParam);
+//     // 	}
+//     // 	break;
 
-  default: // pass all unhandled messages to DefWindowProc
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
-  }
+//   default: // pass all unhandled messages to DefWindowProc
+//     return DefWindowProc(hWnd, uMsg, wParam, lParam);
+//   }
 
-  /* return 0 if handled message, 1 if not */
-  return DefWindowProc(hWnd, uMsg, wParam, lParam);
-}
+//   /* return 0 if handled message, 1 if not */
+//   return DefWindowProc(hWnd, uMsg, wParam, lParam);
+// }
 
 /*
 ============
@@ -422,8 +422,8 @@ cause the entire video mode and refresh DLL to be reset on the next frame.
 void VID_Restart_f(void) { vid_ref->modified = true; }
 
 void VID_Front_f(void) {
-  SetWindowLong(cl_hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
-  SetForegroundWindow(cl_hwnd);
+  // SetWindowLong(cl_hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
+  // SetForegroundWindow(cl_hwnd);
 }
 
 /*
@@ -454,24 +454,24 @@ bool VID_GetModeInfo(int *width, int *height, int mode) {
 /*
 ** VID_UpdateWindowPosAndSize
 */
-void VID_UpdateWindowPosAndSize(int x, int y) {
-  RECT r;
-  int style;
-  int w, h;
+// void VID_UpdateWindowPosAndSize(int x, int y) {
+//   RECT r;
+//   int style;
+//   int w, h;
 
-  r.left = 0;
-  r.top = 0;
-  r.right = viddef.width;
-  r.bottom = viddef.height;
+//   r.left = 0;
+//   r.top = 0;
+//   r.right = viddef.width;
+//   r.bottom = viddef.height;
 
-  style = GetWindowLong(cl_hwnd, GWL_STYLE);
-  AdjustWindowRect(&r, style, FALSE);
+//   style = GetWindowLong(cl_hwnd, GWL_STYLE);
+//   AdjustWindowRect(&r, style, FALSE);
 
-  w = r.right - r.left;
-  h = r.bottom - r.top;
+//   w = r.right - r.left;
+//   h = r.bottom - r.top;
 
-  MoveWindow(cl_hwnd, vid_xpos->value, vid_ypos->value, w, h, TRUE);
-}
+//   MoveWindow(cl_hwnd, vid_xpos->value, vid_ypos->value, w, h, TRUE);
+// }
 
 /*
 ** VID_NewWindow
@@ -518,7 +518,7 @@ static bool load_refresh_api(GetRefAPI_t get_api, const char *name) {
 
   re = get_api(ri);
 
-  if(re.Init(global_hInstance, MainWndProc) == -1) {
+  if(re.Init(global_hInstance, NULL) == -1) {
     re.Shutdown();
     VID_FreeReflib();
     return false;
@@ -581,14 +581,14 @@ update the rendering DLL and/or video mode to match.
 void VID_CheckChanges(void) {
   char name[100];
 
-  if(win_noalttab->modified) {
-    if(win_noalttab->value) {
-      WIN_DisableAltTab();
-    } else {
-      WIN_EnableAltTab();
-    }
-    win_noalttab->modified = false;
-  }
+  // if(win_noalttab->modified) {
+  //   if(win_noalttab->value) {
+  //     WIN_DisableAltTab();
+  //   } else {
+  //     WIN_EnableAltTab();
+  //   }
+  //   win_noalttab->modified = false;
+  // }
 
   if(vid_ref->modified) {
     cl.force_refdef = true; // can't use a paused refdef
@@ -628,8 +628,8 @@ void VID_CheckChanges(void) {
   ** update our window position
   */
   if(vid_xpos->modified || vid_ypos->modified) {
-    if(!vid_fullscreen->value)
-      VID_UpdateWindowPosAndSize(vid_xpos->value, vid_ypos->value);
+    // if(!vid_fullscreen->value)
+    //   VID_UpdateWindowPosAndSize(vid_xpos->value, vid_ypos->value);
 
     vid_xpos->modified = false;
     vid_ypos->modified = false;

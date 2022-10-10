@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 project(alias_q2 LANGUAGES C)
 
 add_subdirectory(ext/alias)
+add_subdirectory(ext/alias/ext/glfw)
 add_subdirectory(ext/libuv)
 add_subdirectory(tools)
 
@@ -99,8 +100,10 @@ add_library(client STATIC
     client/snd_mem.c
     client/snd_mix.c
     client/x86.c
+    client/in_glfw.c
+    client/snd_miniaudio.c
 )
-target_link_libraries(client common)
+target_link_libraries(client common glfw)
 
 add_library(server STATIC
     server/sv_ccmds.c
@@ -125,8 +128,10 @@ add_library(refresh STATIC
     ref_gl/gl_mesh.c
     ref_gl/gl_rmain.c
     ref_gl/gl_rsurf.c
+    ref_gl/glimp_glfw.c
+    ref_gl/qgl_glfw.c
 )
-target_link_libraries(refresh common)
+target_link_libraries(refresh common glfw)
 target_compile_definitions(refresh PRIVATE REF_HARD_LINKED=1)
 
 add_executable(quake2)
@@ -141,15 +146,15 @@ if(WIN32)
         PRIVATE
             # win32/cd_win.c
             win32/conproc.c
-            win32/glw_imp.c
-            win32/in_win.c
+            # win32/glw_imp.c
+            # win32/in_win.c
             win32/net_wins.c
             win32/q_shwin.c
-            win32/qgl_win.c
+            # win32/qgl_win.c
             # win32/rw_ddraw.c
             # win32/rw_dib.c
             # win32/rw_imp.c
-            win32/snd_win.c
+            # win32/snd_win.c
             win32/sys_win.c
             win32/vid_dll.c
             win32/vid_menu.c
