@@ -18,8 +18,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
-#include "g_local.h"
-#include "monster/m_player.h"
+#include "../g_local.h"
+#include "model.h"
 
 static edict_t *current_player;
 static gclient_t *current_client;

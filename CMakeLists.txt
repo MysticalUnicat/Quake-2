@@ -15,11 +15,11 @@ target_link_libraries(shared alias)
 
 add_library(game STATIC
     game/q_shared.c
-    game/p_weapon.c
-    game/p_view.c
-    game/p_trail.c
-    game/p_hud.c
-    game/p_client.c
+    game/player/p_weapon.c
+    game/player/p_view.c
+    game/player/p_trail.c
+    game/player/p_hud.c
+    game/player/p_client.c
     game/monster/m_tank.c
     game/monster/m_supertank.c
     game/monster/m_soldier.c
