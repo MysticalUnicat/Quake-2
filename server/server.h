@@ -24,6 +24,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "../qcommon/qcommon.h"
 #include "../game/game.h"
 
+#include "../qcommon/sql.h"
+
 //=============================================================================
 
 #define MAX_MASTERS 8 // max recipients for heartbeat packets
@@ -175,6 +177,8 @@ typedef struct {
 
 extern netadr_t net_from;
 extern sizebuf_t net_message;
+
+extern sqlite3 *sv_database;
 
 extern netadr_t master_adr[MAX_MASTERS]; // address of the master server
 

@@ -52,6 +52,8 @@ cvar_t *public_server; // should heartbeats be sent
 
 cvar_t *sv_reconnect_limit; // minimum seconds between connect messages
 
+sqlite3 *sv_database;
+
 void Master_Shutdown(void);
 
 //============================================================================
@@ -231,6 +233,25 @@ void SVC_GetChallenge(void) {
 
   // send it back
   Netchan_OutOfBandPrint(NS_SERVER, net_from, "challenge %i", svs.challenges[i].challenge);
+}
+
+SQL_QUERY(GetCharactersForAccountUUID, sv_database,
+          "SELECT rowid, name, configstring FROM characters WHERE account_uuid = ?", bind_text(0, account_uuid),
+          column_int64(0, row_id), column_text(1, name), column_text(2, configstring))
+
+static void character_row(void *ud, int64_t rowid, const char *name, const char *configstring) {
+  Com_Printf("%llu %s %s\n", rowid, name, configstring);
+}
+
+void SVC_CharactersCommand(void) {
+  char account_uuid[MAX_QPATH];
+
+  // for now, all local
+  sprintf(account_uuid, "local");
+
+  if(GetCharactersForAccountUUID(account_uuid, character_row, NULL) == 0) {
+    Com_Printf("no characters for account %s", account_uuid);
+  }
 }
 
 /*
@@ -895,6 +916,8 @@ void SV_Init(void) {
   sv_reconnect_limit = Cvar_Get("sv_reconnect_limit", "3", CVAR_ARCHIVE);
 
   SZ_Init(&net_message, net_message_buffer, sizeof(net_message_buffer));
+
+  Cbuf_AddText("sv_reload_database\n");
 }
 
 /*

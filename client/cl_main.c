@@ -843,6 +843,7 @@ void CL_ConnectionlessPacket(void) {
     Cbuf_AddText("\n");
     return;
   }
+
   // print command from somewhere
   if(!strcmp(c, "print")) {
     s = MSG_ReadString(&net_message);

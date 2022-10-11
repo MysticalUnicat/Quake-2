@@ -907,6 +907,61 @@ void SV_ServerCommand_f(void) {
   ge->ServerCommand();
 }
 
+static int get_user_version(void *ud_, int ncols, char **column_names, char **data) {
+  int *ud = (int *)ud_;
+  *ud = atoi(data[0]);
+}
+
+#define SQL(...) #__VA_ARGS__
+
+static const char *database_setup_scripts[] = {
+    SQL(                                                                         //
+        CREATE TABLE character(name TEXT, account_uuid TEXT, configstring TEXT); //
+    )                                                                            //
+};
+
+void SV_ReloadDatabase_f(void) {
+  char temp[MAX_QPATH];
+
+  if(sv_database != NULL) {
+    sqlite3_close(sv_database);
+  }
+
+  sprintf(temp, "%s/server.db", FS_Gamedir());
+
+  int err;
+  if(err = sqlite3_open(temp, &sv_database)) {
+    Com_Printf("failed to open server sqlite3 database: %i", err);
+    return;
+  }
+
+  int user_version;
+  if(!SQLite_exec(sv_database, "PRAGMA user_version;", get_user_version, &user_version)) {
+    sqlite3_close(sv_database);
+    sv_database = NULL;
+    return;
+  }
+
+  Com_Printf("sv_database.user_version = %i\n", user_version);
+
+  for(int i = user_version; i < sizeof(database_setup_scripts) / sizeof(database_setup_scripts[0]); i++) {
+    if(!SQLite_exec(sv_database, database_setup_scripts[i], NULL, NULL)) {
+      sqlite3_close(sv_database);
+      sv_database = NULL;
+      return;
+    }
+  }
+
+  sprintf(temp, "PRAGMA user_version = %i;", user_version);
+  if(!SQLite_exec(sv_database, temp, NULL, NULL)) {
+    sqlite3_close(sv_database);
+    sv_database = NULL;
+    return;
+  }
+
+  Com_Printf("sv_database loaded\n");
+}
+
 //===========================================================
 
 /*
@@ -938,4 +993,6 @@ void SV_InitOperatorCommands(void) {
   Cmd_AddCommand("killserver", SV_KillServer_f);
 
   Cmd_AddCommand("sv", SV_ServerCommand_f);
+
+  Cmd_AddCommand("sv_reload_database", SV_ReloadDatabase_f);
 }

@@ -4,6 +4,7 @@ project(alias_q2 LANGUAGES C)
 add_subdirectory(ext/alias)
 add_subdirectory(ext/alias/ext/glfw)
 add_subdirectory(ext/libuv)
+add_library(sqlite3 ext/sqlite3.c)
 add_subdirectory(tools)
 
 add_library(shared STATIC
@@ -11,7 +12,7 @@ add_library(shared STATIC
     game/monster/m_flash.c
 )
 target_include_directories(shared INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(shared alias)
+target_link_libraries(shared alias sqlite3)
 
 add_library(game STATIC
     game/q_shared.c
@@ -76,6 +77,7 @@ add_library(common STATIC
     qcommon/net_chan.c
     # qcommon/net_libuv.c
     qcommon/pmove.c
+    qcommon/sql.c
 )
 target_link_libraries(common shared uv_a)
 

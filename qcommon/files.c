@@ -578,6 +578,7 @@ void FS_SetGamedir(const char *dir) {
   //
   if(dedicated && !dedicated->value)
     Cbuf_AddText("vid_restart\nsnd_restart\n");
+  Cbuf_AddText("sv_reload_database\n");
 
   Com_sprintf(fs_gamedir, sizeof(fs_gamedir), "%s/%s", fs_basedir->string, dir);
 
