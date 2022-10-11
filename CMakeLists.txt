@@ -161,15 +161,5 @@ if(WIN32)
             win32/vid_menu.c
     )
 
-    target_link_libraries(quake2 dsound winmm wsock32)
+    target_link_libraries(quake2 winmm wsock32)
 endif()
-
-# add_executable(quake2
-#     # shared between engine,game,refresh
-#     game/q_shared.c
-
-#     # engine
-#     qcommon/cmd.c
-#     qcommon/cmodel.c
-#     qcommon/common.c
-# )

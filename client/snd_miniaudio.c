@@ -108,7 +108,9 @@ void SNDDMA_Submit(void) {
 
   int completed = _.completed_frames / (CHUNK_SIZE / FRAME_SIZE);
 
-  while(((_.sent - completed) >> 1) < 1) {
+  int ahead = dma.speed / 10000;
+
+  while(((_.sent - completed) >> 1) < ahead) {
     if(paintedtime / 256 <= _.sent)
       break;
     ma_uint32 total_size_in_frames = CHUNK_SIZE / FRAME_SIZE;
