@@ -102,6 +102,7 @@ add_library(client STATIC
     client/x86.c
     client/in_glfw.c
     client/snd_miniaudio.c
+    client/snd_miniaudio_imp.c
 )
 target_link_libraries(client common glfw)
 

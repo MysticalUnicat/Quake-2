@@ -1231,6 +1231,8 @@ void UI_Text(const char *format, ...) {
 }
 
 void SCR_UpdateScreen(void) {
+  void SNDDMA_DrawStats(void);
+
   // if the screen is disabled (loading plaque is up, or vid mode changing)
   // do nothing at all
   if(cls.disable_screen) {
@@ -1330,6 +1332,10 @@ void SCR_UpdateScreen(void) {
     M_Draw();
 
     SCR_DrawLoading();
+
+    UI_Vertical();
+    SNDDMA_DrawStats();
+    UI_End();
   }
 
   UI_Align(1, 1);
