@@ -590,7 +590,7 @@ void R_SetupFrame(void) {
   AngleVectors(r_newrefdef.viewangles, vpn, vright, vup);
 
   // current viewcluster
-  if(!(r_newrefdef.rdflags & RDF_NOWORLDMODEL)) {
+  if(!(r_newrefdef.rdflags & RDF_NOWORLDMODEL) && r_worldmodel[r_newrefdef.cmodel_index]->type == mod_brush) {
     r_oldviewcluster = r_viewcluster;
     r_oldviewcluster2 = r_viewcluster2;
     leaf = Mod_PointInLeaf(r_origin, r_worldmodel[r_newrefdef.cmodel_index]);
@@ -1146,13 +1146,6 @@ bool R_Init(void *hinstance, void *hWnd) {
     qglUnlockArraysEXT = (void *)glfwGetProcAddress("glUnlockArraysEXT");
   } else {
     ri.Con_Printf(PRINT_ALL, "...GL_EXT_compiled_vertex_array not found\n");
-  }
-
-  if(strstr(gl_config.extensions_string, "WGL_EXT_swap_control")) {
-    qwglSwapIntervalEXT = (BOOL(WINAPI *)(int))glfwGetProcAddress("wglSwapIntervalEXT");
-    ri.Con_Printf(PRINT_ALL, "...enabling WGL_EXT_swap_control\n");
-  } else {
-    ri.Con_Printf(PRINT_ALL, "...WGL_EXT_swap_control not found\n");
   }
 
   if(strstr(gl_config.extensions_string, "GL_EXT_point_parameters")) {

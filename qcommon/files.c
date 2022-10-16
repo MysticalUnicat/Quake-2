@@ -855,7 +855,11 @@ void LoadAsync_process_read(uv_fs_t *req) {
     state->buffer = NULL;
   }
 
-  uv_fs_close(&global_uv_loop, req, state->file, LoadAsync_process_close);
+  if(state->file) {
+    uv_fs_close(&global_uv_loop, req, state->file, LoadAsync_process_close);
+  } else {
+    Z_Free(state);
+  }
 }
 
 void LoadAsync_process_fstate(uv_fs_t *req) {
@@ -927,7 +931,7 @@ void LoadAsync_continue(struct LoadAsyncState *state) {
     } else {
       state->search = search->next;
 
-      Com_sprintf(temp_path, sizeof(temp_path), "%s%s", search->filename, state->path);
+      Com_sprintf(temp_path, sizeof(temp_path), "%s/%s", search->filename, state->path);
       uv_fs_open(&global_uv_loop, &state->req, temp_path, O_RDONLY, 0, LoadAsync_process_open);
       return;
     }

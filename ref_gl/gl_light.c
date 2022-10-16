@@ -116,6 +116,9 @@ void R_MarkLights(int cmodel_index, dlight_t *light, int bit, mnode_t *node) {
   msurface_t *surf;
   int i;
 
+  if(r_worldmodel[cmodel_index]->type != mod_brush)
+    return;
+
   if(node->contents != -1)
     return;
 

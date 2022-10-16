@@ -243,14 +243,14 @@ static void character_row(void *ud, int64_t rowid, const char *name, const char 
   Com_Printf("%llu %s %s\n", rowid, name, configstring);
 }
 
-void SVC_CharactersCommand(void) {
+static void SVC_EnterLobby(void) {
   char account_uuid[MAX_QPATH];
 
   // for now, all local
   sprintf(account_uuid, "local");
 
   if(GetCharactersForAccountUUID(account_uuid, character_row, NULL) == 0) {
-    Com_Printf("no characters for account %s", account_uuid);
+    Com_Printf("no characters for account %s\n", account_uuid);
   }
 }
 
@@ -472,6 +472,8 @@ void SV_ConnectionlessPacket(void) {
     SVC_Info();
   else if(!strcmp(c, "getchallenge"))
     SVC_GetChallenge();
+  else if(!strcmp(c, "lobby"))
+    SVC_EnterLobby();
   else if(!strcmp(c, "connect"))
     SVC_DirectConnect();
   else if(!strcmp(c, "rcon"))

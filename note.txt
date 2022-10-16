@@ -25,3 +25,10 @@ vec3 irradiance = vec3(
     sh_irradiance(lm_0.g, lm_g, surface_normal),
     sh_irradiance(lm_0.b, lm_b, surface_normal)
 );
+
+
+
+
+
+
+

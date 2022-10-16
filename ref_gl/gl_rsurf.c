@@ -1054,6 +1054,9 @@ void R_DrawWorld(int cmodel_index) {
   if(r_newrefdef.rdflags & RDF_NOWORLDMODEL)
     return;
 
+  if(r_worldmodel[cmodel_index]->type != mod_brush)
+    return;
+
   currentmodel = r_worldmodel[cmodel_index];
 
   VectorCopy(r_newrefdef.vieworg, modelorg);
