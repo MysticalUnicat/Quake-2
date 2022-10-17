@@ -51,19 +51,19 @@ void R_RenderDlight(dlight_t *light) {
 	}
 #endif
 
-  qglBegin(GL_TRIANGLE_FAN);
-  qglColor3f(light->color[0] * 0.2, light->color[1] * 0.2, light->color[2] * 0.2);
+  glBegin(GL_TRIANGLE_FAN);
+  glColor3f(light->color[0] * 0.2, light->color[1] * 0.2, light->color[2] * 0.2);
   for(i = 0; i < 3; i++)
     v[i] = light->origin[i] - vpn[i] * rad;
-  qglVertex3fv(v);
-  qglColor3f(0, 0, 0);
+  glVertex3fv(v);
+  glColor3f(0, 0, 0);
   for(i = 16; i >= 0; i--) {
     a = i / 16.0 * M_PI * 2;
     for(j = 0; j < 3; j++)
       v[j] = light->origin[j] + vright[j] * cos(a) * rad + vup[j] * sin(a) * rad;
-    qglVertex3fv(v);
+    glVertex3fv(v);
   }
-  qglEnd();
+  glEnd();
 }
 
 /*
@@ -80,21 +80,21 @@ void R_RenderDlights(void) {
 
   r_dlightframecount = r_framecount + 1; // because the count hasn't
                                          //  advanced yet for this frame
-  qglDepthMask(0);
-  qglDisable(GL_TEXTURE_2D);
-  qglShadeModel(GL_SMOOTH);
-  qglEnable(GL_BLEND);
-  qglBlendFunc(GL_ONE, GL_ONE);
+  glDepthMask(0);
+  glDisable(GL_TEXTURE_2D);
+  glShadeModel(GL_SMOOTH);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE);
 
   l = r_newrefdef.dlights;
   for(i = 0; i < r_newrefdef.num_dlights; i++, l++)
     R_RenderDlight(l);
 
-  qglColor3f(1, 1, 1);
-  qglDisable(GL_BLEND);
-  qglEnable(GL_TEXTURE_2D);
-  qglBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  qglDepthMask(1);
+  glColor3f(1, 1, 1);
+  glDisable(GL_BLEND);
+  glEnable(GL_TEXTURE_2D);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glDepthMask(1);
 }
 
 /*
@@ -175,7 +175,7 @@ LIGHT SAMPLING
 =============================================================================
 */
 
-vec3_t pointcolor;
+struct SH1 pointcolor;
 cplane_t *lightplane; // used as shadow plane
 vec3_t lightspot;
 
@@ -250,7 +250,7 @@ int RecursiveLightPoint(int cmodel_index, mnode_t *node, vec3_t start, vec3_t en
     dt >>= 4;
 
     lightmap = surf->samples;
-    VectorCopy(vec3_origin, pointcolor);
+    pointcolor = SH1_Clear();
     if(lightmap) {
       vec3_t scale;
 
@@ -260,9 +260,24 @@ int RecursiveLightPoint(int cmodel_index, mnode_t *node, vec3_t start, vec3_t en
         for(i = 0; i < 3; i++)
           scale[i] = gl_modulate->value * r_newrefdef.lightstyles[surf->styles[maps]].rgb[i];
 
-        pointcolor[0] += lightmap[0] * scale[0] * (1.0 / 255);
-        pointcolor[1] += lightmap[1] * scale[1] * (1.0 / 255);
-        pointcolor[2] += lightmap[2] * scale[2] * (1.0 / 255);
+        pointcolor.f[0] += lightmap[0] * scale[0] * (1.0 / 255);
+        pointcolor.f[4] += lightmap[1] * scale[1] * (1.0 / 255);
+        pointcolor.f[8] += lightmap[2] * scale[2] * (1.0 / 255);
+        lightmap += 3 * ((surf->extents[0] >> 4) + 1) * ((surf->extents[1] >> 4) + 1);
+
+        pointcolor.f[1] += lightmap[0] * scale[0] * (1.0 / 255) * 2.0f - 1.0f;
+        pointcolor.f[2] += lightmap[1] * scale[1] * (1.0 / 255) * 2.0f - 1.0f;
+        pointcolor.f[3] += lightmap[2] * scale[2] * (1.0 / 255) * 2.0f - 1.0f;
+        lightmap += 3 * ((surf->extents[0] >> 4) + 1) * ((surf->extents[1] >> 4) + 1);
+
+        pointcolor.f[5] += lightmap[0] * scale[0] * (1.0 / 255) * 2.0f - 1.0f;
+        pointcolor.f[6] += lightmap[1] * scale[1] * (1.0 / 255) * 2.0f - 1.0f;
+        pointcolor.f[7] += lightmap[2] * scale[2] * (1.0 / 255) * 2.0f - 1.0f;
+        lightmap += 3 * ((surf->extents[0] >> 4) + 1) * ((surf->extents[1] >> 4) + 1);
+
+        pointcolor.f[9] += (lightmap[0] * scale[0] * (1.0 / 255)) * 2.0f - 1.0f;
+        pointcolor.f[10] += (lightmap[1] * scale[1] * (1.0 / 255)) * 2.0f - 1.0f;
+        pointcolor.f[11] += (lightmap[2] * scale[2] * (1.0 / 255)) * 2.0f - 1.0f;
         lightmap += 3 * ((surf->extents[0] >> 4) + 1) * ((surf->extents[1] >> 4) + 1);
       }
     }
@@ -279,7 +294,7 @@ int RecursiveLightPoint(int cmodel_index, mnode_t *node, vec3_t start, vec3_t en
 R_LightPoint
 ===============
 */
-void R_LightPoint(int cmodel_index, vec3_t p, vec3_t color) {
+struct SH1 R_LightPoint(int cmodel_index, vec3_t p) {
   vec3_t end;
   float r;
   int lnum;
@@ -287,10 +302,10 @@ void R_LightPoint(int cmodel_index, vec3_t p, vec3_t color) {
   float light;
   vec3_t dist;
   float add;
+  struct SH1 color;
 
   if(!r_worldmodel[cmodel_index]->lightdata) {
-    color[0] = color[1] = color[2] = 1.0;
-    return;
+    return SH1_FromDirectionalLight(vec3_origin, (float[]){1, 1, 1});
   }
 
   end[0] = p[0];
@@ -300,9 +315,9 @@ void R_LightPoint(int cmodel_index, vec3_t p, vec3_t color) {
   r = RecursiveLightPoint(cmodel_index, r_worldmodel[cmodel_index]->nodes, p, end);
 
   if(r == -1) {
-    VectorCopy(vec3_origin, color);
+    return SH1_Clear();
   } else {
-    VectorCopy(pointcolor, color);
+    color = pointcolor;
   }
 
   //
@@ -312,14 +327,17 @@ void R_LightPoint(int cmodel_index, vec3_t p, vec3_t color) {
   dl = r_newrefdef.dlights;
   for(lnum = 0; lnum < r_newrefdef.num_dlights; lnum++, dl++) {
     VectorSubtract(currententity->origin, dl->origin, dist);
-    add = dl->intensity - VectorLength(dist);
+    float length = VectorNormalize(dist);
+    add = dl->intensity - length;
     add *= (1.0 / 256);
     if(add > 0) {
-      VectorMA(color, add, dl->color, color);
+      color = SH1_Add(color, SH1_FromDirectionalLight(dist, dl->color));
+      // VectorMA(color, add, dl->color, color);
     }
   }
 
-  VectorScale(color, gl_modulate->value, color);
+  // VectorScale(color, gl_modulate->value, color);
+  return SH1_Scale(color, gl_modulate->value);
 }
 
 //===================================================================

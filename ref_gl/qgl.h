@@ -397,7 +397,26 @@ void QGL_Shutdown(void);
   X(void, LockArraysEXT, (int, int))                                                                                   \
   X(void, UnlockArraysEXT, (void))                                                                                     \
   X(void, MTexCoord2fSGIS, (GLenum, GLfloat, GLfloat))                                                                 \
-  X(void, SelectTextureSGIS, (GLenum))
+  X(void, SelectTextureSGIS, (GLenum))                                                                                 \
+                                                                                                                       \
+  X(GLuint, CreateShader, (GLenum shaderType))                                                                         \
+  X(void, ShaderSource, (GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length))              \
+  X(void, CompileShader, (GLuint shader))                                                                              \
+  X(void, ReleaseShaderCompiler, (void))                                                                               \
+  X(void, DeleteShader, (GLuint shader))                                                                               \
+  X(GLboolean, IsShader, (GLuint shader))                                                                              \
+  X(void, ShaderBinary,                                                                                                \
+    (GLsizei count, const GLuint *shaders, GLenum binary_format, const void *binary, GLsizei length))                  \
+                                                                                                                       \
+  X(GLuint, CreateProgram, (void))                                                                                     \
+  X(void, AttachShader, (GLuint program, GLuint shader))                                                               \
+  X(void, DetachShader, (GLuint program, GLuint shader))                                                               \
+  X(void, LinkProgram, (GLuint program))                                                                               \
+  X(void, UseProgram, (GLuint program))                                                                                \
+  X(GLuint, CreateShaderProgramv, (GLenum type, GLsizei count, const char *const *strings))                            \
+  X(void, ProgramParameteri, (GLuint program, GLenum pname, GLint value))                                              \
+  X(void, DeleteProgram, (GLuint program))                                                                             \
+  X(GLboolean, IsProgram, (GLuint program))
 
 #define QGL_EXTERN_X(RESULT, NAME, ARGUMENTS) extern RESULT(APIENTRY *qgl##NAME) ARGUMENTS;
 QGL_FUNCTIONS(QGL_EXTERN_X)

@@ -27,25 +27,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ** QGL_Init() - loads libraries, assigns function pointers, etc.
 ** QGL_Shutdown() - unloads libraries, NULLs function pointers
 */
+#define GLAD_GL_IMPLEMENTATION
+
 #include <float.h>
 #include "gl_local.h"
 
 #include <GLFW/glfw3.h>
-
-#define QGL_DECLARE_X(RESULT, NAME, ARGUMENTS) RESULT(APIENTRY *qgl##NAME) ARGUMENTS;
-QGL_FUNCTIONS(QGL_DECLARE_X)
-#undef QGL_DECLARE_X
 
 /*
 ** QGL_Shutdown
 **
 ** Unloads the specified DLL then nulls out all the proc pointers.
 */
-void QGL_Shutdown(void) {
-#define QGL_NULL_X(RESULT, NAME, ARGUMENTS) qgl##NAME = NULL;
-  QGL_FUNCTIONS(QGL_NULL_X)
-#undef QGL_NULL_X
-}
+void QGL_Shutdown(void) {}
 
 #define GPA(a) glfwGetProcAddress(a)
 
@@ -59,22 +53,7 @@ void QGL_Shutdown(void) {
 ** might be.
 **
 */
-bool QGL_Init(const char *dllname) {
-#define INIT_DLL_TO_QGL(a)                                                                                             \
-  do {                                                                                                                 \
-    *(void **)&qgl##a = GPA("gl" #a);                                                                                  \
-  } while(false)
-
-#define QGL_GET_X(RESULT, NAME, ARGUMENTS) INIT_DLL_TO_QGL(NAME);
-  QGL_FUNCTIONS(QGL_GET_X)
-#undef QGL_GETL_X
-
-#undef INIT_DLL_TO_QGL
-
-  qglColorTableEXT = 0;
-
-  return true;
-}
+bool QGL_Init(void) { return gladLoadGL(glfwGetProcAddress) != 0; }
 
 void GLimp_EnableLogging(bool enable) {}
 

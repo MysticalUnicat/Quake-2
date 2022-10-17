@@ -64,7 +64,7 @@
                 "-bsp",
                 "-rad",
                 "-bounce",
-                "4",
+                "0",
                 "c:\\quake2\\baseq2\\maps\\uc_city1.map"
             ],
             "cwd": "c:\\quake2"
