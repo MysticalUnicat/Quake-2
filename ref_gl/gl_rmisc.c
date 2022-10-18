@@ -66,7 +66,7 @@ void R_InitParticleTexture(void) {
   //
   for(x = 0; x < 8; x++) {
     for(y = 0; y < 8; y++) {
-      vec3_t dir = {frand(), frand(), 4};
+      vec3_t dir = {frand(), frand(), 2};
       VectorNormalize(dir);
 
       // change -1...1 range to 0...255 range
@@ -227,7 +227,7 @@ void GL_SetDefaultState(void) {
     glEnable(GL_POINT_SMOOTH);
     glPointParameterf(GL_POINT_SIZE_MIN, gl_particle_min_size->value);
     glPointParameterf(GL_POINT_SIZE_MAX, gl_particle_max_size->value);
-    glPointParameterfv(GL_CONSTANT_ATTENUATION, attenuations);
+    glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, attenuations);
   }
 
   GL_UpdateSwapInterval();
