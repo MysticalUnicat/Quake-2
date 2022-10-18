@@ -50,7 +50,10 @@ typedef struct {
 
   // the lightmap texture data needs to be kept in
   // main memory so texsubimage can update properly
-  byte lightmap_buffer[4 * BLOCK_WIDTH * BLOCK_HEIGHT];
+  byte lightmap_buffer_rgb0[4 * BLOCK_WIDTH * BLOCK_HEIGHT];
+  byte lightmap_buffer_r1[4 * BLOCK_WIDTH * BLOCK_HEIGHT];
+  byte lightmap_buffer_g1[4 * BLOCK_WIDTH * BLOCK_HEIGHT];
+  byte lightmap_buffer_b1[4 * BLOCK_WIDTH * BLOCK_HEIGHT];
 } gllightmapstate_t;
 
 static gllightmapstate_t gl_lms;
@@ -60,7 +63,7 @@ static void LM_UploadBlock(bool dynamic);
 static bool LM_AllocBlock(int w, int h, int *x, int *y);
 
 extern void R_SetCacheState(msurface_t *surf);
-extern void R_BuildLightMap(msurface_t *surf, byte *dest, int stride);
+extern void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *dest_g1, byte *dest_b1, int stride);
 
 /*
 =============================================================
@@ -368,16 +371,22 @@ void R_BlendLightmaps(int cmodel_index) {
 
     for(surf = gl_lms.lightmap_surfaces[0]; surf != 0; surf = surf->lightmapchain) {
       int smax, tmax;
-      byte *base;
+      byte *base_rgb0, *base_r1, *base_g1, *base_b1;
 
       smax = (surf->extents[0] >> 4) + 1;
       tmax = (surf->extents[1] >> 4) + 1;
 
       if(LM_AllocBlock(smax, tmax, &surf->dlight_s, &surf->dlight_t)) {
-        base = gl_lms.lightmap_buffer;
-        base += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_rgb0 = gl_lms.lightmap_buffer_rgb0;
+        base_r1 = gl_lms.lightmap_buffer_r1;
+        base_g1 = gl_lms.lightmap_buffer_g1;
+        base_b1 = gl_lms.lightmap_buffer_b1;
+        base_rgb0 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_r1 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_g1 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_b1 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
 
-        R_BuildLightMap(surf, base, BLOCK_WIDTH * LIGHTMAP_BYTES);
+        R_BuildLightMap(surf, base_rgb0, base_r1, base_g1, base_b1, BLOCK_WIDTH * LIGHTMAP_BYTES);
       } else {
         msurface_t *drawsurf;
 
@@ -401,10 +410,16 @@ void R_BlendLightmaps(int cmodel_index) {
           ri.Sys_Error(ERR_FATAL, "Consecutive calls to LM_AllocBlock(%d,%d) failed (dynamic)\n", smax, tmax);
         }
 
-        base = gl_lms.lightmap_buffer;
-        base += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_rgb0 = gl_lms.lightmap_buffer_rgb0;
+        base_r1 = gl_lms.lightmap_buffer_r1;
+        base_g1 = gl_lms.lightmap_buffer_g1;
+        base_b1 = gl_lms.lightmap_buffer_b1;
+        base_rgb0 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_r1 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_g1 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
+        base_b1 += (surf->dlight_t * BLOCK_WIDTH + surf->dlight_s) * LIGHTMAP_BYTES;
 
-        R_BuildLightMap(surf, base, BLOCK_WIDTH * LIGHTMAP_BYTES);
+        R_BuildLightMap(surf, base_rgb0, base_r1, base_g1, base_b1, BLOCK_WIDTH * LIGHTMAP_BYTES);
       }
     }
 
@@ -489,19 +504,33 @@ void R_RenderBrushPoly(msurface_t *fa) {
 
   if(is_dynamic) {
     if((fa->styles[maps] >= 32 || fa->styles[maps] == 0) && (fa->dlightframe != r_framecount)) {
-      unsigned temp[34 * 34];
+      unsigned temp_rgb0[34 * 34];
+      unsigned temp_r1[34 * 34];
+      unsigned temp_g1[34 * 34];
+      unsigned temp_b1[34 * 34];
       int smax, tmax;
 
       smax = (fa->extents[0] >> 4) + 1;
       tmax = (fa->extents[1] >> 4) + 1;
 
-      R_BuildLightMap(fa, (void *)temp, smax * 4);
+      R_BuildLightMap(fa, (void *)temp_rgb0, (void *)temp_r1, (void *)temp_g1, (void *)temp_b1, smax * 4);
       R_SetCacheState(fa);
 
-      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum);
-
+      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 0);
       glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
-                      temp);
+                      temp_rgb0);
+
+      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 1);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
+                      temp_r1);
+
+      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 2);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
+                      temp_g1);
+
+      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 3);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
+                      temp_b1);
 
       fa->lightmapchain = gl_lms.lightmap_surfaces[fa->lightmaptexturenum];
       gl_lms.lightmap_surfaces[fa->lightmaptexturenum] = fa;
@@ -633,36 +662,40 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
   }
 
   if(is_dynamic) {
-    unsigned temp[128 * 128];
+    unsigned temp_rgb0[128 * 128];
+    unsigned temp_r1[128 * 128];
+    unsigned temp_g1[128 * 128];
+    unsigned temp_b1[128 * 128];
+
     int smax, tmax;
 
+    smax = (surf->extents[0] >> 4) + 1;
+    tmax = (surf->extents[1] >> 4) + 1;
+
     if((surf->styles[map] >= 32 || surf->styles[map] == 0) && (surf->dlightframe != r_framecount)) {
-      smax = (surf->extents[0] >> 4) + 1;
-      tmax = (surf->extents[1] >> 4) + 1;
-
-      R_BuildLightMap(surf, (void *)temp, smax * 4);
       R_SetCacheState(surf);
-
-      GL_MBind(GL_TEXTURE1, gl_state.lightmap_textures + surf->lightmaptexturenum);
-
       lmtex = surf->lightmaptexturenum;
-
-      glTextureSubImage2D(gl_state.lightmap_textures + surf->lightmaptexturenum, 0, surf->light_s, surf->light_t, smax,
-                          tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp);
-
     } else {
-      smax = (surf->extents[0] >> 4) + 1;
-      tmax = (surf->extents[1] >> 4) + 1;
-
-      R_BuildLightMap(surf, (void *)temp, smax * 4);
-
-      GL_MBind(GL_TEXTURE1, gl_state.lightmap_textures + 0);
-
       lmtex = 0;
-
-      glTextureSubImage2D(gl_state.lightmap_textures + 0, 0, surf->light_s, surf->light_t, smax, tmax,
-                          GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp);
     }
+
+    R_BuildLightMap(surf, (void *)temp_rgb0, (void *)temp_r1, (void *)temp_g1, (void *)temp_b1, smax * 4);
+
+    GL_MBind(GL_TEXTURE3, gl_state.lightmap_textures + lmtex + 0);
+    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 0, 0, surf->light_s, surf->light_t, smax, tmax,
+                    GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp_rgb0);
+
+    GL_MBind(GL_TEXTURE4, gl_state.lightmap_textures + lmtex + 1);
+    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 1, 0, surf->light_s, surf->light_t, smax, tmax,
+                    GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp_r1);
+
+    GL_MBind(GL_TEXTURE5, gl_state.lightmap_textures + lmtex + 2);
+    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 2, 0, surf->light_s, surf->light_t, smax, tmax,
+                    GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp_g1);
+
+    GL_MBind(GL_TEXTURE6, gl_state.lightmap_textures + lmtex + 3);
+    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 3, 0, surf->light_s, surf->light_t, smax, tmax,
+                    GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp_b1);
 
     c_brush_polys++;
 
@@ -1199,10 +1232,6 @@ static void LM_UploadBlock(bool dynamic) {
     texture = gl_lms.current_lightmap_texture;
   }
 
-  GL_Bind(gl_state.lightmap_textures + texture);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
   if(dynamic) {
     int i;
 
@@ -1211,12 +1240,55 @@ static void LM_UploadBlock(bool dynamic) {
         height = gl_lms.allocated[i];
     }
 
+    GL_Bind(gl_state.lightmap_textures + texture + 0);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, BLOCK_WIDTH, height, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
-                    gl_lms.lightmap_buffer);
+                    gl_lms.lightmap_buffer_rgb0);
+
+    GL_Bind(gl_state.lightmap_textures + texture + 1);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, BLOCK_WIDTH, height, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
+                    gl_lms.lightmap_buffer_r1);
+
+    GL_Bind(gl_state.lightmap_textures + texture + 2);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, BLOCK_WIDTH, height, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
+                    gl_lms.lightmap_buffer_g1);
+
+    GL_Bind(gl_state.lightmap_textures + texture + 3);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, BLOCK_WIDTH, height, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
+                    gl_lms.lightmap_buffer_b1);
   } else {
+    GL_Bind(gl_state.lightmap_textures + texture + 0);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
-                 GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer);
-    if(++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS * CMODEL_COUNT)
+                 GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer_rgb0);
+
+    GL_Bind(gl_state.lightmap_textures + texture + 1);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
+                 GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer_r1);
+
+    GL_Bind(gl_state.lightmap_textures + texture + 2);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
+                 GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer_g1);
+
+    GL_Bind(gl_state.lightmap_textures + texture + 3);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
+                 GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer_b1);
+
+    if((gl_lms.current_lightmap_texture += 4) >= MAX_LIGHTMAPS * CMODEL_COUNT)
       ri.Sys_Error(ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded\n");
   }
 }
@@ -1331,7 +1403,7 @@ GL_CreateSurfaceLightmap
 */
 void GL_CreateSurfaceLightmap(msurface_t *surf) {
   int smax, tmax;
-  byte *base;
+  byte *base_rgb0, *base_r1, *base_g1, *base_b1;
 
   if(surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
     return;
@@ -1349,11 +1421,20 @@ void GL_CreateSurfaceLightmap(msurface_t *surf) {
 
   surf->lightmaptexturenum = gl_lms.current_lightmap_texture;
 
-  base = gl_lms.lightmap_buffer;
-  base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * LIGHTMAP_BYTES;
+  base_rgb0 = gl_lms.lightmap_buffer_rgb0;
+  base_rgb0 += (surf->light_t * BLOCK_WIDTH + surf->light_s) * LIGHTMAP_BYTES;
+
+  base_r1 = gl_lms.lightmap_buffer_r1;
+  base_r1 += (surf->light_t * BLOCK_WIDTH + surf->light_s) * LIGHTMAP_BYTES;
+
+  base_g1 = gl_lms.lightmap_buffer_g1;
+  base_g1 += (surf->light_t * BLOCK_WIDTH + surf->light_s) * LIGHTMAP_BYTES;
+
+  base_b1 = gl_lms.lightmap_buffer_b1;
+  base_b1 += (surf->light_t * BLOCK_WIDTH + surf->light_s) * LIGHTMAP_BYTES;
 
   R_SetCacheState(surf);
-  R_BuildLightMap(surf, base, BLOCK_WIDTH * LIGHTMAP_BYTES);
+  R_BuildLightMap(surf, base_rgb0, base_r1, base_g1, base_b1, BLOCK_WIDTH * LIGHTMAP_BYTES);
 }
 
 /*
@@ -1392,7 +1473,7 @@ void GL_BeginBuildingLightmaps(model_t *m) {
     //		gl_state.texture_extension_number = gl_state.lightmap_textures + MAX_LIGHTMAPS;
   }
 
-  gl_lms.current_lightmap_texture = 1 + m->cmodel_index * MAX_LIGHTMAPS;
+  gl_lms.current_lightmap_texture = 4 + m->cmodel_index * MAX_LIGHTMAPS;
 
   /*
   ** if mono lightmaps are enabled and we want to use alpha
@@ -1427,6 +1508,24 @@ void GL_BeginBuildingLightmaps(model_t *m) {
   ** initialize the dynamic lightmap texture
   */
   GL_Bind(gl_state.lightmap_textures + 0);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
+               GL_UNSIGNED_BYTE, dummy);
+
+  GL_Bind(gl_state.lightmap_textures + 1);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
+               GL_UNSIGNED_BYTE, dummy);
+
+  GL_Bind(gl_state.lightmap_textures + 2);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
+               GL_UNSIGNED_BYTE, dummy);
+
+  GL_Bind(gl_state.lightmap_textures + 3);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
@@ -1554,21 +1653,22 @@ void GL_SurfaceInit(void) {
     void main() {
       mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
 
-      vec3 albedo = texture(u_albedo_map, in_main_st).rgb;
-      vec3 normal = texture_space * normalize(texture(u_normal_map, in_main_st).rgb * 2 - 1);
+      vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
+      vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
+      vec3 normal = texture_space * normalize(normal_map * 2 - 1);
 
       vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
-      vec3 lightmap_r1 = normalize(texture(u_lightmap_r1, in_lightmap_st).rgb * 2 - 1);
-      vec3 lightmap_g1 = normalize(texture(u_lightmap_g1, in_lightmap_st).rgb * 2 - 1);
-      vec3 lightmap_b1 = normalize(texture(u_lightmap_b1, in_lightmap_st).rgb * 2 - 1);
+      vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
+      vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
+      vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
 
       vec3 lightmap = vec3(
-        do_sh1(lightmap_rgb0.r, lightmap_r1, normal),
-        do_sh1(lightmap_rgb0.g, lightmap_g1, normal),
-        do_sh1(lightmap_rgb0.b, lightmap_b1, normal)
+        do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
+        do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
+        do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
       );
 
-      out_color = vec4(albedo * lightmap_rgb0, 1);
+      out_color = vec4(lightmap, 1);
     }
   );
   // clang-format on

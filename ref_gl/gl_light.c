@@ -342,7 +342,7 @@ struct SH1 R_LightPoint(int cmodel_index, vec3_t p) {
 
 //===================================================================
 
-static float s_blocklights[34 * 34 * 3];
+static struct SH1 s_blocklights[34 * 34];
 /*
 ===============
 R_AddDynamicLights
@@ -358,7 +358,7 @@ void R_AddDynamicLights(msurface_t *surf) {
   int smax, tmax;
   mtexinfo_t *tex;
   dlight_t *dl;
-  float *pfBL;
+  struct SH1 *pfBL;
   float fsacc, ftacc;
 
   smax = (surf->extents[0] >> 4) + 1;
@@ -405,9 +405,7 @@ void R_AddDynamicLights(msurface_t *surf) {
           fdist = td + (sd >> 1);
 
         if(fdist < fminlight) {
-          pfBL[0] += (frad - fdist) * dl->color[0];
-          pfBL[1] += (frad - fdist) * dl->color[1];
-          pfBL[2] += (frad - fdist) * dl->color[2];
+          *pfBL = SH1_Add(*pfBL, SH1_Scale(SH1_FromDirectionalLight(vec3_origin, dl->color), frad - fdist));
         }
       }
     }
@@ -432,14 +430,14 @@ R_BuildLightMap
 Combine and scale multiple lightmaps into the floating format in blocklights
 ===============
 */
-void R_BuildLightMap(msurface_t *surf, byte *dest, int stride) {
+void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *dest_g1, byte *dest_b1, int stride) {
   int smax, tmax;
-  int r, g, b, a, max;
+  float max;
   int i, j, size;
-  byte *lightmap;
+  byte *lightmap_rgb0, *lightmap_r1, *lightmap_g1, *lightmap_b1;
   float scale[4];
   int nummaps;
-  float *bl;
+  struct SH1 *bl;
   lightstyle_t *style;
   int monolightmap;
 
@@ -449,15 +447,20 @@ void R_BuildLightMap(msurface_t *surf, byte *dest, int stride) {
   smax = (surf->extents[0] >> 4) + 1;
   tmax = (surf->extents[1] >> 4) + 1;
   size = smax * tmax;
-  if(size > (sizeof(s_blocklights) >> 4))
+  if(size > (sizeof(s_blocklights) / sizeof(s_blocklights[0])))
     ri.Sys_Error(ERR_DROP, "Bad s_blocklights size");
 
   // set to full bright if no light data
   if(!surf->samples) {
     int maps;
 
-    for(i = 0; i < size * 3; i++)
-      s_blocklights[i] = 255;
+    for(i = 0; i < size; i++) {
+      s_blocklights[i].f[0] = s_blocklights[i].f[4] = s_blocklights[i].f[8] = 255;
+      s_blocklights[i].f[1] = s_blocklights[i].f[2] = s_blocklights[i].f[3] = 0;
+      s_blocklights[i].f[5] = s_blocklights[i].f[6] = s_blocklights[i].f[7] = 0;
+      s_blocklights[i].f[9] = s_blocklights[i].f[10] = s_blocklights[i].f[11] = 0;
+    }
+
     for(maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
       style = &r_newrefdef.lightstyles[surf->styles[maps]];
     }
@@ -468,7 +471,10 @@ void R_BuildLightMap(msurface_t *surf, byte *dest, int stride) {
   for(nummaps = 0; nummaps < MAXLIGHTMAPS && surf->styles[nummaps] != 255; nummaps++)
     ;
 
-  lightmap = surf->samples;
+  lightmap_rgb0 = surf->samples + (size * 3) * 0;
+  lightmap_r1 = surf->samples + (size * 3) * 1;
+  lightmap_g1 = surf->samples + (size * 3) * 2;
+  lightmap_b1 = surf->samples + (size * 3) * 3;
 
   // add all the lightmaps
   if(nummaps == 1) {
@@ -480,25 +486,42 @@ void R_BuildLightMap(msurface_t *surf, byte *dest, int stride) {
       for(i = 0; i < 3; i++)
         scale[i] = gl_modulate->value * r_newrefdef.lightstyles[surf->styles[maps]].rgb[i];
 
-      if(scale[0] == 1.0F && scale[1] == 1.0F && scale[2] == 1.0F) {
-        for(i = 0; i < size; i++, bl += 3) {
-          bl[0] = lightmap[i * 3 + 0];
-          bl[1] = lightmap[i * 3 + 1];
-          bl[2] = lightmap[i * 3 + 2];
+      for(i = 0; i < size; i++) {
+        struct SH1 color;
+
+        color.f[0] = lightmap_rgb0[i * 3 + 0] - 0.5f;
+        color.f[4] = lightmap_rgb0[i * 3 + 1] - 0.5f;
+        color.f[8] = lightmap_rgb0[i * 3 + 2] - 0.5f;
+        color.f[1] = lightmap_r1[i * 3 + 0] - 0.5f;
+        color.f[2] = lightmap_r1[i * 3 + 1] - 0.5f;
+        color.f[3] = lightmap_r1[i * 3 + 2] - 0.5f;
+        color.f[5] = lightmap_g1[i * 3 + 0] - 0.5f;
+        color.f[6] = lightmap_g1[i * 3 + 1] - 0.5f;
+        color.f[7] = lightmap_g1[i * 3 + 2] - 0.5f;
+        color.f[9] = lightmap_b1[i * 3 + 0] - 0.5f;
+        color.f[10] = lightmap_b1[i * 3 + 1] - 0.5f;
+        color.f[11] = lightmap_b1[i * 3 + 2] - 0.5f;
+
+        for(int component = 0; component < 3; component++) {
+          for(int basis = 0; basis < 3; basis++) {
+            color.f[component * 4 + basis + 1] -= 127.0f;
+            color.f[component * 4 + basis + 1] *= 2;
+          }
         }
-      } else {
-        for(i = 0; i < size; i++, bl += 3) {
-          bl[0] = lightmap[i * 3 + 0] * scale[0];
-          bl[1] = lightmap[i * 3 + 1] * scale[1];
-          bl[2] = lightmap[i * 3 + 2] * scale[2];
-        }
+
+        bl[i] = SH1_ColorScale(color, scale);
       }
-      lightmap += size * 3; // skip to next lightmap
+
+      // skip to next lightmap
+      lightmap_rgb0 += size * 3 * 4;
+      lightmap_r1 += size * 3 * 4;
+      lightmap_g1 += size * 3 * 4;
+      lightmap_b1 += size * 3 * 4;
     }
   } else {
     int maps;
 
-    memset(s_blocklights, 0, sizeof(s_blocklights[0]) * size * 3);
+    memset(s_blocklights, 0, sizeof(s_blocklights[0]) * size);
 
     for(maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
       bl = s_blocklights;
@@ -506,21 +529,37 @@ void R_BuildLightMap(msurface_t *surf, byte *dest, int stride) {
       for(i = 0; i < 3; i++)
         scale[i] = gl_modulate->value * r_newrefdef.lightstyles[surf->styles[maps]].rgb[i];
 
-      if(scale[0] == 1.0F && scale[1] == 1.0F && scale[2] == 1.0F) {
-        for(i = 0; i < size; i++, bl += 3) {
-          bl[0] += lightmap[i * 3 + 0];
-          bl[1] += lightmap[i * 3 + 1];
-          bl[2] += lightmap[i * 3 + 2];
+      for(i = 0; i < size; i++) {
+        struct SH1 color;
+
+        color.f[0] = lightmap_rgb0[i * 3 + 0] - 0.5f;
+        color.f[4] = lightmap_rgb0[i * 3 + 1] - 0.5f;
+        color.f[8] = lightmap_rgb0[i * 3 + 2] - 0.5f;
+        color.f[1] = lightmap_r1[i * 3 + 0] - 0.5f;
+        color.f[2] = lightmap_r1[i * 3 + 1] - 0.5f;
+        color.f[3] = lightmap_r1[i * 3 + 2] - 0.5f;
+        color.f[5] = lightmap_g1[i * 3 + 0] - 0.5f;
+        color.f[6] = lightmap_g1[i * 3 + 1] - 0.5f;
+        color.f[7] = lightmap_g1[i * 3 + 2] - 0.5f;
+        color.f[9] = lightmap_b1[i * 3 + 0] - 0.5f;
+        color.f[10] = lightmap_b1[i * 3 + 1] - 0.5f;
+        color.f[11] = lightmap_b1[i * 3 + 2] - 0.5f;
+
+        for(int component = 0; component < 3; component++) {
+          for(int basis = 0; basis < 3; basis++) {
+            color.f[component * 4 + basis + 1] -= 127.0f;
+            color.f[component * 4 + basis + 1] *= 2;
+          }
         }
-      } else {
-        for(i = 0; i < size; i++, bl += 3) {
-          bl[0] += lightmap[i * 3 + 0] * scale[0];
-          bl[1] += lightmap[i * 3 + 1] * scale[1];
-          bl[2] += lightmap[i * 3 + 2] * scale[2];
-        }
+
+        bl[i] = SH1_ColorScale(color, scale);
       }
-      lightmap += size * 3; // skip to next lightmap
     }
+    // skip to next lightmap
+    lightmap_rgb0 += size * 3 * 4;
+    lightmap_r1 += size * 3 * 4;
+    lightmap_g1 += size * 3 * 4;
+    lightmap_b1 += size * 3 * 4;
   }
 
   // add all the dynamic lights
@@ -532,141 +571,48 @@ store:
   stride -= (smax << 2);
   bl = s_blocklights;
 
-  monolightmap = gl_monolightmap->string[0];
+  for(i = 0; i < tmax; i++, dest_rgb0 += stride, dest_r1 += stride, dest_g1 += stride, dest_b1 += stride) {
+    for(j = 0; j < smax; j++) {
+      struct SH1 color = SH1_NormalizeMaximum(*bl, 254.5f, NULL);
 
-  if(monolightmap == '0') {
-    for(i = 0; i < tmax; i++, dest += stride) {
-      for(j = 0; j < smax; j++) {
+      for(int component = 0; component < 3; component++) {
+        if(color.f[component * 4 + 0] > 255)
+          assert(0);
 
-        r = (int)(bl[0]);
-        g = (int)(bl[1]);
-        b = (int)(bl[2]);
+        for(int basis = 0; basis < 3; basis++) {
+          color.f[component * 4 + basis + 1] *= 0.5f;
+          color.f[component * 4 + basis + 1] += 127.0f;
 
-        // catch negative lights
-        if(r < 0)
-          r = 0;
-        if(g < 0)
-          g = 0;
-        if(b < 0)
-          b = 0;
-
-        /*
-        ** determine the brightest of the three color components
-        */
-        if(r > g)
-          max = r;
-        else
-          max = g;
-        if(b > max)
-          max = b;
-
-        /*
-        ** alpha is ONLY used for the mono lightmap case.  For this reason
-        ** we set it to the brightest of the color components so that
-        ** things don't get too dim.
-        */
-        a = max;
-
-        /*
-        ** rescale all the color components if the intensity of the greatest
-        ** channel exceeds 1.0
-        */
-        if(max > 255) {
-          float t = 255.0F / max;
-
-          r = r * t;
-          g = g * t;
-          b = b * t;
-          a = a * t;
+          if(color.f[component * 4 + basis + 1] > 255)
+            assert(0);
         }
-
-        dest[0] = r;
-        dest[1] = g;
-        dest[2] = b;
-        dest[3] = a;
-
-        bl += 3;
-        dest += 4;
       }
-    }
-  } else {
-    for(i = 0; i < tmax; i++, dest += stride) {
-      for(j = 0; j < smax; j++) {
 
-        r = (int)(bl[0]);
-        g = (int)(bl[1]);
-        b = (int)(bl[2]);
+      dest_rgb0[0] = (byte)(color.f[0] + 0.5f);
+      dest_rgb0[1] = (byte)(color.f[4] + 0.5f);
+      dest_rgb0[2] = (byte)(color.f[8] + 0.5f);
+      dest_rgb0[3] = 255;
 
-        // catch negative lights
-        if(r < 0)
-          r = 0;
-        if(g < 0)
-          g = 0;
-        if(b < 0)
-          b = 0;
+      dest_r1[0] = (byte)(color.f[1] + 0.5f);
+      dest_r1[1] = (byte)(color.f[2] + 0.5f);
+      dest_r1[2] = (byte)(color.f[3] + 0.5f);
+      dest_r1[3] = 255;
 
-        /*
-        ** determine the brightest of the three color components
-        */
-        if(r > g)
-          max = r;
-        else
-          max = g;
-        if(b > max)
-          max = b;
+      dest_g1[0] = (byte)(color.f[5] + 0.5f);
+      dest_g1[1] = (byte)(color.f[6] + 0.5f);
+      dest_g1[2] = (byte)(color.f[7] + 0.5f);
+      dest_g1[3] = 255;
 
-        /*
-        ** alpha is ONLY used for the mono lightmap case.  For this reason
-        ** we set it to the brightest of the color components so that
-        ** things don't get too dim.
-        */
-        a = max;
+      dest_b1[0] = (byte)(color.f[9] + 0.5f);
+      dest_b1[1] = (byte)(color.f[10] + 0.5f);
+      dest_b1[2] = (byte)(color.f[11] + 0.5f);
+      dest_b1[3] = 255;
 
-        /*
-        ** rescale all the color components if the intensity of the greatest
-        ** channel exceeds 1.0
-        */
-        if(max > 255) {
-          float t = 255.0F / max;
-
-          r = r * t;
-          g = g * t;
-          b = b * t;
-          a = a * t;
-        }
-
-        /*
-        ** So if we are doing alpha lightmaps we need to set the R, G, and B
-        ** components to 0 and we need to set alpha to 1-alpha.
-        */
-        switch(monolightmap) {
-        case 'L':
-        case 'I':
-          r = a;
-          g = b = 0;
-          break;
-        case 'C':
-          // try faking colored lighting
-          a = 255 - ((r + g + b) / 3);
-          r *= a / 255.0;
-          g *= a / 255.0;
-          b *= a / 255.0;
-          break;
-        case 'A':
-        default:
-          r = g = b = 0;
-          a = 255 - a;
-          break;
-        }
-
-        dest[0] = r;
-        dest[1] = g;
-        dest[2] = b;
-        dest[3] = a;
-
-        bl += 3;
-        dest += 4;
-      }
+      bl++;
+      dest_rgb0 += 4;
+      dest_r1 += 4;
+      dest_g1 += 4;
+      dest_b1 += 4;
     }
   }
 }

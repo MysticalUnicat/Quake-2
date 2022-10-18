@@ -912,7 +912,7 @@ bool GL_Upload32(unsigned *data, int width, int height, bool mipmap) {
   } else
     GL_ResampleTexture(data, width, height, scaled, scaled_width, scaled_height);
 
-  GL_LightScaleTexture(scaled, scaled_width, scaled_height, !mipmap);
+  // GL_LightScaleTexture(scaled, scaled_width, scaled_height, !mipmap);
 
   glTexImage2D(GL_TEXTURE_2D, 0, comp, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaled);
 

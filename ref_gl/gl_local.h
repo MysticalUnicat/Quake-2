@@ -150,6 +150,18 @@ static inline struct SH1 SH1_Normalize(const struct SH1 sh1, float *out_intensit
   return SH1_Scale(sh1, 1.0f / intensity);
 }
 
+static inline struct SH1 SH1_NormalizeMaximum(const struct SH1 sh1, float maximum, float *out_intensity) {
+#define SH1_MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+  float intensity = SH1_MAX(sh1.f[0], SH1_MAX(sh1.f[4], sh1.f[8]));
+#undef SH1_MAX
+  if(out_intensity)
+    *out_intensity = intensity;
+  if(intensity > maximum)
+    return SH1_Scale(sh1, maximum / intensity);
+  else
+    return sh1;
+}
+
 static inline void SH1_Sample(const struct SH1 sh1, const float direction[3], float output_color[3]) {
   // https://grahamhazel.com/blog/
   for(int component = 0; component < 3; component++) {

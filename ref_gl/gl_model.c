@@ -501,7 +501,7 @@ void Mod_LoadTexinfo(lump_t *l, struct HunkAllocator *hunk) {
     out->normal_image = GL_FindImage(name, it_wall);
     if(!out->normal_image) {
       ri.Con_Printf(PRINT_ALL, "Couldn't load %s\n", name);
-      out->normal_image = r_notexture;
+      out->normal_image = r_nonormal;
     }
   }
 
