@@ -62,6 +62,22 @@ void R_InitParticleTexture(void) {
   r_notexture = GL_LoadPic("***r_notexture***", (byte *)data, 8, 8, it_wall, 32);
 
   //
+  // also use this for bad textures, but without alpha
+  //
+  for(x = 0; x < 8; x++) {
+    for(y = 0; y < 8; y++) {
+      vec3_t dir = {frand(), frand(), 2};
+      VectorNormalize(dir);
+
+      data[y][x][0] = (dir[0] + 1) * 127;
+      data[y][x][1] = (dir[1] + 1) * 127;
+      data[y][x][2] = (dir[2] + 1) * 127;
+      data[y][x][3] = 255;
+    }
+  }
+  r_nonormal = GL_LoadPic("***r_nonormal***", (byte *)data, 8, 8, it_wall, 32);
+
+  //
   // also use this for color effects
   //
   for(x = 0; x < 8; x++) {

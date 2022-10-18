@@ -69,22 +69,13 @@ void GL_EnableMultitexture(bool enable) {
 }
 
 void GL_SelectTexture(GLenum texture) {
-  int tmu;
-
-  if(texture == GL_TEXTURE0)
-    tmu = 0;
-  else
-    tmu = 1;
+  int tmu = texture - GL_TEXTURE0;
 
   if(tmu == gl_state.currenttmu)
     return;
 
   gl_state.currenttmu = tmu;
-
-  if(tmu == 0)
-    glActiveTexture(GL_TEXTURE0);
-  else
-    glActiveTexture(GL_TEXTURE1);
+  glActiveTexture(texture);
 }
 
 void GL_TexEnv(GLenum mode) {
@@ -109,13 +100,6 @@ void GL_Bind(int texnum) {
 
 void GL_MBind(GLenum target, int texnum) {
   GL_SelectTexture(target);
-  if(target == GL_TEXTURE0) {
-    if(gl_state.currenttextures[0] == texnum)
-      return;
-  } else {
-    if(gl_state.currenttextures[1] == texnum)
-      return;
-  }
   GL_Bind(texnum);
 }
 
@@ -1209,6 +1193,7 @@ void GL_FreeUnusedImages(void) {
 
   // never free r_notexture or particle texture
   r_notexture->registration_sequence = registration_sequence;
+  r_nonormal->registration_sequence = registration_sequence;
   r_whitepcx->registration_sequence = registration_sequence;
   r_particletexture->registration_sequence = registration_sequence;
 

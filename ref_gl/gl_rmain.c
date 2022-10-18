@@ -40,6 +40,7 @@ glconfig_t gl_config;
 glstate_t gl_state;
 
 image_t *r_notexture; // use for bad textures
+image_t *r_nonormal;
 image_t *r_whitepcx;
 image_t *r_particletexture; // little dot for particles
 
@@ -1131,6 +1132,8 @@ bool R_Init(void *hinstance, void *hWnd) {
   Mod_Init();
   R_InitParticleTexture();
   Draw_InitLocal();
+
+  GL_SurfaceInit();
 
   err = glGetError();
   if(err != GL_NO_ERROR)

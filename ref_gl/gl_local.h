@@ -209,6 +209,11 @@ typedef struct Image {
   bool paletted;
 } image_t;
 
+struct ImageSet {
+  image_t *albedo;
+  image_t *normal;
+};
+
 struct glProgram {
   GLuint vertex_shader;
   GLuint fragment_shader;
@@ -264,6 +269,7 @@ extern image_t gltextures[MAX_GLTEXTURES];
 extern int numgltextures;
 
 extern image_t *r_notexture;
+extern image_t *r_nonormal;
 extern image_t *r_whitepcx;
 extern image_t *r_particletexture;
 extern entity_t *currententity;
@@ -413,6 +419,8 @@ void R_ClearSkyBox(void);
 void R_DrawSkyBox(void);
 void R_MarkLights(int codel_index, dlight_t *light, int bit, mnode_t *node);
 
+void GL_SurfaceInit(void);
+
 #if 0
 short LittleShort (short l);
 short BigShort (short l);
@@ -528,7 +536,7 @@ typedef struct {
 
   int lightmap_textures;
 
-  int currenttextures[2];
+  int currenttextures[32];
   int currenttmu;
 
   float camera_separation;

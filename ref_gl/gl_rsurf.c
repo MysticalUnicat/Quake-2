@@ -77,19 +77,21 @@ R_TextureAnimation
 Returns the proper texture for a given time and base texture
 ===============
 */
-image_t *R_TextureAnimation(mtexinfo_t *tex) {
+struct ImageSet R_TextureAnimation(mtexinfo_t *tex) {
   int c;
 
-  if(!tex->next)
-    return tex->image;
-
-  c = currententity->frame % tex->numframes;
-  while(c) {
-    tex = tex->next;
-    c--;
+  if(tex->next) {
+    c = currententity->frame % tex->numframes;
+    while(c) {
+      tex = tex->next;
+      c--;
+    }
   }
 
-  return tex->image;
+  struct ImageSet result;
+  result.albedo = tex->albedo_image;
+  result.normal = tex->normal_image;
+  return result;
 }
 
 #if 0
@@ -439,7 +441,8 @@ void R_RenderBrushPoly(msurface_t *fa) {
 
   c_brush_polys++;
 
-  image = R_TextureAnimation(fa->texinfo);
+  struct ImageSet image_set = R_TextureAnimation(fa->texinfo);
+  image = image_set.albedo;
 
   if(fa->flags & SURF_DRAWTURB) {
     GL_Bind(image->texnum);
@@ -538,7 +541,8 @@ void R_DrawAlphaSurfaces(void) {
   intens = gl_state.inverse_intensity;
 
   for(s = r_alpha_surfaces; s; s = s->texturechain) {
-    GL_Bind(s->texinfo->image->texnum);
+    GL_Bind(s->texinfo->albedo_image->texnum);
+
     c_brush_polys++;
     if(s->texinfo->flags & SURF_TRANS33)
       glColor4f(intens, intens, intens, 0.33);
@@ -607,10 +611,11 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
   int i, nv = surf->polys->numverts;
   int map;
   float *v;
-  image_t *image = R_TextureAnimation(surf->texinfo);
   bool is_dynamic = false;
   unsigned lmtex = surf->lightmaptexturenum;
   glpoly_t *p;
+
+  struct ImageSet image_set = R_TextureAnimation(surf->texinfo);
 
   for(map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++) {
     if(r_newrefdef.lightstyles[surf->styles[map]].white != surf->cached_light[map])
@@ -642,8 +647,8 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 
       lmtex = surf->lightmaptexturenum;
 
-      glTexSubImage2D(GL_TEXTURE_2D, 0, surf->light_s, surf->light_t, smax, tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
-                      temp);
+      glTextureSubImage2D(gl_state.lightmap_textures + surf->lightmaptexturenum, 0, surf->light_s, surf->light_t, smax,
+                          tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp);
 
     } else {
       smax = (surf->extents[0] >> 4) + 1;
@@ -655,14 +660,19 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 
       lmtex = 0;
 
-      glTexSubImage2D(GL_TEXTURE_2D, 0, surf->light_s, surf->light_t, smax, tmax, GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE,
-                      temp);
+      glTextureSubImage2D(gl_state.lightmap_textures + 0, 0, surf->light_s, surf->light_t, smax, tmax,
+                          GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp);
     }
 
     c_brush_polys++;
 
-    GL_MBind(GL_TEXTURE0, image->texnum);
-    GL_MBind(GL_TEXTURE1, gl_state.lightmap_textures + lmtex);
+    GL_MBind(GL_TEXTURE0, image_set.albedo->texnum);
+    GL_MBind(GL_TEXTURE1, image_set.normal->texnum);
+
+    GL_MBind(GL_TEXTURE3, gl_state.lightmap_textures + lmtex + 0);
+    GL_MBind(GL_TEXTURE4, gl_state.lightmap_textures + lmtex + 1);
+    GL_MBind(GL_TEXTURE5, gl_state.lightmap_textures + lmtex + 2);
+    GL_MBind(GL_TEXTURE6, gl_state.lightmap_textures + lmtex + 3);
 
     //==========
     // PGM
@@ -676,6 +686,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
+        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, (v[3] + scroll), v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -687,6 +698,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
+        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, v[3], v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -700,8 +712,13 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
   } else {
     c_brush_polys++;
 
-    GL_MBind(GL_TEXTURE0, image->texnum);
-    GL_MBind(GL_TEXTURE1, gl_state.lightmap_textures + lmtex);
+    GL_MBind(GL_TEXTURE0, image_set.albedo->texnum);
+    GL_MBind(GL_TEXTURE1, image_set.normal->texnum);
+
+    GL_MBind(GL_TEXTURE3, gl_state.lightmap_textures + lmtex + 0);
+    GL_MBind(GL_TEXTURE4, gl_state.lightmap_textures + lmtex + 1);
+    GL_MBind(GL_TEXTURE5, gl_state.lightmap_textures + lmtex + 2);
+    GL_MBind(GL_TEXTURE6, gl_state.lightmap_textures + lmtex + 3);
 
     //==========
     // PGM
@@ -715,6 +732,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
+        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, (v[3] + scroll), v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -728,6 +746,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
+        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, v[3], v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -971,7 +990,7 @@ void R_RecursiveWorldNode(int cmodel_index, mnode_t *node) {
         // the polygon is visible, so add it to the texture
         // sorted chain
         // FIXME: this is a hack for animation
-        image = R_TextureAnimation(surf->texinfo);
+        image = R_TextureAnimation(surf->texinfo).albedo;
         surf->texturechain = image->texturechain;
         image->texturechain = surf;
       }
@@ -1050,20 +1069,22 @@ void R_DrawWorld(int cmodel_index) {
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
   R_ClearSkyBox();
 
-  GL_EnableMultitexture(true);
+  // GL_EnableMultitexture(true);
+  glUseProgram(gl_state.bsp_program.program);
 
-  GL_SelectTexture(GL_TEXTURE0);
-  GL_TexEnv(GL_REPLACE);
-  GL_SelectTexture(GL_TEXTURE1);
+  // GL_SelectTexture(GL_TEXTURE0);
+  // GL_TexEnv(GL_REPLACE);
+  // GL_SelectTexture(GL_TEXTURE1);
 
-  if(gl_lightmap->value)
-    GL_TexEnv(GL_REPLACE);
-  else
-    GL_TexEnv(GL_MODULATE);
+  // if(gl_lightmap->value)
+  //   GL_TexEnv(GL_REPLACE);
+  // else
+  //   GL_TexEnv(GL_MODULATE);
 
   R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
 
-  GL_EnableMultitexture(false);
+  glUseProgram(0);
+  // GL_EnableMultitexture(false);
 
   /*
   ** theoretically nothing should happen in the next two functions
@@ -1271,10 +1292,10 @@ void GL_BuildPolygonFromSurface(msurface_t *fa, struct HunkAllocator *hunk) {
       vec = currentmodel->vertexes[r_pedge->v[1]].position;
     }
     s = DotProduct(vec, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3];
-    s /= fa->texinfo->image->base.width;
+    s /= fa->texinfo->wal_width;
 
     t = DotProduct(vec, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3];
-    t /= fa->texinfo->image->base.height;
+    t /= fa->texinfo->wal_height;
 
     VectorAdd(total, vec, total);
     VectorCopy(vec, poly->verts[i]);
@@ -1420,4 +1441,166 @@ GL_EndBuildingLightmaps
 void GL_EndBuildingLightmaps(void) {
   LM_UploadBlock(false);
   GL_EnableMultitexture(false);
+}
+
+#define MSTR(...) #__VA_ARGS__
+
+void compile_shader(GLuint shader) {
+  glCompileShader(shader);
+
+  GLint status;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+  if(status != GL_TRUE) {
+    GLint length;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+
+    GLchar *info_log = malloc(length + 1);
+    glGetShaderInfoLog(shader, length + 1, NULL, info_log);
+
+    Com_Error(ERR_FATAL, "shader compile error: %s", info_log);
+
+    free(info_log);
+  }
+}
+
+void GL_SurfaceInit(void) {
+  // clang-format off
+  static const char * vsource =
+  "#version 460 compatibility\n"
+  MSTR(
+    layout(location = 0) out vec2 out_main_st;
+    layout(location = 1) out vec2 out_lightmap_st;
+    layout(location = 2) out vec3 out_texture_space_0;
+    layout(location = 3) out vec3 out_texture_space_1;
+    layout(location = 4) out vec3 out_texture_space_2;
+
+    mat3 q_to_mat3(vec4 q) {
+      mat3 m;
+      float x2 = q.x + q.x;
+      float y2 = q.y + q.y;
+      float z2 = q.z + q.z;
+      {
+        float xx2 = q.x * x2;
+        float yy2 = q.y * y2;
+        float zz2 = q.z * z2;
+        m[0][0] = 1.0 - yy2 - zz2;
+        m[1][1] = 1.0 - xx2 - zz2;
+        m[2][2] = 1.0 - xx2 - yy2;
+      }
+      {
+        float yz2 = q.y * z2;
+        float wx2 = q.w * x2;
+        m[2][1] = yz2 - wx2;
+        m[1][2] = yz2 + wx2;
+      }
+      {
+        float xy2 = q.x * y2;
+        float wz2 = q.w * z2;
+        m[1][0] = xy2 - wz2;
+        m[0][1] = xy2 + wz2;
+      }
+      {
+        float xz2 = q.x * z2;
+        float wy2 = q.w * y2;
+        m[0][2] = xz2 - wy2;
+        m[2][0] = xz2 + wy2;
+      }
+      return m;
+    }
+
+    void main() {
+      gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+      out_main_st = gl_MultiTexCoord0.st;
+      out_lightmap_st = gl_MultiTexCoord1.st;
+
+      mat3 texture_space = q_to_mat3(gl_MultiTexCoord2);
+
+      out_texture_space_0 = texture_space[0];
+      out_texture_space_1 = texture_space[1];
+      out_texture_space_2 = texture_space[2];
+    }
+  );
+  static const char * fsource =
+  "#version 460 compatibility\n"
+  MSTR(
+    layout(binding = 0) uniform sampler2D u_albedo_map;
+    layout(binding = 1) uniform sampler2D u_normal_map;
+    //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
+
+    layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
+    layout(binding = 4) uniform sampler2D u_lightmap_r1;
+    layout(binding = 5) uniform sampler2D u_lightmap_g1;
+    layout(binding = 6) uniform sampler2D u_lightmap_b1;
+
+    layout(location = 0) in vec2 in_main_st;
+    layout(location = 1) in vec2 in_lightmap_st;
+    layout(location = 2) in vec3 in_texture_space_0;
+    layout(location = 3) in vec3 in_texture_space_1;
+    layout(location = 4) in vec3 in_texture_space_2;
+
+    layout(location = 0) out vec4 out_color;
+
+    float do_sh1(float r0, vec3 r1, vec3 normal) {
+      float r1_length = length(r1);
+      vec3 r1_normalized = r1 / r1_length;
+      float q = 0.5 * (1 + dot(r1_normalized, normal));
+      float r1_length_over_r0 = r1_length / r0;
+      float p = 1 + 2 * r1_length_over_r0;
+      float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p)) * 0.25;
+    }
+
+    void main() {
+      mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
+
+      vec3 albedo = texture(u_albedo_map, in_main_st).rgb;
+      vec3 normal = texture_space * normalize(texture(u_normal_map, in_main_st).rgb * 2 - 1);
+
+      vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
+      vec3 lightmap_r1 = normalize(texture(u_lightmap_r1, in_lightmap_st).rgb * 2 - 1);
+      vec3 lightmap_g1 = normalize(texture(u_lightmap_g1, in_lightmap_st).rgb * 2 - 1);
+      vec3 lightmap_b1 = normalize(texture(u_lightmap_b1, in_lightmap_st).rgb * 2 - 1);
+
+      vec3 lightmap = vec3(
+        do_sh1(lightmap_rgb0.r, lightmap_r1, normal),
+        do_sh1(lightmap_rgb0.g, lightmap_g1, normal),
+        do_sh1(lightmap_rgb0.b, lightmap_b1, normal)
+      );
+
+      out_color = vec4(albedo * lightmap_rgb0, 1);
+    }
+  );
+  // clang-format on
+
+  GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+  GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+
+  glShaderSource(vertex_shader, 1, &vsource, NULL);
+  glShaderSource(fragment_shader, 1, &fsource, NULL);
+
+  compile_shader(vertex_shader);
+  compile_shader(fragment_shader);
+
+  GLuint program = glCreateProgram();
+  glAttachShader(program, vertex_shader);
+  glAttachShader(program, fragment_shader);
+  glLinkProgram(program);
+  GLint status;
+  glGetProgramiv(program, GL_LINK_STATUS, &status);
+  if(status != GL_TRUE) {
+    GLint length = 0;
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
+
+    GLchar *info_log = malloc(length + 1);
+    glGetProgramInfoLog(program, length + 1, NULL, info_log);
+
+    Com_Error(ERR_FATAL, "program link error: %s", info_log);
+
+    free(info_log);
+  }
+
+  gl_state.bsp_program.vertex_shader = vertex_shader;
+  gl_state.bsp_program.fragment_shader = fragment_shader;
+  gl_state.bsp_program.program = program;
 }

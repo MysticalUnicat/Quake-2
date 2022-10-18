@@ -71,7 +71,10 @@ typedef struct mtexinfo_s {
   int flags;
   int numframes;
   struct mtexinfo_s *next; // animation chain
-  image_t *image;
+  uint16_t wal_width;
+  uint16_t wal_height;
+  image_t *albedo_image;
+  image_t *normal_image;
 } mtexinfo_t;
 
 #define VERTEXSIZE 7
@@ -95,6 +98,8 @@ typedef struct msurface_s {
 
   short texturemins[2];
   short extents[2];
+
+  float texture_space_q[4];
 
   int light_s, light_t;   // gl lightmap coordinates
   int dlight_s, dlight_t; // gl lightmap coordinates for dynamic lightmaps

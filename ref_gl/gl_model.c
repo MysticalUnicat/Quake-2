@@ -480,12 +480,28 @@ void Mod_LoadTexinfo(lump_t *l, struct HunkAllocator *hunk) {
       out->next = loadmodel->texinfo + next;
     else
       out->next = NULL;
-    Com_sprintf(name, sizeof(name), "textures/%s.wal", in->texture);
 
-    out->image = GL_FindImage(name, it_wall);
-    if(!out->image) {
+    Com_sprintf(name, sizeof(name), "textures/%s.wal", in->texture);
+    out->albedo_image = GL_FindImage(name, it_wall);
+    if(!out->albedo_image) {
       ri.Con_Printf(PRINT_ALL, "Couldn't load %s\n", name);
-      out->image = r_notexture;
+      out->albedo_image = r_notexture;
+    } else {
+      out->wal_width = out->albedo_image->base.width;
+      out->wal_height = out->albedo_image->base.height;
+    }
+
+    Com_sprintf(name, sizeof(name), "textures/%s.tga", in->texture);
+    image_t *hires = GL_FindImage(name, it_wall);
+    if(hires != NULL) {
+      out->albedo_image = hires;
+    }
+
+    Com_sprintf(name, sizeof(name), "textures/%s_n.tga", in->texture);
+    out->normal_image = GL_FindImage(name, it_wall);
+    if(!out->normal_image) {
+      ri.Con_Printf(PRINT_ALL, "Couldn't load %s\n", name);
+      out->normal_image = r_notexture;
     }
   }
 
@@ -623,6 +639,54 @@ void Mod_LoadFaces(lump_t *l, struct HunkAllocator *hunk) {
 
     if(!(out->texinfo->flags & SURF_WARP))
       GL_BuildPolygonFromSurface(out, hunk);
+
+    float texture_space_mat3[3][3];
+    VectorNormalize2(out->texinfo->vecs[0], texture_space_mat3[0]);
+    VectorNormalize2(out->texinfo->vecs[1], texture_space_mat3[1]);
+    if(side)
+      VectorNegate(out->plane->normal, texture_space_mat3[2]);
+    else
+      VectorCopy(out->plane->normal, texture_space_mat3[2]);
+
+    if(texture_space_mat3[0][0] + texture_space_mat3[1][1] + texture_space_mat3[2][2] > 0.0f) {
+      float t = +texture_space_mat3[0][0] + texture_space_mat3[1][1] + texture_space_mat3[2][2] + 1.0f;
+      float s = 0.5f / sqrt(t);
+      out->texture_space_q[3] = s * t;
+      out->texture_space_q[2] = (texture_space_mat3[0][1] - texture_space_mat3[1][0]) * s;
+      out->texture_space_q[1] = (texture_space_mat3[2][0] - texture_space_mat3[0][2]) * s;
+      out->texture_space_q[0] = (texture_space_mat3[1][2] - texture_space_mat3[2][1]) * s;
+    } else if(texture_space_mat3[0][0] > texture_space_mat3[1][1] &&
+              texture_space_mat3[0][0] > texture_space_mat3[2][2]) {
+      float t = +texture_space_mat3[0][0] - texture_space_mat3[1][1] - texture_space_mat3[2][2] + 1.0f;
+      float s = 0.5f / sqrt(t);
+      out->texture_space_q[0] = s * t;
+      out->texture_space_q[1] = (texture_space_mat3[0][1] + texture_space_mat3[1][0]) * s;
+      out->texture_space_q[2] = (texture_space_mat3[2][0] + texture_space_mat3[0][2]) * s;
+      out->texture_space_q[3] = (texture_space_mat3[1][2] - texture_space_mat3[2][1]) * s;
+    } else if(texture_space_mat3[1][1] > texture_space_mat3[2][2]) {
+      float t = -texture_space_mat3[0][0] + texture_space_mat3[1][1] - texture_space_mat3[2][2] + 1.0f;
+      float s = 0.5f / sqrt(t);
+      out->texture_space_q[1] = s * t;
+      out->texture_space_q[0] = (texture_space_mat3[0][1] + texture_space_mat3[1][0]) * s;
+      out->texture_space_q[3] = (texture_space_mat3[2][0] - texture_space_mat3[0][2]) * s;
+      out->texture_space_q[2] = (texture_space_mat3[1][2] + texture_space_mat3[2][1]) * s;
+    } else {
+      float t = -texture_space_mat3[0][0] - texture_space_mat3[1][1] + texture_space_mat3[2][2] + 1.0f;
+      float s = 0.5f / sqrt(t);
+      out->texture_space_q[2] = s * t;
+      out->texture_space_q[3] = (texture_space_mat3[0][1] - texture_space_mat3[1][0]) * s;
+      out->texture_space_q[0] = (texture_space_mat3[2][0] + texture_space_mat3[0][2]) * s;
+      out->texture_space_q[1] = (texture_space_mat3[1][2] + texture_space_mat3[2][1]) * s;
+    }
+
+    float one_over_q_length =
+        1.0f /
+        sqrt(out->texture_space_q[0] * out->texture_space_q[0] + out->texture_space_q[1] * out->texture_space_q[1] +
+             out->texture_space_q[2] * out->texture_space_q[2] + out->texture_space_q[3] * out->texture_space_q[3]);
+    out->texture_space_q[0] *= one_over_q_length;
+    out->texture_space_q[1] *= one_over_q_length;
+    out->texture_space_q[2] *= one_over_q_length;
+    out->texture_space_q[3] *= one_over_q_length;
   }
 
   GL_EndBuildingLightmaps();
@@ -1114,8 +1178,10 @@ struct model_s *R_RegisterModel(int cmodel_index, char *name) {
       mod->numframes = pheader->num_frames;
       // PGM
     } else if(mod->type == mod_brush) {
-      for(i = 0; i < mod->numtexinfo; i++)
-        mod->texinfo[i].image->registration_sequence = registration_sequence;
+      for(i = 0; i < mod->numtexinfo; i++) {
+        mod->texinfo[i].albedo_image->registration_sequence = registration_sequence;
+        mod->texinfo[i].normal_image->registration_sequence = registration_sequence;
+      }
     }
   }
   return mod;
