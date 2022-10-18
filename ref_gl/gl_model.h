@@ -99,7 +99,7 @@ typedef struct msurface_s {
   short texturemins[2];
   short extents[2];
 
-  float texture_space_q[4];
+  float texture_space_mat3[3][3];
 
   int light_s, light_t;   // gl lightmap coordinates
   int dlight_s, dlight_t; // gl lightmap coordinates for dynamic lightmaps

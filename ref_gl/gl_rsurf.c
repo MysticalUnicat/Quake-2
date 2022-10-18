@@ -719,7 +719,9 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
-        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
+        glMultiTexCoord3fv(GL_TEXTURE2, surf->texture_space_mat3[0]);
+        glMultiTexCoord3fv(GL_TEXTURE3, surf->texture_space_mat3[1]);
+        glMultiTexCoord3fv(GL_TEXTURE4, surf->texture_space_mat3[2]);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, (v[3] + scroll), v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -731,7 +733,9 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
-        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
+        glMultiTexCoord3fv(GL_TEXTURE2, surf->texture_space_mat3[0]);
+        glMultiTexCoord3fv(GL_TEXTURE3, surf->texture_space_mat3[1]);
+        glMultiTexCoord3fv(GL_TEXTURE4, surf->texture_space_mat3[2]);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, v[3], v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -765,7 +769,9 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
-        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
+        glMultiTexCoord3fv(GL_TEXTURE2, surf->texture_space_mat3[0]);
+        glMultiTexCoord3fv(GL_TEXTURE3, surf->texture_space_mat3[1]);
+        glMultiTexCoord3fv(GL_TEXTURE4, surf->texture_space_mat3[2]);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, (v[3] + scroll), v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -779,7 +785,9 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       for(p = surf->polys; p; p = p->chain) {
         v = p->verts[0];
         glBegin(GL_POLYGON);
-        glMultiTexCoord4fv(GL_TEXTURE2, surf->texture_space_q);
+        glMultiTexCoord3fv(GL_TEXTURE2, surf->texture_space_mat3[0]);
+        glMultiTexCoord3fv(GL_TEXTURE3, surf->texture_space_mat3[1]);
+        glMultiTexCoord3fv(GL_TEXTURE4, surf->texture_space_mat3[2]);
         for(i = 0; i < nv; i++, v += VERTEXSIZE) {
           glMultiTexCoord2f(GL_TEXTURE0, v[3], v[4]);
           glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
@@ -1573,51 +1581,15 @@ void GL_SurfaceInit(void) {
     layout(location = 3) out vec3 out_texture_space_1;
     layout(location = 4) out vec3 out_texture_space_2;
 
-    mat3 q_to_mat3(vec4 q) {
-      mat3 m;
-      float x2 = q.x + q.x;
-      float y2 = q.y + q.y;
-      float z2 = q.z + q.z;
-      {
-        float xx2 = q.x * x2;
-        float yy2 = q.y * y2;
-        float zz2 = q.z * z2;
-        m[0][0] = 1.0 - yy2 - zz2;
-        m[1][1] = 1.0 - xx2 - zz2;
-        m[2][2] = 1.0 - xx2 - yy2;
-      }
-      {
-        float yz2 = q.y * z2;
-        float wx2 = q.w * x2;
-        m[2][1] = yz2 - wx2;
-        m[1][2] = yz2 + wx2;
-      }
-      {
-        float xy2 = q.x * y2;
-        float wz2 = q.w * z2;
-        m[1][0] = xy2 - wz2;
-        m[0][1] = xy2 + wz2;
-      }
-      {
-        float xz2 = q.x * z2;
-        float wy2 = q.w * y2;
-        m[0][2] = xz2 - wy2;
-        m[2][0] = xz2 + wy2;
-      }
-      return m;
-    }
-
     void main() {
       gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
 
       out_main_st = gl_MultiTexCoord0.st;
       out_lightmap_st = gl_MultiTexCoord1.st;
 
-      mat3 texture_space = q_to_mat3(gl_MultiTexCoord2);
-
-      out_texture_space_0 = texture_space[0];
-      out_texture_space_1 = texture_space[1];
-      out_texture_space_2 = texture_space[2];
+      out_texture_space_0 = gl_MultiTexCoord2.xyz;
+      out_texture_space_1 = gl_MultiTexCoord3.xyz;
+      out_texture_space_2 = gl_MultiTexCoord4.xyz;
     }
   );
   static const char * fsource =
@@ -1668,7 +1640,7 @@ void GL_SurfaceInit(void) {
         do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
       );
 
-      out_color = vec4(lightmap, 1);
+      out_color = vec4(albedo_map * lightmap * 2, 1);
     }
   );
   // clang-format on
