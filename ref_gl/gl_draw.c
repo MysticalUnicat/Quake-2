@@ -24,9 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 image_t *draw_chars;
 
-extern bool scrap_dirty;
-void Scrap_Upload(void);
-
 /*
 ===============
 Draw_InitLocal
@@ -131,9 +128,6 @@ void Draw_StretchPic(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  if(scrap_dirty)
-    Scrap_Upload();
-
   if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !gl->has_alpha)
     glDisable(GL_ALPHA_TEST);
 
@@ -166,8 +160,6 @@ void Draw_Pic(int x, int y, const char *pic) {
     ri.Con_Printf(PRINT_ALL, "Can't find pic: %s\n", pic);
     return;
   }
-  if(scrap_dirty)
-    Scrap_Upload();
 
   if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !gl->has_alpha)
     glDisable(GL_ALPHA_TEST);

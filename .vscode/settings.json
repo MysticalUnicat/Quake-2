@@ -33,7 +33,9 @@
         "m_player.h": "c",
         "glfw3.h": "c",
         "cpp.h": "c",
-        "cat.h": "c"
+        "cat.h": "c",
+        "string_view": "c",
+        "initializer_list": "c"
     },
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "C_Cpp.errorSquiggles": "Disabled"

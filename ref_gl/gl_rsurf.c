@@ -27,13 +27,13 @@ static vec3_t modelorg; // relative to viewpoint
 
 msurface_t *r_alpha_surfaces;
 
-#define DYNAMIC_LIGHT_WIDTH 128
-#define DYNAMIC_LIGHT_HEIGHT 128
+#define DYNAMIC_LIGHT_WIDTH 1024
+#define DYNAMIC_LIGHT_HEIGHT 1024
 
 #define LIGHTMAP_BYTES 4
 
-#define BLOCK_WIDTH 128
-#define BLOCK_HEIGHT 128
+#define BLOCK_WIDTH 1024
+#define BLOCK_HEIGHT 1024
 
 int c_visible_lightmaps;
 int c_visible_textures;
@@ -1518,26 +1518,22 @@ void GL_BeginBuildingLightmaps(model_t *m) {
   GL_Bind(gl_state.lightmap_textures + 0);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
-               GL_UNSIGNED_BYTE, dummy);
+  glTexStorage2D(GL_TEXTURE_2D, 1, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT);
 
   GL_Bind(gl_state.lightmap_textures + 1);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
-               GL_UNSIGNED_BYTE, dummy);
+  glTexStorage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT);
 
   GL_Bind(gl_state.lightmap_textures + 2);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
-               GL_UNSIGNED_BYTE, dummy);
+  glTexStorage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT);
 
   GL_Bind(gl_state.lightmap_textures + 3);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT, 0, GL_LIGHTMAP_FORMAT,
-               GL_UNSIGNED_BYTE, dummy);
+  glTexStorage2D(GL_TEXTURE_2D, 0, gl_lms.internal_format, BLOCK_WIDTH, BLOCK_HEIGHT);
 }
 
 /*
@@ -1619,7 +1615,7 @@ void GL_SurfaceInit(void) {
       float r1_length_over_r0 = r1_length / r0;
       float p = 1 + 2 * r1_length_over_r0;
       float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
-      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p)) * 0.25;
+      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
     }
 
     void main() {

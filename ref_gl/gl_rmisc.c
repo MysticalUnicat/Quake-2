@@ -46,7 +46,7 @@ void R_InitParticleTexture(void) {
       data[y][x][3] = dottexture[x][y] * 255;
     }
   }
-  r_particletexture = GL_LoadPic("***particle***", (byte *)data, 8, 8, it_sprite, 32);
+  r_particletexture = GL_LoadPic("***particle***", (byte *)data, 8, 8, it_sprite, 32, false);
 
   //
   // also use this for bad textures, but without alpha
@@ -59,27 +59,26 @@ void R_InitParticleTexture(void) {
       data[y][x][3] = 255;
     }
   }
-  r_notexture = GL_LoadPic("***r_notexture***", (byte *)data, 8, 8, it_wall, 32);
+  r_notexture = GL_LoadPic("***r_notexture***", (byte *)data, 8, 8, it_wall, 32, false);
 
   //
   // also use this for missing normal texture
   //
   for(x = 0; x < 8; x++) {
     for(y = 0; y < 8; y++) {
-      vec3_t dir = {frand(), frand(), 2};
-      VectorNormalize(dir);
-
       // change -1...1 range to 0...255 range
-      data[y][x][0] = (byte)((dir[0] + 1.0f) * 127.0f);
-      data[y][x][1] = (byte)((dir[1] + 1.0f) * 127.0f);
-      data[y][x][2] = (byte)((dir[2] + 1.0f) * 127.0f);
-      // data[y][x][0] = 127;
-      // data[y][x][1] = 127;
-      // data[y][x][2] = 255;
+      // vec3_t dir = {crand(), crand(), 2};
+      // VectorNormalize(dir);
+      // data[y][x][0] = (byte)((dir[0] + 1.0f) * 127.0f);
+      // data[y][x][1] = (byte)((dir[1] + 1.0f) * 127.0f);
+      // data[y][x][2] = (byte)((dir[2] + 1.0f) * 127.0f);
+      data[y][x][0] = 127;
+      data[y][x][1] = 127;
+      data[y][x][2] = 255;
       data[y][x][3] = 255;
     }
   }
-  r_nonormal = GL_LoadPic("***r_nonormal***", (byte *)data, 8, 8, it_wall, 32);
+  r_nonormal = GL_LoadPic("***r_nonormal***", (byte *)data, 8, 8, it_wall, 32, false);
 
   //
   // also use this for color effects
@@ -92,7 +91,7 @@ void R_InitParticleTexture(void) {
       data[y][x][3] = 255;
     }
   }
-  r_whitepcx = GL_LoadPic("pics/white.pcx", (byte *)data, 8, 8, it_pic, 32);
+  r_whitepcx = GL_LoadPic("pics/white.pcx", (byte *)data, 8, 8, it_pic, 32, false);
 }
 
 /*

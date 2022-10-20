@@ -17,7 +17,7 @@
                 "deathmatch",
                 "1",
                 "+map",
-                "uc_city1"
+                "q2dm1"
             ],
             "cwd": "c:\\quake2"
         },
@@ -61,11 +61,10 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tools/q2tools-220.exe",
             "args": [
-                "-bsp",
                 "-rad",
                 "-bounce",
-                "0",
-                "c:\\quake2\\baseq2\\maps\\uc_city1.map"
+                "4",
+                "c:\\quake2\\baseq2\\maps\\q2dm1.bsp"
             ],
             "cwd": "c:\\quake2"
         },

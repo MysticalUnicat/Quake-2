@@ -20,6 +20,272 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 
+union color_rgba_u32 {
+  struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+  };
+  uint32_t u;
+};
+
+// ================================================================================================================================
+static void decode_qoi_data(int channels, const byte *input, byte *output, byte *output_end) {
+  union color_rgba_u32 previous;
+  union color_rgba_u32 array[64];
+
+  previous.r = 0;
+  previous.g = 0;
+  previous.b = 0;
+  previous.a = 255;
+
+  while(output < output_end) {
+    int first = *input++;
+    int two_bit_tag = first >> 6;
+    int run = 1;
+    if(first == 0xFE) {
+      // RGB
+      previous.r = *input++;
+      previous.g = *input++;
+      previous.b = *input++;
+    } else if(first == 0xFF) {
+      // RGBA
+      previous.r = *input++;
+      previous.g = *input++;
+      previous.b = *input++;
+      previous.a = *input++;
+    } else if(two_bit_tag == 0) {
+      // INDEX
+      int index = first & 0x3f;
+      previous.r = array[index].r;
+      previous.g = array[index].g;
+      previous.b = array[index].b;
+    } else if(two_bit_tag == 1) {
+      // DIFF
+      int8_t dr = (first >> 4) & 0x3;
+      int8_t dg = (first >> 2) & 0x3;
+      int8_t db = (first >> 0) & 0x3;
+      previous.r += dr - 2;
+      previous.g += dg - 2;
+      previous.b += db - 2;
+    } else if(two_bit_tag == 2) {
+      // LUMA
+      int8_t dg = (first & 0x3f) - 32;
+      uint8_t second = *input++;
+      int8_t dr_minus_dg = second >> 4;
+      int8_t db_minus_dg = second & 0xf;
+      previous.r += dg + dr_minus_dg - 8;
+      previous.g += dg;
+      previous.b += dg + db_minus_dg - 8;
+    } else if(two_bit_tag == 3) {
+      // RUN
+      run = (first & 0x3f) + 2;
+    }
+    int index_position = (previous.r * 3 + previous.g * 5 + previous.b * 7 + previous.a * 11) & 63;
+    array[index_position] = previous;
+    while(run--) {
+      *output++ = previous.r;
+      *output++ = previous.g;
+      *output++ = previous.b;
+      if(channels == 4) {
+        *output++ = previous.a;
+      }
+    }
+  }
+}
+
+struct qoi_encode_state {
+  union color_rgba_u32 previous;
+  union color_rgba_u32 array[64];
+  int run;
+
+  void (*emit)(void *ud, const uint8_t *buffer, size_t buffer_length);
+  void *ud;
+};
+
+static inline void qoi_encode_init(struct qoi_encode_state *state,
+                                   void (*emit)(void *ud, const uint8_t *buffer, size_t buffer_length), void *ud) {
+  memset(state, 0, sizeof(*state));
+  state->previous.a = 255;
+  state->emit = emit;
+  state->ud = ud;
+}
+
+static inline void qoi_encode_pixel(struct qoi_encode_state *state, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+  union color_rgba_u32 pixel;
+  pixel.r = r;
+  pixel.g = g;
+  pixel.b = b;
+  pixel.a = a;
+  uint8_t buffer[10];
+  size_t buffer_length = 0;
+  if(pixel.u == state->previous.u) {
+    state->run++;
+    if(state->run == 62) {
+      buffer[buffer_length++] = (3 << 6) | (state->run - 1);
+      state->run = 0;
+    }
+  } else {
+    if(state->run > 0) {
+      buffer[buffer_length++] = (3 << 6) | (state->run - 1);
+      state->run = 0;
+    }
+    int index_position = (pixel.r * 3 + pixel.g * 5 + pixel.b * 7 + pixel.a * 11) % 64;
+    if(state->array[index_position].u == pixel.u) {
+      buffer[buffer_length++] = (0 << 6) | index_position;
+    } else if(pixel.a != state->previous.a) {
+      buffer[buffer_length++] = 0xFF;
+      buffer[buffer_length++] = pixel.r;
+      buffer[buffer_length++] = pixel.g;
+      buffer[buffer_length++] = pixel.b;
+      buffer[buffer_length++] = pixel.a;
+    } else {
+      int8_t dr = pixel.r - state->previous.r;
+      int8_t dg = pixel.g - state->previous.g;
+      int8_t db = pixel.b - state->previous.b;
+      int8_t dr_minus_dg = dr - dg;
+      int8_t db_minus_dg = db - dg;
+      if(dr > -3 && dr < 2 && dg > -3 && dg < 2 && db > -3 && db < 2) {
+        buffer[buffer_length++] = (1 << 6) | (dr + 2) << 4 | (dg + 2) << 2 | (db + 2) << 0;
+      } else if(dr_minus_dg > -9 && dr_minus_dg < 8 && dg > -33 && dg < 32 && db_minus_dg > -9 && db_minus_dg < 8) {
+        buffer[buffer_length++] = (2 << 6) | (dg + 32);
+        buffer[buffer_length++] = (dr_minus_dg + 8) << 4 | (db_minus_dg + 8) << 0;
+      } else {
+        buffer[buffer_length++] = 0xFE;
+        buffer[buffer_length++] = pixel.r;
+        buffer[buffer_length++] = pixel.g;
+        buffer[buffer_length++] = pixel.b;
+      }
+    }
+    state->array[index_position] = pixel;
+    state->previous = pixel;
+  }
+  if(buffer_length > 0) {
+    state->emit(state->ud, buffer, buffer_length);
+  }
+}
+
+static inline void qoi_encode_finalize(struct qoi_encode_state *state) {
+  uint8_t buffer[10];
+  size_t buffer_length = 0;
+  if(state->run > 0) {
+    buffer[buffer_length++] = (3 << 6) | (state->run - 1);
+    state->emit(state->ud, buffer, buffer_length);
+  }
+}
+
+static void encode_qoi_data(int channels, const byte *input, const byte *input_end,
+                            void (*emit)(void *ud, const uint8_t *buffer, size_t buffer_length), void *ud) {
+  struct qoi_encode_state state;
+  qoi_encode_init(&state, emit, ud);
+  uint8_t a = 255;
+  input_end -= channels;
+  while(input < input_end) {
+    uint8_t r = *input++;
+    uint8_t g = *input++;
+    uint8_t b = *input++;
+    if(channels == 4) {
+      a = *input++;
+    }
+    qoi_encode_pixel(&state, r, g, b, a);
+  }
+  qoi_encode_finalize(&state);
+}
+
+static int check_image_cache(const char *name, void **out_image_data, int *out_width, int *out_height) {
+  size_t name_length = strlen(name);
+
+  char qoi_path[MAX_QPATH + 12];
+  snprintf(qoi_path, sizeof(qoi_path), "cache/%s.qoi", name);
+
+  byte *image;
+  if(ri.FS_LoadFile(qoi_path, (void **)&image) < 0) {
+    return 0;
+  }
+
+  struct {
+    char magic[4];
+    uint32_t width;
+    uint32_t height;
+    uint8_t channels;
+    uint8_t colorspace;
+  } * header;
+
+  *(byte **)&header = image;
+  image += sizeof(*header);
+
+  header->width = BigLong(header->width);
+  header->height = BigLong(header->height);
+
+  *out_width = header->width;
+  *out_height = header->height;
+
+  size_t size = header->width * header->height * header->channels;
+  byte *out = malloc(size);
+
+  *out_image_data = out;
+
+  decode_qoi_data(header->channels, image, out, out + size);
+
+  return header->channels;
+}
+
+static void insert_into_image_cache_emit(void *ud, const uint8_t *buffer, size_t buffer_length) {
+  FILE *f = (FILE *)ud;
+  fwrite(buffer, buffer_length, 1, f);
+}
+
+static void insert_into_image_cache(const char *name, const byte *data, uint32_t width, uint32_t height, int channels) {
+  extern void FS_CreatePath(const char *path_);
+
+  char path[MAX_PATH];
+
+  if(channels != 3 && channels != 4)
+    return;
+
+  snprintf(path, sizeof(path), "%s/cache/%s.qoi", ri.FS_Gamedir(), name);
+
+  FS_CreatePath(path);
+
+  FILE *f = fopen(path, "wb");
+  if(f == NULL) {
+    return;
+  }
+
+  struct {
+    char magic[4];
+    uint32_t width;
+    uint32_t height;
+    uint8_t channels;
+    uint8_t colorspace;
+  } header;
+
+  byte footer[] = {0, 0, 0, 0, 0, 0, 0, 1};
+
+  header.magic[0] = 'q';
+  header.magic[1] = 'o';
+  header.magic[2] = 'i';
+  header.magic[3] = 'f';
+  header.width = BigLong(width);
+  header.height = BigLong(height);
+  header.channels = channels;
+  header.colorspace = 1;
+
+  fwrite(&header.magic, 4, 1, f);
+  fwrite(&header.width, 4, 1, f);
+  fwrite(&header.height, 4, 1, f);
+  fwrite(&header.channels, 1, 1, f);
+  fwrite(&header.colorspace, 1, 1, f);
+
+  encode_qoi_data(channels, data, data + width * height * channels, insert_into_image_cache_emit, f);
+
+  fwrite(&footer, sizeof(footer), 1, f);
+
+  fclose(f);
+}
+// ================================================================================================================================
+
 image_t gltextures[MAX_GLTEXTURES];
 int numgltextures;
 int base_textureid; // gltextures[i] = base_textureid+i
@@ -32,7 +298,7 @@ cvar_t *intensity;
 unsigned d_8to24table[256];
 
 bool GL_Upload8(byte *data, int width, int height, bool mipmap, bool is_sky);
-bool GL_Upload32(unsigned *data, int width, int height, bool mipmap);
+bool GL_Upload32(unsigned *data, int width, int height, bool mipmap, int channels);
 
 int gl_solid_format = 3;
 int gl_alpha_format = 4;
@@ -253,71 +519,6 @@ void GL_ImageList_f(void) {
                   palstrings[image->paletted], image->base.name);
   }
   ri.Con_Printf(PRINT_ALL, "Total texel count (not counting mipmaps): %i\n", texels);
-}
-
-/*
-=============================================================================
-
-  scrap allocation
-
-  Allocate all the little status bar obejcts into a single texture
-  to crutch up inefficient hardware / drivers
-
-=============================================================================
-*/
-
-#define MAX_SCRAPS 1
-#define BLOCK_WIDTH 256
-#define BLOCK_HEIGHT 256
-
-int scrap_allocated[MAX_SCRAPS][BLOCK_WIDTH];
-byte scrap_texels[MAX_SCRAPS][BLOCK_WIDTH * BLOCK_HEIGHT];
-bool scrap_dirty;
-
-// returns a texture number and the position inside it
-int Scrap_AllocBlock(int w, int h, int *x, int *y) {
-  int i, j;
-  int best, best2;
-  int texnum;
-
-  for(texnum = 0; texnum < MAX_SCRAPS; texnum++) {
-    best = BLOCK_HEIGHT;
-
-    for(i = 0; i < BLOCK_WIDTH - w; i++) {
-      best2 = 0;
-
-      for(j = 0; j < w; j++) {
-        if(scrap_allocated[texnum][i + j] >= best)
-          break;
-        if(scrap_allocated[texnum][i + j] > best2)
-          best2 = scrap_allocated[texnum][i + j];
-      }
-      if(j == w) { // this is a valid spot
-        *x = i;
-        *y = best = best2;
-      }
-    }
-
-    if(best + h > BLOCK_HEIGHT)
-      continue;
-
-    for(i = 0; i < w; i++)
-      scrap_allocated[texnum][*x + i] = best + h;
-
-    return texnum;
-  }
-
-  return -1;
-  //	Sys_Error ("Scrap_AllocBlock: full");
-}
-
-int scrap_uploads;
-
-void Scrap_Upload(void) {
-  scrap_uploads++;
-  GL_Bind(TEXNUM_SCRAPS);
-  GL_Upload8(scrap_texels[0], BLOCK_WIDTH, BLOCK_HEIGHT, false, false);
-  scrap_dirty = false;
 }
 
 /*
@@ -775,30 +976,6 @@ void GL_LightScaleTexture(unsigned *in, int inwidth, int inheight, bool only_gam
 }
 
 /*
-================
-GL_MipMap
-
-Operates in place, quartering the size of the texture
-================
-*/
-void GL_MipMap(byte *in, int width, int height) {
-  int i, j;
-  byte *out;
-
-  width <<= 2;
-  height >>= 1;
-  out = in;
-  for(i = 0; i < height; i++, in += width) {
-    for(j = 0; j < width; j += 8, out += 4, in += 8) {
-      out[0] = (in[0] + in[4] + in[width + 0] + in[width + 4]) >> 2;
-      out[1] = (in[1] + in[5] + in[width + 1] + in[width + 5]) >> 2;
-      out[2] = (in[2] + in[6] + in[width + 2] + in[width + 6]) >> 2;
-      out[3] = (in[3] + in[7] + in[width + 3] + in[width + 7]) >> 2;
-    }
-  }
-}
-
-/*
 ===============
 GL_Upload32
 
@@ -827,116 +1004,36 @@ void GL_BuildPalettedTexture(unsigned char *paletted_texture, unsigned char *sca
 int upload_width, upload_height;
 bool uploaded_paletted;
 
-bool GL_Upload32(unsigned *data, int width, int height, bool mipmap) {
-  int samples;
-  unsigned scaled[256 * 256];
-  unsigned char paletted_texture[256 * 256];
-  int scaled_width, scaled_height;
+bool GL_Upload32(unsigned *data, int width, int height, bool mipmap, int channels) {
   int i, c;
   byte *scan;
   int comp;
+  GLenum format = channels == 3 ? GL_RGB : GL_RGBA;
 
-  uploaded_paletted = false;
-
-  for(scaled_width = 1; scaled_width < width; scaled_width <<= 1)
-    ;
-  if(gl_round_down->value && scaled_width > width && mipmap)
-    scaled_width >>= 1;
-  for(scaled_height = 1; scaled_height < height; scaled_height <<= 1)
-    ;
-  if(gl_round_down->value && scaled_height > height && mipmap)
-    scaled_height >>= 1;
-
-  // let people sample down the world textures for speed
-  if(mipmap) {
-    scaled_width >>= (int)gl_picmip->value;
-    scaled_height >>= (int)gl_picmip->value;
-  }
-
-  // don't ever bother with >256 textures
-  if(scaled_width > 256)
-    scaled_width = 256;
-  if(scaled_height > 256)
-    scaled_height = 256;
-
-  if(scaled_width < 1)
-    scaled_width = 1;
-  if(scaled_height < 1)
-    scaled_height = 1;
-
-  upload_width = scaled_width;
-  upload_height = scaled_height;
-
-  if(scaled_width * scaled_height > sizeof(scaled) / 4)
-    ri.Sys_Error(ERR_DROP, "GL_Upload32: too big");
+  if(channels != 3 && channels != 4)
+    ri.Sys_Error(ERR_FATAL, "wierd channel count");
 
   // scan the texture for any non-255 alpha
-  c = width * height;
-  scan = ((byte *)data) + 3;
-  samples = gl_solid_format;
-  for(i = 0; i < c; i++, scan += 4) {
-    if(*scan != 255) {
-      samples = gl_alpha_format;
-      break;
+  comp = gl_tex_solid_format;
+  if(channels == 4) {
+    c = width * height;
+    scan = ((byte *)data) + 3;
+    for(i = 0; i < c; i++, scan += 4) {
+      if(*scan != 255) {
+        comp = gl_tex_alpha_format;
+        break;
+      }
     }
   }
 
-  if(samples == gl_solid_format)
-    comp = gl_tex_solid_format;
-  else if(samples == gl_alpha_format)
-    comp = gl_tex_alpha_format;
-  else {
-    ri.Con_Printf(PRINT_ALL, "Unknown number of texture components %i\n", samples);
-    comp = samples;
-  }
+  upload_width = width;
+  upload_height = height;
+  uploaded_paletted = false;
 
-#if 0
-	if (mipmap)
-		gluBuild2DMipmaps (GL_TEXTURE_2D, samples, width, height, GL_RGBA, GL_UNSIGNED_BYTE, trans);
-	else if (scaled_width == width && scaled_height == height)
-		glTexImage2D (GL_TEXTURE_2D, 0, comp, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, trans);
-	else
-	{
-		gluScaleImage (GL_RGBA, width, height, GL_UNSIGNED_BYTE, trans,
-			scaled_width, scaled_height, GL_UNSIGNED_BYTE, scaled);
-		glTexImage2D (GL_TEXTURE_2D, 0, comp, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaled);
-	}
-#else
-
-  if(scaled_width == width && scaled_height == height) {
-    if(!mipmap) {
-      glTexImage2D(GL_TEXTURE_2D, 0, comp, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-      goto done;
-    }
-    memcpy(scaled, data, width * height * 4);
-  } else
-    GL_ResampleTexture(data, width, height, scaled, scaled_width, scaled_height);
-
-  // GL_LightScaleTexture(scaled, scaled_width, scaled_height, !mipmap);
-
-  glTexImage2D(GL_TEXTURE_2D, 0, comp, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaled);
+  glTexImage2D(GL_TEXTURE_2D, 0, comp, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 
   if(mipmap) {
-    int miplevel;
-
-    miplevel = 0;
-    while(scaled_width > 1 || scaled_height > 1) {
-      GL_MipMap((byte *)scaled, scaled_width, scaled_height);
-      scaled_width >>= 1;
-      scaled_height >>= 1;
-      if(scaled_width < 1)
-        scaled_width = 1;
-      if(scaled_height < 1)
-        scaled_height = 1;
-      miplevel++;
-
-      glTexImage2D(GL_TEXTURE_2D, miplevel, comp, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaled);
-    }
-  }
-done:;
-#endif
-
-  if(mipmap) {
+    glGenerateMipmap(GL_TEXTURE_2D);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
   } else {
@@ -944,68 +1041,7 @@ done:;
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
   }
 
-  return (samples == gl_alpha_format);
-}
-
-/*
-===============
-GL_Upload8
-
-Returns has_alpha
-===============
-*/
-/*
-static bool IsPowerOf2( int value )
-{
-  int i = 1;
-
-
-  while ( 1 )
-  {
-    if ( value == i )
-      return true;
-    if ( i > value )
-      return false;
-    i <<= 1;
-  }
-}
-*/
-
-bool GL_Upload8(byte *data, int width, int height, bool mipmap, bool is_sky) {
-  unsigned trans[512 * 256];
-  int i, s;
-  int p;
-
-  s = width * height;
-
-  if(s > sizeof(trans) / 4)
-    ri.Sys_Error(ERR_DROP, "GL_Upload8: too large");
-
-  for(i = 0; i < s; i++) {
-    p = data[i];
-    trans[i] = d_8to24table[p];
-
-    if(p == 255) { // transparent, so scan around for another color
-      // to avoid alpha fringes
-      // FIXME: do a full flood fill so mips work...
-      if(i > width && data[i - width] != 255)
-        p = data[i - width];
-      else if(i < s - width && data[i + width] != 255)
-        p = data[i + width];
-      else if(i > 0 && data[i - 1] != 255)
-        p = data[i - 1];
-      else if(i < s - 1 && data[i + 1] != 255)
-        p = data[i + 1];
-      else
-        p = 0;
-      // copy rgb components
-      ((byte *)&trans[i])[0] = ((byte *)&d_8to24table[p])[0];
-      ((byte *)&trans[i])[1] = ((byte *)&d_8to24table[p])[1];
-      ((byte *)&trans[i])[2] = ((byte *)&d_8to24table[p])[2];
-    }
-  }
-
-  return GL_Upload32(trans, width, height, mipmap);
+  return (comp == gl_tex_alpha_format);
 }
 
 /*
@@ -1015,7 +1051,7 @@ GL_LoadPic
 This is also used as an entry point for the generated r_notexture
 ================
 */
-image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetype_t type, int bits) {
+image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetype_t type, int bits, bool cache) {
   image_t *image;
   int i;
 
@@ -1033,56 +1069,56 @@ image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetyp
 
   if(strlen(name) >= sizeof(image->base.name))
     ri.Sys_Error(ERR_DROP, "Draw_LoadPic: \"%s\" is too long", name);
+
   strcpy(image->base.name, name);
   image->registration_sequence = registration_sequence;
-
   image->base.width = width;
   image->base.height = height;
   image->type = type;
 
-  if(type == it_skin && bits == 8)
-    R_FloodFillSkin(pic, width, height);
+  int channels = bits / 8;
 
-  // load little pics into the scrap
-  if(image->type == it_pic && bits == 8 && image->base.width < 64 && image->base.height < 64) {
-    int x, y;
-    int i, j, k;
-    int texnum;
+  byte *new_pic = NULL;
+  if(channels == 1) {
+    channels = memchr(pic, 255, width * height) == NULL ? 3 : 4;
+    new_pic = malloc(width * height * channels);
 
-    texnum = Scrap_AllocBlock(image->base.width, image->base.height, &x, &y);
-    if(texnum == -1)
-      goto nonscrap;
-    scrap_dirty = true;
+    byte *out = new_pic;
+    for(i = 0; i < width * height; i++) {
+      union color_rgba_u32 p;
+      p.u = d_8to24table[pic[i]];
+      *out++ = p.r;
+      *out++ = p.g;
+      *out++ = p.b;
+      if(channels == 4) {
+        *out++ = p.a;
+      }
+    }
 
-    // copy the texels into the scrap block
-    k = 0;
-    for(i = 0; i < image->base.height; i++)
-      for(j = 0; j < image->base.width; j++, k++)
-        scrap_texels[texnum][(y + i) * BLOCK_WIDTH + x + j] = pic[k];
-    image->texnum = TEXNUM_SCRAPS + texnum;
-    image->scrap = true;
-    image->has_alpha = true;
-    image->base.s0 = (x + 0.01) / (float)BLOCK_WIDTH;
-    image->base.s1 = (x + image->base.width - 0.01) / (float)BLOCK_WIDTH;
-    image->base.t0 = (y + 0.01) / (float)BLOCK_WIDTH;
-    image->base.t1 = (y + image->base.height - 0.01) / (float)BLOCK_WIDTH;
-  } else {
-  nonscrap:
-    image->scrap = false;
-    image->texnum = TEXNUM_IMAGES + (image - gltextures);
-    GL_Bind(image->texnum);
-    if(bits == 8)
-      image->has_alpha =
-          GL_Upload8(pic, width, height, (image->type != it_pic && image->type != it_sky), image->type == it_sky);
-    else
-      image->has_alpha = GL_Upload32((unsigned *)pic, width, height, (image->type != it_pic && image->type != it_sky));
-    image->upload_width = upload_width; // after power of 2 and scales
-    image->upload_height = upload_height;
-    image->paletted = uploaded_paletted;
-    image->base.s0 = 0;
-    image->base.s1 = 1;
-    image->base.t0 = 0;
-    image->base.t1 = 1;
+    pic = new_pic;
+
+    bits = channels * 8;
+  }
+
+  if(cache) {
+    // insert_into_image_cache(name, pic, width, height, channels);
+  }
+
+  image->scrap = false;
+  image->texnum = TEXNUM_IMAGES + (image - gltextures);
+  GL_Bind(image->texnum);
+  image->has_alpha =
+      GL_Upload32((unsigned *)pic, width, height, (image->type != it_pic && image->type != it_sky), channels);
+  image->upload_width = upload_width; // after power of 2 and scales
+  image->upload_height = upload_height;
+  image->paletted = uploaded_paletted;
+  image->base.s0 = 0;
+  image->base.s1 = 1;
+  image->base.t0 = 0;
+  image->base.t1 = 1;
+
+  if(new_pic != NULL) {
+    free(new_pic);
   }
 
   return image;
@@ -1108,7 +1144,7 @@ image_t *GL_LoadWal(const char *name) {
   height = LittleLong(mt->height);
   ofs = LittleLong(mt->offsets[0]);
 
-  image = GL_LoadPic(name, (byte *)mt + ofs, width, height, it_wall, 8);
+  image = GL_LoadPic(name, (byte *)mt + ofs, width, height, it_wall, 8, true);
 
   ri.FS_FreeFile((void *)mt);
 
@@ -1142,6 +1178,12 @@ image_t *GL_FindImage(const char *name, imagetype_t type) {
     }
   }
 
+  if((i = check_image_cache(name, (void **)&pic, &width, &height)) != 0) {
+    image = GL_LoadPic(name, pic, width, height, type, i * 8, false);
+    free(pic);
+    return image;
+  }
+
   //
   // load the pic from disk
   //
@@ -1151,14 +1193,14 @@ image_t *GL_FindImage(const char *name, imagetype_t type) {
     LoadPCX(name, &pic, &palette, &width, &height);
     if(!pic)
       return NULL; // ri.Sys_Error (ERR_DROP, "GL_FindImage: can't load %s", name);
-    image = GL_LoadPic(name, pic, width, height, type, 8);
+    image = GL_LoadPic(name, pic, width, height, type, 8, true);
   } else if(!strcmp(name + len - 4, ".wal")) {
     image = GL_LoadWal(name);
   } else if(!strcmp(name + len - 4, ".tga")) {
     LoadTGA(name, &pic, &width, &height);
     if(!pic)
       return NULL; // ri.Sys_Error (ERR_DROP, "GL_FindImage: can't load %s", name);
-    image = GL_LoadPic(name, pic, width, height, type, 32);
+    image = GL_LoadPic(name, pic, width, height, type, 32, true);
   } else
     return NULL; //	ri.Sys_Error (ERR_DROP, "GL_FindImage: bad extension on: %s", name);
 

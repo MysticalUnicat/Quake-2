@@ -186,7 +186,7 @@ static inline void SH1_Sample(const struct SH1 sh1, const float direction[3], fl
     float r1_length_over_r0 = r1_length / r0;
     float p = 1 + 2 * r1_length_over_r0;
     float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
-    output_color[component] = r0 * (1 + (1 - a) * (p + 1) * powf(q, p)) * 0.25;
+    output_color[component] = r0 * (1 + (1 - a) * (p + 1) * powf(q, p));
   }
 }
 
@@ -239,7 +239,7 @@ static inline void glProgram_init(struct glProgram *program, const char *vertex_
 #define MAX_LIGHTMAPS 128
 
 #define TEXNUM_LIGHTMAPS 1024
-#define TEXNUM_SCRAPS (TEXNUM_LIGHTMAPS + MAX_LIGHTMAPS * CMODEL_COUNT)
+#define TEXNUM_SCRAPS (TEXNUM_LIGHTMAPS + 4 + MAX_LIGHTMAPS * CMODEL_COUNT)
 #define TEXNUM_IMAGES (TEXNUM_SCRAPS + 1)
 
 #define MAX_GLTEXTURES 1024
@@ -465,7 +465,7 @@ void GL_ResampleTexture(unsigned *in, int inwidth, int inheight, unsigned *out, 
 struct BaseImage *R_RegisterSkin(const char *name);
 
 void LoadPCX(const char *filename, byte **pic, byte **palette, int *width, int *height);
-image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetype_t type, int bits);
+image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetype_t type, int bits, bool cache);
 image_t *GL_FindImage(const char *name, imagetype_t type);
 void GL_TextureMode(char *string);
 void GL_ImageList_f(void);
