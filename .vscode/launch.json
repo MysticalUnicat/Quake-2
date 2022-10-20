@@ -63,7 +63,7 @@
             "args": [
                 "-rad",
                 "-bounce",
-                "4",
+                "16",
                 "c:\\quake2\\baseq2\\maps\\q2dm1.bsp"
             ],
             "cwd": "c:\\quake2"

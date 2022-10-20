@@ -220,7 +220,6 @@ static void encode_qoi_data(int channels, const byte *input, const byte *input_e
   struct qoi_encode_state state;
   qoi_encode_init(&state, emit, ud);
   uint8_t a = 255;
-  input_end -= channels;
   while(input < input_end) {
     uint8_t r = *input++;
     uint8_t g = *input++;
