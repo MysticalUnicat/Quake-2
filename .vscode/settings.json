@@ -35,7 +35,11 @@
         "cpp.h": "c",
         "cat.h": "c",
         "string_view": "c",
-        "initializer_list": "c"
+        "initializer_list": "c",
+        "bit": "c",
+        "cstddef": "c",
+        "memory": "c",
+        "new": "c"
     },
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "C_Cpp.errorSquiggles": "Disabled"

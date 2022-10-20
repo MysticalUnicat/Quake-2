@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 
-union color_rgba_u32 {
+union rgba_u32 {
   struct {
     uint8_t r;
     uint8_t g;
@@ -31,73 +31,113 @@ union color_rgba_u32 {
 };
 
 // ================================================================================================================================
-static void decode_qoi_data(int channels, const byte *input, byte *output, byte *output_end) {
-  union color_rgba_u32 previous;
-  union color_rgba_u32 array[64];
+struct qoi_decode_state {
+  union rgba_u32 previous;
+  union rgba_u32 array[64];
+  int8_t dg;
 
-  previous.r = 0;
-  previous.g = 0;
-  previous.b = 0;
-  previous.a = 255;
+  enum {
+    qoi_decode_state_initial,
+    qoi_decode_state_luma_rb,
+    qoi_decode_state_rgb_r,
+    qoi_decode_state_rgb_g,
+    qoi_decode_state_rgb_b,
+    qoi_decode_state_rgba_r,
+    qoi_decode_state_rgba_g,
+    qoi_decode_state_rgba_b,
+    qoi_decode_state_rgba_a,
+  } expected;
 
-  while(output < output_end) {
-    int first = *input++;
-    int two_bit_tag = first >> 6;
-    int run = 1;
-    if(first == 0xFE) {
-      // RGB
-      previous.r = *input++;
-      previous.g = *input++;
-      previous.b = *input++;
-    } else if(first == 0xFF) {
-      // RGBA
-      previous.r = *input++;
-      previous.g = *input++;
-      previous.b = *input++;
-      previous.a = *input++;
-    } else if(two_bit_tag == 0) {
-      // INDEX
-      int index = first & 0x3f;
-      previous.r = array[index].r;
-      previous.g = array[index].g;
-      previous.b = array[index].b;
-    } else if(two_bit_tag == 1) {
-      // DIFF
-      int8_t dr = (first >> 4) & 0x3;
-      int8_t dg = (first >> 2) & 0x3;
-      int8_t db = (first >> 0) & 0x3;
-      previous.r += dr - 2;
-      previous.g += dg - 2;
-      previous.b += db - 2;
-    } else if(two_bit_tag == 2) {
-      // LUMA
-      int8_t dg = (first & 0x3f) - 32;
-      uint8_t second = *input++;
-      int8_t dr_minus_dg = second >> 4;
-      int8_t db_minus_dg = second & 0xf;
-      previous.r += dg + dr_minus_dg - 8;
-      previous.g += dg;
-      previous.b += dg + db_minus_dg - 8;
-    } else if(two_bit_tag == 3) {
-      // RUN
-      run = (first & 0x3f) + 2;
+  void (*emit)(void *ud, union rgba_u32 color);
+  void *ud;
+};
+
+static inline void qoi_decode_init(struct qoi_decode_state *state, void (*emit)(void *ud, union rgba_u32 color),
+                                   void *ud) {
+  memset(state, 0, sizeof(*state));
+  state->previous.a = 255;
+  state->emit = emit;
+  state->ud = ud;
+}
+
+static inline void qoi_decode_byte(struct qoi_decode_state *state, uint8_t byte) {
+  switch(state->expected) {
+  case qoi_decode_state_initial:
+    if(byte == 0xfe) {
+      state->expected = qoi_decode_state_rgb_r;
+      return;
     }
-    int index_position = (previous.r * 3 + previous.g * 5 + previous.b * 7 + previous.a * 11) & 63;
-    array[index_position] = previous;
-    while(run--) {
-      *output++ = previous.r;
-      *output++ = previous.g;
-      *output++ = previous.b;
-      if(channels == 4) {
-        *output++ = previous.a;
+    if(byte == 0xff) {
+      state->expected = qoi_decode_state_rgba_r;
+      return;
+    }
+    if((byte >> 6) == 0) {
+      state->previous = state->array[byte & 0x3f];
+    } else if((byte >> 6) == 1) {
+      int8_t dr = (byte >> 4) & 0x3;
+      int8_t dg = (byte >> 2) & 0x3;
+      int8_t db = (byte >> 0) & 0x3;
+      state->previous.r += dr - 2;
+      state->previous.g += dg - 2;
+      state->previous.b += db - 2;
+    } else if((byte >> 6) == 2) {
+      state->dg = (byte & 0x3f) - 32;
+      state->previous.g += state->dg;
+      state->expected = qoi_decode_state_luma_rb;
+      return;
+    } else if((byte >> 6) == 3) {
+      uint8_t run = (byte & 0x3f) + 1;
+      while(run--) {
+        state->emit(state->ud, state->previous);
       }
+      return;
     }
+    break;
+  case qoi_decode_state_luma_rb:
+    state->previous.r += state->dg - 8 + (byte >> 4);
+    state->previous.b += state->dg - 8 + (byte & 0x0f);
+    break;
+  case qoi_decode_state_rgb_r:
+    state->previous.r = byte;
+    state->expected = qoi_decode_state_rgb_g;
+    return;
+  case qoi_decode_state_rgb_g:
+    state->previous.g = byte;
+    state->expected = qoi_decode_state_rgb_b;
+    return;
+  case qoi_decode_state_rgb_b:
+    state->previous.b = byte;
+    break;
+  case qoi_decode_state_rgba_r:
+    state->previous.r = byte;
+    state->expected = qoi_decode_state_rgba_g;
+    return;
+  case qoi_decode_state_rgba_g:
+    state->previous.g = byte;
+    state->expected = qoi_decode_state_rgba_b;
+    return;
+  case qoi_decode_state_rgba_b:
+    state->previous.b = byte;
+    state->expected = qoi_decode_state_rgba_a;
+    return;
+  case qoi_decode_state_rgba_a:
+    state->previous.a = byte;
+    break;
   }
+  state->expected = qoi_decode_state_initial;
+  int index_position =
+      (state->previous.r * 3 + state->previous.g * 5 + state->previous.b * 7 + state->previous.a * 11) & 63;
+  state->array[index_position] = state->previous;
+  state->emit(state->ud, state->previous);
+}
+
+static inline bool qoi_decode_finish(struct qoi_decode_state *state) {
+  return state->expected == qoi_decode_state_initial;
 }
 
 struct qoi_encode_state {
-  union color_rgba_u32 previous;
-  union color_rgba_u32 array[64];
+  union rgba_u32 previous;
+  union rgba_u32 array[64];
   int run;
 
   void (*emit)(void *ud, const uint8_t *buffer, size_t buffer_length);
@@ -113,7 +153,7 @@ static inline void qoi_encode_init(struct qoi_encode_state *state,
 }
 
 static inline void qoi_encode_pixel(struct qoi_encode_state *state, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-  union color_rgba_u32 pixel;
+  union rgba_u32 pixel;
   pixel.r = r;
   pixel.g = g;
   pixel.b = b;
@@ -193,6 +233,21 @@ static void encode_qoi_data(int channels, const byte *input, const byte *input_e
   qoi_encode_finalize(&state);
 }
 
+static void check_image_cache_emit_32(void *ud, union rgba_u32 color) {
+  uint8_t **out = (uint8_t **)ud;
+  *(*out)++ = color.r;
+  *(*out)++ = color.g;
+  *(*out)++ = color.b;
+  *(*out)++ = color.a;
+}
+
+static void check_image_cache_emit_24(void *ud, union rgba_u32 color) {
+  uint8_t **out = (uint8_t **)ud;
+  *(*out)++ = color.r;
+  *(*out)++ = color.g;
+  *(*out)++ = color.b;
+}
+
 static int check_image_cache(const char *name, void **out_image_data, int *out_width, int *out_height) {
   size_t name_length = strlen(name);
 
@@ -200,7 +255,8 @@ static int check_image_cache(const char *name, void **out_image_data, int *out_w
   snprintf(qoi_path, sizeof(qoi_path), "cache/%s.qoi", name);
 
   byte *image;
-  if(ri.FS_LoadFile(qoi_path, (void **)&image) < 0) {
+  int image_length;
+  if((image_length = ri.FS_LoadFile(qoi_path, (void **)&image)) < 0) {
     return 0;
   }
 
@@ -213,7 +269,6 @@ static int check_image_cache(const char *name, void **out_image_data, int *out_w
   } * header;
 
   *(byte **)&header = image;
-  image += sizeof(*header);
 
   header->width = BigLong(header->width);
   header->height = BigLong(header->height);
@@ -226,7 +281,17 @@ static int check_image_cache(const char *name, void **out_image_data, int *out_w
 
   *out_image_data = out;
 
-  decode_qoi_data(header->channels, image, out, out + size);
+  struct qoi_decode_state state;
+  qoi_decode_init(&state, header->channels == 3 ? check_image_cache_emit_24 : check_image_cache_emit_32, &out);
+
+  const uint8_t *input = (uint8_t *)(image + 14);
+  const uint8_t *input_end = input + (image_length - 14 - 8);
+
+  while(input < input_end) {
+    qoi_decode_byte(&state, *input++);
+  }
+
+  qoi_decode_finish(&state);
 
   return header->channels;
 }
@@ -1085,7 +1150,7 @@ image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetyp
 
     byte *out = new_pic;
     for(i = 0; i < width * height; i++) {
-      union color_rgba_u32 p;
+      union rgba_u32 p;
       p.u = d_8to24table[pic[i]];
       *out++ = p.r;
       *out++ = p.g;
@@ -1101,7 +1166,7 @@ image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetyp
   }
 
   if(cache) {
-    // insert_into_image_cache(name, pic, width, height, channels);
+    insert_into_image_cache(name, pic, width, height, channels);
   }
 
   image->scrap = false;
