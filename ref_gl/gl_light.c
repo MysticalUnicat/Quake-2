@@ -568,7 +568,7 @@ void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *des
 
 // put into texture format
 store:
-  stride -= (smax << 2);
+  // stride -= (smax << 2);
   bl = s_blocklights;
 
   for(i = 0; i < tmax; i++, dest_rgb0 += stride, dest_r1 += stride, dest_g1 += stride, dest_b1 += stride) {
@@ -588,31 +588,23 @@ store:
         }
       }
 
-      dest_rgb0[0] = (byte)(color.f[0] + 0.5f);
-      dest_rgb0[1] = (byte)(color.f[4] + 0.5f);
-      dest_rgb0[2] = (byte)(color.f[8] + 0.5f);
-      dest_rgb0[3] = 255;
+      dest_rgb0[j * 3 + 0] = (byte)(color.f[0] + 0.5f);
+      dest_rgb0[j * 3 + 1] = (byte)(color.f[4] + 0.5f);
+      dest_rgb0[j * 3 + 2] = (byte)(color.f[8] + 0.5f);
 
-      dest_r1[0] = (byte)(color.f[1] + 0.5f);
-      dest_r1[1] = (byte)(color.f[2] + 0.5f);
-      dest_r1[2] = (byte)(color.f[3] + 0.5f);
-      dest_r1[3] = 255;
+      dest_r1[j * 3 + 0] = (byte)(color.f[1] + 0.5f);
+      dest_r1[j * 3 + 1] = (byte)(color.f[2] + 0.5f);
+      dest_r1[j * 3 + 2] = (byte)(color.f[3] + 0.5f);
 
-      dest_g1[0] = (byte)(color.f[5] + 0.5f);
-      dest_g1[1] = (byte)(color.f[6] + 0.5f);
-      dest_g1[2] = (byte)(color.f[7] + 0.5f);
-      dest_g1[3] = 255;
+      dest_g1[j * 3 + 0] = (byte)(color.f[5] + 0.5f);
+      dest_g1[j * 3 + 1] = (byte)(color.f[6] + 0.5f);
+      dest_g1[j * 3 + 2] = (byte)(color.f[7] + 0.5f);
 
-      dest_b1[0] = (byte)(color.f[9] + 0.5f);
-      dest_b1[1] = (byte)(color.f[10] + 0.5f);
-      dest_b1[2] = (byte)(color.f[11] + 0.5f);
-      dest_b1[3] = 255;
+      dest_b1[j * 3 + 0] = (byte)(color.f[9] + 0.5f);
+      dest_b1[j * 3 + 1] = (byte)(color.f[10] + 0.5f);
+      dest_b1[j * 3 + 2] = (byte)(color.f[11] + 0.5f);
 
       bl++;
-      dest_rgb0 += 4;
-      dest_r1 += 4;
-      dest_g1 += 4;
-      dest_b1 += 4;
     }
   }
 }
