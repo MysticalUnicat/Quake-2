@@ -393,7 +393,7 @@ void R_AddDynamicLights(msurface_t *surf) {
       if(td < 0)
         td = -td;
 
-      for(s = 0, fsacc = 0; s < smax; s++, fsacc += 16, pfBL += 3) {
+      for(s = 0, fsacc = 0; s < smax; s++, fsacc += 16, pfBL++) {
         sd = (int)(local[0] - fsacc);
 
         if(sd < 0)

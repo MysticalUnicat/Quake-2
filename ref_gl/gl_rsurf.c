@@ -829,14 +829,17 @@ void R_DrawBrushModel(entity_t *e) {
   e->angles[0] = -e->angles[0]; // stupid quake bug
   e->angles[2] = -e->angles[2]; // stupid quake bug
 
-  GL_EnableMultitexture(true);
-  GL_SelectTexture(GL_TEXTURE0);
-  GL_TexEnv(GL_REPLACE);
-  GL_SelectTexture(GL_TEXTURE1);
-  GL_TexEnv(GL_MODULATE);
+  // GL_EnableMultitexture(true);
+  // GL_SelectTexture(GL_TEXTURE0);
+  // GL_TexEnv(GL_REPLACE);
+  // GL_SelectTexture(GL_TEXTURE1);
+  // GL_TexEnv(GL_MODULATE);
+  glUseProgram(gl_state.bsp_program.program);
 
   R_DrawInlineBModel(r_newrefdef.cmodel_index);
+
   GL_EnableMultitexture(false);
+  glUseProgram(0);
 
   glPopMatrix();
 }
@@ -953,42 +956,6 @@ void R_RecursiveWorldNode(int cmodel_index, mnode_t *node) {
 
   // recurse down the back side
   R_RecursiveWorldNode(cmodel_index, node->children[!side]);
-  /*
-    for ( ; c ; c--, surf++)
-    {
-      if (surf->visframe != r_framecount)
-        continue;
-
-      if ( (surf->flags & SURF_PLANEBACK) != sidebit )
-        continue;		// wrong side
-
-      if (surf->texinfo->flags & SURF_SKY)
-      {	// just adds to visible sky bounds
-        R_AddSkySurface (surf);
-      }
-      else if (surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
-      {	// add to the translucent chain
-  //			surf->texturechain = alpha_surfaces;
-  //			alpha_surfaces = surf;
-      }
-      else
-      {
-        if ( glMTexCoord2fSGIS && !( surf->flags & SURF_DRAWTURB ) )
-        {
-          GL_RenderLightmappedPoly( surf );
-        }
-        else
-        {
-          // the polygon is visible, so add it to the texture
-          // sorted chain
-          // FIXME: this is a hack for animation
-          image = R_TextureAnimation (surf->texinfo);
-          surf->texturechain = image->texturechain;
-          image->texturechain = surf;
-        }
-      }
-    }
-  */
 }
 
 /*
@@ -1023,22 +990,11 @@ void R_DrawWorld(int cmodel_index) {
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
   R_ClearSkyBox();
 
-  // GL_EnableMultitexture(true);
   glUseProgram(gl_state.bsp_program.program);
-
-  // GL_SelectTexture(GL_TEXTURE0);
-  // GL_TexEnv(GL_REPLACE);
-  // GL_SelectTexture(GL_TEXTURE1);
-
-  // if(gl_lightmap->value)
-  //   GL_TexEnv(GL_REPLACE);
-  // else
-  //   GL_TexEnv(GL_MODULATE);
 
   R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
 
   glUseProgram(0);
-  // GL_EnableMultitexture(false);
 
   /*
   ** theoretically nothing should happen in the next two functions
@@ -1114,23 +1070,6 @@ void R_MarkLeaves(int cmodel_index) {
       } while(node);
     }
   }
-
-#if 0
-	for (i=0 ; i<r_worldmodel->vis->numclusters ; i++)
-	{
-		if (vis[i>>3] & (1<<(i&7)))
-		{
-			node = (mnode_t *)&r_worldmodel->leafs[i];	// FIXME: cluster
-			do
-			{
-				if (node->visframe == r_visframecount)
-					break;
-				node->visframe = r_visframecount;
-				node = node->parent;
-			} while (node);
-		}
-	}
-#endif
 }
 
 /*
@@ -1399,22 +1338,26 @@ void GL_BeginBuildingLightmaps(model_t *m) {
   GL_Bind(gl_state.lightmap_textures + 0);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
+               gl_lms.lightmap_buffer_rgb0);
 
   GL_Bind(gl_state.lightmap_textures + 1);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
+               gl_lms.lightmap_buffer_r1);
 
   GL_Bind(gl_state.lightmap_textures + 2);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
+               gl_lms.lightmap_buffer_g1);
 
   GL_Bind(gl_state.lightmap_textures + 3);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
+               gl_lms.lightmap_buffer_b1);
 }
 
 /*
