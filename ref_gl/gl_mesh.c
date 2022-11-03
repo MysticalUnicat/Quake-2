@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 
+#include "render_mesh.h"
+
 /*
 =============================================================
 
@@ -459,22 +461,22 @@ R_DrawAliasModel
 */
 void R_DrawAliasModel(entity_t *e) {
   int i;
-  dmdl_t *paliashdr;
+  // dmdl_t *paliashdr;
   float an;
   vec3_t bbox[8];
   image_t *skin;
 
-  if(!(e->flags & RF_WEAPONMODEL)) {
-    if(R_CullAliasModel(bbox, e))
-      return;
-  }
+  // if(!(e->flags & RF_WEAPONMODEL)) {
+  //   if(R_CullAliasModel(bbox, e))
+  //     return;
+  // }
 
   if(e->flags & RF_WEAPONMODEL) {
     if(r_lefthand->value == 2)
       return;
   }
 
-  paliashdr = (dmdl_t *)currentmodel->extradata;
+  // paliashdr = (dmdl_t *)currentmodel->extradata;
 
   //
   // get lighting information
@@ -605,7 +607,7 @@ void R_DrawAliasModel(entity_t *e) {
   // locate the proper data
   //
 
-  c_alias_polys += paliashdr->num_tris;
+  // c_alias_polys += paliashdr->num_tris;
 
   //
   // draw all the triangles
@@ -656,13 +658,15 @@ void R_DrawAliasModel(entity_t *e) {
     glEnable(GL_BLEND);
   }
 
-  if((currententity->frame >= paliashdr->num_frames) || (currententity->frame < 0)) {
+  const struct RenderMesh *render_mesh = (const struct RenderMesh *)currentmodel->extradata;
+
+  if((currententity->frame >= render_mesh->num_shapes) || (currententity->frame < 0)) {
     ri.Con_Printf(PRINT_ALL, "R_DrawAliasModel %s: no such frame %d\n", currentmodel->name, currententity->frame);
     currententity->frame = 0;
     currententity->oldframe = 0;
   }
 
-  if((currententity->oldframe >= paliashdr->num_frames) || (currententity->oldframe < 0)) {
+  if((currententity->oldframe >= render_mesh->num_shapes) || (currententity->oldframe < 0)) {
     ri.Con_Printf(PRINT_ALL, "R_DrawAliasModel %s: no such oldframe %d\n", currentmodel->name, currententity->oldframe);
     currententity->frame = 0;
     currententity->oldframe = 0;
@@ -670,7 +674,77 @@ void R_DrawAliasModel(entity_t *e) {
 
   if(!r_lerpmodels->value)
     currententity->backlerp = 0;
-  GL_DrawAliasFrameLerp(paliashdr, currententity->backlerp);
+
+  // GL_DrawAliasFrameLerp(paliashdr, currententity->backlerp);
+
+  {
+    static uint32_t index[MAX_TRIANGLES * 3];
+    static float position[MAX_TRIANGLES * 3 * 3];
+    static float normal[MAX_TRIANGLES * 3 * 3];
+    static float texture_coord[MAX_TRIANGLES * 3 * 2];
+
+    struct RenderMesh_output output = {
+        .indexes = {.count = MAX_TRIANGLES * 3,
+                    .pointer = index,
+                    .stride = sizeof(uint32_t),
+                    .type_format = alias_memory_Format_Uint32,
+                    .type_length = 1},
+        .position = {.count = MAX_TRIANGLES * 3,
+                     .pointer = position,
+                     .stride = sizeof(float) * 3,
+                     .type_format = alias_memory_Format_Float32,
+                     .type_length = 3},
+        .normal = {.count = MAX_TRIANGLES * 3,
+                   .pointer = normal,
+                   .stride = sizeof(float) * 3,
+                   .type_format = alias_memory_Format_Float32,
+                   .type_length = 3},
+        .texture_coord_1 = {.count = MAX_TRIANGLES * 3,
+                            .pointer = texture_coord,
+                            .stride = sizeof(float) * 2,
+                            .type_format = alias_memory_Format_Float32,
+                            .type_length = 2},
+    };
+
+    RenderMesh_render_lerp_shaped(render_mesh, &output, currententity->frame, currententity->oldframe,
+                                  currententity->backlerp);
+
+    glBegin(GL_TRIANGLES);
+
+    if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) {
+      glColor3f(shadelight.f[0], shadelight.f[4], shadelight.f[8]);
+
+      for(uint32_t i = 0; i < render_mesh->num_indexes; i++) {
+        uint32_t vertex_index = index[i];
+        glTexCoord2fv(&texture_coord[vertex_index * 2]);
+        glVertex3f(position[vertex_index * 3 + 0] + normal[vertex_index * 3 + 0],
+                   position[vertex_index * 3 + 1] + normal[vertex_index * 3 + 1],
+                   position[vertex_index * 3 + 2] + normal[vertex_index * 3 + 2]);
+      }
+    } else {
+      float theta = currententity->angles[1] * (M_PI * 2 / 360), sin_theta, cos_theta;
+      sincosf(theta, &sin_theta, &cos_theta);
+      shadelight.f[1] = shadelight.f[1] * cos_theta - shadelight.f[2] * sin_theta;
+      shadelight.f[2] = shadelight.f[2] * sin_theta + shadelight.f[1] * cos_theta;
+      shadelight.f[5] = shadelight.f[5] * cos_theta - shadelight.f[6] * sin_theta;
+      shadelight.f[6] = shadelight.f[6] * sin_theta + shadelight.f[5] * cos_theta;
+      shadelight.f[9] = shadelight.f[9] * cos_theta - shadelight.f[10] * sin_theta;
+      shadelight.f[10] = shadelight.f[10] * sin_theta + shadelight.f[9] * cos_theta;
+
+      for(uint32_t i = 0; i < render_mesh->num_indexes; i++) {
+        uint32_t vertex_index = index[i];
+        glTexCoord2fv(&texture_coord[vertex_index * 2]);
+
+        float color[3];
+        SH1_Sample(shadelight, &normal[vertex_index * 3], color);
+        glColor3f(color[0] * 2, color[1] * 2, color[2] * 2);
+
+        glVertex3fv(&position[vertex_index * 3]);
+      }
+    }
+
+    glEnd();
+  }
 
   GL_TexEnv(GL_REPLACE);
   glShadeModel(GL_FLAT);
@@ -691,7 +765,7 @@ void R_DrawAliasModel(entity_t *e) {
   if(currententity->flags & RF_DEPTHHACK)
     glDepthRange(gldepthmin, gldepthmax);
 
-#if 1
+#if 0
   if(gl_shadows->value && !(currententity->flags & (RF_TRANSLUCENT | RF_WEAPONMODEL))) {
     glPushMatrix();
     R_RotateForEntity(e);
@@ -705,4 +779,212 @@ void R_DrawAliasModel(entity_t *e) {
   }
 #endif
   glColor4f(1, 1, 1, 1);
+}
+
+void GL_MD2Init(void) {
+  // clang-format off
+  static const char * vsource =
+  "#version 460 compatibility\n"
+  GL_MSTR(
+    layout(location = 0) out vec2 out_main_st;
+    layout(location = 1) out vec2 out_lightmap_st;
+    layout(location = 2) out vec3 out_texture_space_0;
+    layout(location = 3) out vec3 out_texture_space_1;
+    layout(location = 4) out vec3 out_texture_space_2;
+
+    void main() {
+      gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+      out_main_st = gl_MultiTexCoord0.st;
+      out_lightmap_st = gl_MultiTexCoord1.st;
+
+      out_texture_space_0 = gl_MultiTexCoord2.xyz;
+      out_texture_space_1 = gl_MultiTexCoord3.xyz;
+      out_texture_space_2 = gl_MultiTexCoord4.xyz;
+    }
+  );
+  static const char * fsource =
+  "#version 460 compatibility\n"
+  GL_MSTR(
+    layout(binding = 0) uniform sampler2D u_albedo_map;
+    layout(binding = 1) uniform sampler2D u_normal_map;
+    //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
+
+    layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
+    layout(binding = 4) uniform sampler2D u_lightmap_r1;
+    layout(binding = 5) uniform sampler2D u_lightmap_g1;
+    layout(binding = 6) uniform sampler2D u_lightmap_b1;
+
+    layout(location = 0) in vec2 in_main_st;
+    layout(location = 1) in vec2 in_lightmap_st;
+    layout(location = 2) in vec3 in_texture_space_0;
+    layout(location = 3) in vec3 in_texture_space_1;
+    layout(location = 4) in vec3 in_texture_space_2;
+
+    layout(location = 0) out vec4 out_color;
+
+    float do_sh1(float r0, vec3 r1, vec3 normal) {
+      float r1_length = length(r1);
+      vec3 r1_normalized = r1 / r1_length;
+      float q = 0.5 * (1 + dot(r1_normalized, normal));
+      float r1_length_over_r0 = r1_length / r0;
+      float p = 1 + 2 * r1_length_over_r0;
+      float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
+    }
+
+    void main() {
+      mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
+
+      vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
+      vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
+      vec3 normal = texture_space * normalize(normal_map * 2 - 1);
+
+      vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
+      vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
+      vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
+      vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
+
+      vec3 lightmap = vec3(
+        do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
+        do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
+        do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
+      );
+
+      out_color = vec4(albedo_map * lightmap * 2, 1);
+    }
+  );
+  // clang-format on
+
+  glProgram_init(&gl_state.md2_program, vsource, fsource);
+}
+
+void GL_MD2_Load(model_t *mod, struct HunkAllocator *hunk, const void *buffer) {
+  dmdl_t header = *(const dmdl_t *)buffer;
+
+  header.ident = LittleLong(header.ident);
+  header.version = LittleLong(header.version);
+
+  header.skinwidth = LittleLong(header.skinwidth);
+  header.skinheight = LittleLong(header.skinheight);
+  header.framesize = LittleLong(header.framesize);
+
+  header.num_skins = LittleLong(header.num_skins);
+  header.num_xyz = LittleLong(header.num_xyz);
+  header.num_st = LittleLong(header.num_st);
+  header.num_tris = LittleLong(header.num_tris);
+  header.num_glcmds = LittleLong(header.num_glcmds);
+  header.num_frames = LittleLong(header.num_frames);
+
+  header.ofs_skins = LittleLong(header.ofs_skins);
+  header.ofs_st = LittleLong(header.ofs_st);
+  header.ofs_tris = LittleLong(header.ofs_tris);
+  header.ofs_frames = LittleLong(header.ofs_frames);
+  header.ofs_glcmds = LittleLong(header.ofs_glcmds);
+  header.ofs_end = LittleLong(header.ofs_end);
+
+  const dskin_t *in_skins = (const dskin_t *)(buffer + header.ofs_skins);
+  const dstvert_t *in_st = (const dstvert_t *)(buffer + header.ofs_st);
+  const dtriangle_t *in_tris = (const dtriangle_t *)(buffer + header.ofs_tris);
+
+  uint32_t num_indexes = header.num_tris * 3;
+  uint32_t *index_remap = malloc(sizeof(*index_remap) * num_indexes);
+
+  for(uint32_t i = 0; i < header.num_tris * 3; i++) {
+    index_remap[i] = UINT32_MAX;
+  }
+
+  for(uint32_t i = 0; i < header.num_tris * 3; i++) {
+    if(index_remap[i] != UINT32_MAX) {
+      continue;
+    }
+
+    uint16_t i_index = in_tris[i / 3].index_xyz[i % 3];
+    uint16_t i_st = in_tris[i / 3].index_st[i % 3];
+
+    for(uint32_t j = 0; j < header.num_tris * 3; j++) {
+      uint16_t j_index = in_tris[j / 3].index_xyz[j % 3];
+      uint16_t j_st = in_tris[j / 3].index_st[j % 3];
+
+      if(i != j && j_index == i_index && j_st == i_st) {
+        index_remap[j] = i;
+      }
+    }
+  }
+
+  uint32_t num_vertexes = 0;
+
+  for(uint32_t i = 0; i < header.num_tris * 3; i++) {
+    if(index_remap[i] != UINT32_MAX) {
+      continue;
+    }
+    num_vertexes++;
+  }
+
+  struct RenderMesh *render_mesh =
+      allocate_RenderMesh(RENDER_MESH_FLAG_TEXTURE_COORD_1, num_indexes, 1, num_vertexes, header.num_frames, 0, 0);
+
+  num_vertexes = 0;
+
+  for(uint32_t i = 0; i < header.num_tris * 3; i++) {
+    if(index_remap[i] != UINT32_MAX) {
+      continue;
+    }
+    render_mesh->indexes[i] = num_vertexes++;
+    index_remap[i] = i;
+  }
+
+  for(uint32_t i = 0; i < header.num_tris * 3; i++) {
+    if(index_remap[i] != i) {
+      render_mesh->indexes[i] = render_mesh->indexes[index_remap[i]];
+    }
+  }
+
+  for(uint32_t j = 0; j < header.num_frames; j++) {
+    const daliasframe_t *in_frame = (const daliasframe_t *)(buffer + header.ofs_frames + j * header.framesize);
+
+    float scale[3], translate[3];
+
+    scale[0] = LittleFloat(in_frame->scale[0]);
+    scale[1] = LittleFloat(in_frame->scale[1]);
+    scale[2] = LittleFloat(in_frame->scale[2]);
+
+    translate[0] = LittleFloat(in_frame->translate[0]);
+    translate[1] = LittleFloat(in_frame->translate[1]);
+    translate[2] = LittleFloat(in_frame->translate[2]);
+
+    for(uint32_t i = 0; i < num_indexes; i++) {
+      uint32_t xyz_index = LittleLong(in_tris[index_remap[i] / 3].index_xyz[index_remap[i] % 3]);
+
+      float position[3];
+      position[0] = in_frame->verts[xyz_index].v[0] * scale[0] + translate[0];
+      position[1] = in_frame->verts[xyz_index].v[1] * scale[1] + translate[1];
+      position[2] = in_frame->verts[xyz_index].v[2] * scale[2] + translate[2];
+
+      RenderMesh_set_position(render_mesh, j, render_mesh->indexes[i], position);
+    }
+  }
+
+  float one_over_skin_width = 1.0f / (float)header.skinwidth;
+  float one_over_skin_height = 1.0f / (float)header.skinheight;
+
+  for(uint32_t i = 0; i < num_indexes; i++) {
+    uint32_t st_index = LittleLong(in_tris[index_remap[i] / 3].index_st[index_remap[i] % 3]);
+
+    float st[2];
+    st[0] = ((float)LittleShort(in_st[st_index].s) + 0.5f) * one_over_skin_width;
+    st[1] = ((float)LittleShort(in_st[st_index].t) + 0.5f) * one_over_skin_height;
+
+    RenderMesh_set_texture_coord_1(render_mesh, render_mesh->indexes[i], st);
+  }
+
+  RenderMesh_generate_vertex_orientations(render_mesh);
+
+  for(uint32_t i = 0; i < header.num_skins; i++) {
+    mod->skins[i] = GL_FindImage((char *)buffer + header.ofs_skins + i * MAX_SKINNAME, it_skin);
+  }
+
+  mod->type = mod_alias;
+
+  mod->extradata = render_mesh;
 }

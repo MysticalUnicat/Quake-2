@@ -132,6 +132,7 @@ void MSG_ReadData(sizebuf_t *sb, void *buffer, int size);
 
 //============================================================================
 
+#if 0
 extern bool bigendien;
 
 extern short BigShort(short l);
@@ -140,6 +141,7 @@ extern int BigLong(int l);
 extern int LittleLong(int l);
 extern float BigFloat(float l);
 extern float LittleFloat(float l);
+#endif
 
 //============================================================================
 

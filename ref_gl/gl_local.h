@@ -232,8 +232,61 @@ struct glProgram {
   GLuint program;
 };
 
-static inline void glProgram_init(struct glProgram *program, const char *vertex_shader, const char *fragment_shader) {
-  program->vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+#define GL_MSTR(...) #__VA_ARGS__
+
+static inline void gl_compileShader(GLuint shader) {
+  glCompileShader(shader);
+
+  GLint status;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+  if(status != GL_TRUE) {
+    GLint length;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+
+    GLchar *info_log = malloc(length + 1);
+    glGetShaderInfoLog(shader, length + 1, NULL, info_log);
+
+    Com_Error(ERR_FATAL, "shader compile error: %s", info_log);
+
+    free(info_log);
+  }
+}
+
+static inline void gl_linkProgram(GLuint program) {
+  glLinkProgram(program);
+  GLint status;
+  glGetProgramiv(program, GL_LINK_STATUS, &status);
+  if(status != GL_TRUE) {
+    GLint length = 0;
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
+
+    GLchar *info_log = malloc(length + 1);
+    glGetProgramInfoLog(program, length + 1, NULL, info_log);
+
+    Com_Error(ERR_FATAL, "program link error: %s", info_log);
+
+    free(info_log);
+  }
+}
+
+static inline void glProgram_init(struct glProgram *prog, const char *vsource, const char *fsource) {
+  GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+  GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+
+  glShaderSource(vertex_shader, 1, &vsource, NULL);
+  glShaderSource(fragment_shader, 1, &fsource, NULL);
+
+  gl_compileShader(vertex_shader);
+  gl_compileShader(fragment_shader);
+
+  GLuint program = glCreateProgram();
+  glAttachShader(program, vertex_shader);
+  glAttachShader(program, fragment_shader);
+  gl_linkProgram(program);
+
+  prog->vertex_shader = vertex_shader;
+  prog->fragment_shader = fragment_shader;
+  prog->program = program;
 }
 
 #define MAX_LIGHTMAPS 128
@@ -431,7 +484,7 @@ void R_ClearSkyBox(void);
 void R_DrawSkyBox(void);
 void R_MarkLights(int codel_index, dlight_t *light, int bit, mnode_t *node);
 
-void GL_SurfaceInit(void);
+void GL_IBSPInit(void);
 
 #if 0
 short LittleShort (short l);
@@ -559,6 +612,8 @@ typedef struct {
   unsigned char originalBlueGammaTable[256];
 
   struct glProgram bsp_program;
+  struct glProgram md2_program;
+  struct glProgram md2_shell_program;
 } glstate_t;
 
 extern glconfig_t gl_config;

@@ -1370,31 +1370,11 @@ void GL_EndBuildingLightmaps(void) {
   GL_EnableMultitexture(false);
 }
 
-#define MSTR(...) #__VA_ARGS__
-
-void compile_shader(GLuint shader) {
-  glCompileShader(shader);
-
-  GLint status;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-  if(status != GL_TRUE) {
-    GLint length;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-
-    GLchar *info_log = malloc(length + 1);
-    glGetShaderInfoLog(shader, length + 1, NULL, info_log);
-
-    Com_Error(ERR_FATAL, "shader compile error: %s", info_log);
-
-    free(info_log);
-  }
-}
-
-void GL_SurfaceInit(void) {
+void GL_IBSPInit(void) {
   // clang-format off
   static const char * vsource =
   "#version 460 compatibility\n"
-  MSTR(
+  GL_MSTR(
     layout(location = 0) out vec2 out_main_st;
     layout(location = 1) out vec2 out_lightmap_st;
     layout(location = 2) out vec3 out_texture_space_0;
@@ -1414,7 +1394,7 @@ void GL_SurfaceInit(void) {
   );
   static const char * fsource =
   "#version 460 compatibility\n"
-  MSTR(
+  GL_MSTR(
     layout(binding = 0) uniform sampler2D u_albedo_map;
     layout(binding = 1) uniform sampler2D u_normal_map;
     //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
@@ -1465,34 +1445,5 @@ void GL_SurfaceInit(void) {
   );
   // clang-format on
 
-  GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-  GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-
-  glShaderSource(vertex_shader, 1, &vsource, NULL);
-  glShaderSource(fragment_shader, 1, &fsource, NULL);
-
-  compile_shader(vertex_shader);
-  compile_shader(fragment_shader);
-
-  GLuint program = glCreateProgram();
-  glAttachShader(program, vertex_shader);
-  glAttachShader(program, fragment_shader);
-  glLinkProgram(program);
-  GLint status;
-  glGetProgramiv(program, GL_LINK_STATUS, &status);
-  if(status != GL_TRUE) {
-    GLint length = 0;
-    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
-
-    GLchar *info_log = malloc(length + 1);
-    glGetProgramInfoLog(program, length + 1, NULL, info_log);
-
-    Com_Error(ERR_FATAL, "program link error: %s", info_log);
-
-    free(info_log);
-  }
-
-  gl_state.bsp_program.vertex_shader = vertex_shader;
-  gl_state.bsp_program.fragment_shader = fragment_shader;
-  gl_state.bsp_program.program = program;
+  glProgram_init(&gl_state.bsp_program, vsource, fsource);
 }

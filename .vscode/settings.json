@@ -39,7 +39,11 @@
         "bit": "c",
         "cstddef": "c",
         "memory": "c",
-        "new": "c"
+        "new": "c",
+        "pga3d.h": "c",
+        "math.h": "c",
+        "algorithm": "c",
+        "iterator": "c"
     },
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "C_Cpp.errorSquiggles": "Disabled"

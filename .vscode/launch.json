@@ -64,6 +64,8 @@
                 "-rad",
                 "-bounce",
                 "16",
+                "-scale",
+                "0.5",
                 "c:\\quake2\\baseq2\\maps\\q2dm1.bsp"
             ],
             "cwd": "c:\\quake2"

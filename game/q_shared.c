@@ -837,6 +837,7 @@ void COM_DefaultExtension(char *path, char *extension) {
 ============================================================================
 */
 
+#if 0
 bool bigendien;
 
 // can't just use function pointers, or dll linkage can
@@ -894,6 +895,7 @@ float FloatSwap(float f) {
 }
 
 float FloatNoSwap(float f) { return f; }
+#endif
 
 /*
 ================
@@ -901,6 +903,7 @@ Swap_Init
 ================
 */
 void Swap_Init(void) {
+#if 0
   byte swaptest[2] = {1, 0};
 
   // set the byte swapping variables in a portable manner
@@ -921,6 +924,7 @@ void Swap_Init(void) {
     _BigFloat = FloatNoSwap;
     _LittleFloat = FloatSwap;
   }
+#endif
 }
 
 /*

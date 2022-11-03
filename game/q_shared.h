@@ -215,12 +215,48 @@ int Q_strncasecmp(const char *s1, const char *s2, int n);
 
 //=============================================
 
+#if 0
 short BigShort(short l);
 short LittleShort(short l);
 int BigLong(int l);
 int LittleLong(int l);
 float BigFloat(float l);
 float LittleFloat(float l);
+#else
+
+static inline uint16_t Swap16(uint16_t x) { return __builtin_bswap16(x); }
+
+static inline uint32_t Swap32(uint32_t x) { return __builtin_bswap32(x); }
+
+static inline float SwapFloat(float x) {
+  union {
+    float f;
+    uint32_t i;
+  } _;
+  _.f = x;
+  _.i = Swap32(_.i);
+  return _.f;
+}
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define BigShort(l) ((short)Swap16((uint16_t)(l)))
+#define LittleShort(l) l
+#define BigLong(l) ((int)Swap32((uint32_t)(l)))
+#define LittleLong(l) l
+#define BigFloat(l) SwapFloat(l)
+#define LittleFloat(l) l
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define BigShort(l) l
+#define LittleShort(l) ((short)Swap16((uint16_t)(l)))
+#define BigLong(l) l
+#define LittleLong(l) ((int)Swap32((uint32_t)(l)))
+#define BigFloat(l) l
+#define LittleFloat(l) SwapFloat(l)
+#else
+#error "invalid endian detection"
+#endif
+
+#endif
 
 void Swap_Init(void);
 char *va(char *format, ...);

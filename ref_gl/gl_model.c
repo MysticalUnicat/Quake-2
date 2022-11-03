@@ -157,6 +157,8 @@ static void mod_load_error(void *ud) {
   mod->type = mod_bad;
 }
 
+void GL_MD2_Load(model_t *mod, struct HunkAllocator *hunk, const void *buffer);
+
 static void mod_load_done(const void *buffer, int len, void *ud) {
   model_t *mod = (model_t *)ud;
   loadmodel = mod;
@@ -172,7 +174,8 @@ static void mod_load_done(const void *buffer, int len, void *ud) {
   switch(LittleLong(*(unsigned *)buffer)) {
   case IDALIASHEADER:
     loadmodel->extradata = HunkAllocator_Begin(&hunk, 0x200000);
-    Mod_LoadAliasModel(mod, &hunk, (void *)buffer);
+    // Mod_LoadAliasModel(mod, &hunk, (void *)buffer);
+    GL_MD2_Load(mod, &hunk, (void *)buffer);
     break;
 
   case IDSPRITEHEADER:

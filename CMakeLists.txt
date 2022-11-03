@@ -133,6 +133,7 @@ add_library(refresh STATIC
     ref_gl/gl_rsurf.c
     ref_gl/glimp_glfw.c
     ref_gl/qgl_glfw.c
+    ref_gl/render_mesh.c
 )
 target_link_libraries(refresh common glfw)
 target_compile_definitions(refresh PRIVATE REF_HARD_LINKED=1)

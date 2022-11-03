@@ -1133,7 +1133,8 @@ bool R_Init(void *hinstance, void *hWnd) {
   R_InitParticleTexture();
   Draw_InitLocal();
 
-  GL_SurfaceInit();
+  GL_IBSPInit();
+  GL_MD2Init();
 
   err = glGetError();
   if(err != GL_NO_ERROR)
