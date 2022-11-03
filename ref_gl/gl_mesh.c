@@ -722,14 +722,15 @@ void R_DrawAliasModel(entity_t *e) {
                    position[vertex_index * 3 + 2] + normal[vertex_index * 3 + 2]);
       }
     } else {
-      float theta = currententity->angles[1] * (M_PI * 2 / 360), sin_theta, cos_theta;
-      sincosf(theta, &sin_theta, &cos_theta);
-      shadelight.f[1] = shadelight.f[1] * cos_theta - shadelight.f[2] * sin_theta;
-      shadelight.f[2] = shadelight.f[2] * sin_theta + shadelight.f[1] * cos_theta;
-      shadelight.f[5] = shadelight.f[5] * cos_theta - shadelight.f[6] * sin_theta;
-      shadelight.f[6] = shadelight.f[6] * sin_theta + shadelight.f[5] * cos_theta;
-      shadelight.f[9] = shadelight.f[9] * cos_theta - shadelight.f[10] * sin_theta;
-      shadelight.f[10] = shadelight.f[10] * sin_theta + shadelight.f[9] * cos_theta;
+      // float theta = currententity->angles[1] * (M_PI * 2 / 360), sin_theta, cos_theta;
+      // sincosf(theta, &sin_theta, &cos_theta);
+      // shadelight.f[1] = shadelight.f[1] * cos_theta - shadelight.f[2] * sin_theta;
+      // shadelight.f[2] = shadelight.f[2] * sin_theta + shadelight.f[1] * cos_theta;
+      // shadelight.f[5] = shadelight.f[5] * cos_theta - shadelight.f[6] * sin_theta;
+      // shadelight.f[6] = shadelight.f[6] * sin_theta + shadelight.f[5] * cos_theta;
+      // shadelight.f[9] = shadelight.f[9] * cos_theta - shadelight.f[10] * sin_theta;
+      // shadelight.f[10] = shadelight.f[10] * sin_theta + shadelight.f[9] * cos_theta;
+      shadelight = SH1_RotateX(SH1_RotateZ(shadelight, currententity->angles[1]), currententity->angles[0]);
 
       for(uint32_t i = 0; i < render_mesh->num_indexes; i++) {
         uint32_t vertex_index = index[i];

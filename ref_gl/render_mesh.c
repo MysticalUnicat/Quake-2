@@ -544,9 +544,27 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
 
       alias_pga3d_Line line = vertex_line[unique_index];
 
+      // normalize (TODO make a full macro)
       line = alias_pga3d_mul(alias_pga3d_s(1.0f / alias_pga3d_norm(alias_pga3d_b(line))), alias_pga3d_b(line));
 
-      alias_pga3d_Motor motor = alias_pga3d_motor_to(0, line, point);
+      // project line to origin (a . b) * -b (TODO make a full macro, assuming b is normalized)
+      alias_pga3d_Point origin = alias_pga3d_point(0, 0, 0);
+      line = alias_pga3d_grade_2(
+          alias_pga3d_mul(alias_pga3d_inner_product_bt(line, origin), alias_pga3d_negate_t(origin)));
+
+      alias_pga3d_Line up = {.e12 = 1};
+
+      // get a rotator between two lines, this case up and desired normal
+      // normalize(1 + l1 * l2) where l1 == up, l2 == line
+      // TODO: do the same for tangent/bitangent angle first?
+      alias_pga3d_Motor rotator = alias_pga3d_add(alias_pga3d_s(1), alias_pga3d_mul_bb(up, line));
+
+      // normalize (TODO make a full macro)
+      rotator = alias_pga3d_mul(alias_pga3d_s(1.0f / alias_pga3d_norm(alias_pga3d_m(rotator))), alias_pga3d_m(rotator));
+
+      alias_pga3d_Motor translator = alias_pga3d_translator_to(point);
+
+      alias_pga3d_Motor motor = alias_pga3d_mul_mm(translator, rotator);
 
       compress_motor(render_mesh->vertexes[shape_index * render_mesh->num_vertexes + vertex_index].motor, motor);
     }

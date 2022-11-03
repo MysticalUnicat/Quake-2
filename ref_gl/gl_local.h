@@ -190,6 +190,37 @@ static inline void SH1_Sample(const struct SH1 sh1, const float direction[3], fl
   }
 }
 
+static inline struct SH1 SH1_RotateX(const struct SH1 sh1, float angle) {
+  float theta = angle * (M_PI * 2 / 360), s, c;
+  sincosf(theta, &s, &c);
+#define X(BASE)                                                                                                        \
+  .f[BASE + 0] = sh1.f[BASE + 0], .f[BASE + 1] = sh1.f[BASE + 1],                                                      \
+            .f[BASE + 2] = sh1.f[BASE + 2] * c + sh1.f[BASE + 3] * (-s),                                               \
+            .f[BASE + 3] = sh1.f[BASE + 2] * s + sh1.f[BASE + 3] * c
+  return (struct SH1){X(0), X(4), X(8)};
+#undef X
+}
+
+static inline struct SH1 SH1_RotateY(const struct SH1 sh1, float angle) {
+  float theta = angle * (M_PI * 2 / 360), s, c;
+  sincosf(theta, &s, &c);
+#define X(BASE)                                                                                                        \
+  .f[BASE + 0] = sh1.f[BASE + 0], .f[BASE + 1] = sh1.f[BASE + 1] * c + sh1.f[BASE + 3] * s,                            \
+            .f[BASE + 2] = sh1.f[BASE + 2], .f[BASE + 3] = sh1.f[BASE + 1] * (-s) + sh1.f[BASE + 3] * c
+  return (struct SH1){X(0), X(4), X(8)};
+#undef X
+}
+
+static inline struct SH1 SH1_RotateZ(const struct SH1 sh1, float angle) {
+  float theta = angle * (M_PI * 2 / 360), s, c;
+  sincosf(theta, &s, &c);
+#define X(BASE)                                                                                                        \
+  .f[BASE + 0] = sh1.f[BASE + 0], .f[BASE + 1] = sh1.f[BASE + 1] * c + sh1.f[BASE + 2] * (-s),                         \
+            .f[BASE + 2] = sh1.f[BASE + 1] * s + sh1.f[BASE + 2] * c, .f[BASE + 3] = sh1.f[BASE + 3]
+  return (struct SH1){X(0), X(4), X(8)};
+#undef X
+}
+
 /*
 
   skins will be outline flood filled and mip mapped
