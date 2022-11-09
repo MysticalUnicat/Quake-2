@@ -460,14 +460,14 @@ void RenderMesh_set_texture_coord_2(struct RenderMesh *render_mesh, uint32_t ver
 void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
   alias_pga3d_Plane *triangle_plane = alias_malloc(NULL, sizeof(*triangle_plane) * (render_mesh->num_indexes / 3), 4);
   uint32_t *unique_vertex_id = alias_malloc(NULL, sizeof(*unique_vertex_id) * render_mesh->num_vertexes, 4);
-  alias_pga3d_Line *vertex_line = alias_malloc(NULL, sizeof(*vertex_line) * render_mesh->num_vertexes, 4);
+  alias_pga3d_Plane *vertex_plane = alias_malloc(NULL, sizeof(*vertex_plane) * render_mesh->num_vertexes, 4);
 
   for(uint32_t shape_index = 0; shape_index < render_mesh->num_shapes; shape_index++) {
     // naively count unique vertexes positions
     for(uint32_t vertex_index_a = 0; vertex_index_a < render_mesh->num_vertexes; vertex_index_a++) {
       unique_vertex_id[vertex_index_a] = UINT32_MAX;
     }
-    alias_memory_clear(vertex_line, sizeof(*vertex_line) * render_mesh->num_vertexes);
+    alias_memory_clear(vertex_plane, sizeof(*vertex_plane) * render_mesh->num_vertexes);
 
     for(uint32_t vertex_index_a = 0; vertex_index_a < render_mesh->num_vertexes; vertex_index_a++) {
       if(unique_vertex_id[vertex_index_a] != UINT32_MAX)
@@ -520,17 +520,9 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
       triangle_plane[triangle_index] = alias_pga3d_join(alias_pga3d_t(point_a), alias_pga3d_join_tt(point_b, point_c));
 
       // adding vertex lines
-      vertex_line[unique_index_a] =
-          alias_pga3d_add(alias_pga3d_b(vertex_line[unique_index_a]),
-                          alias_pga3d_inner_product_tv(point_a, triangle_plane[triangle_index]));
-
-      vertex_line[unique_index_b] =
-          alias_pga3d_add(alias_pga3d_b(vertex_line[unique_index_b]),
-                          alias_pga3d_inner_product_tv(point_b, triangle_plane[triangle_index]));
-
-      vertex_line[unique_index_c] =
-          alias_pga3d_add(alias_pga3d_b(vertex_line[unique_index_c]),
-                          alias_pga3d_inner_product_tv(point_c, triangle_plane[triangle_index]));
+      vertex_plane[unique_index_a] = alias_pga3d_add_vv(vertex_plane[unique_index_a], triangle_plane[triangle_index]);
+      vertex_plane[unique_index_b] = alias_pga3d_add_vv(vertex_plane[unique_index_b], triangle_plane[triangle_index]);
+      vertex_plane[unique_index_c] = alias_pga3d_add_vv(vertex_plane[unique_index_c], triangle_plane[triangle_index]);
     }
 
     for(uint32_t vertex_index = 0; vertex_index < render_mesh->num_vertexes; vertex_index++) {
@@ -542,25 +534,22 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
       alias_pga3d_Point point = alias_pga3d_point(0, 0, 0);
       point = alias_pga3d_grade_3(alias_pga3d_sandwich(alias_pga3d_t(point), alias_pga3d_m(vertex)));
 
-      alias_pga3d_Line line = vertex_line[unique_index];
+      alias_pga3d_Plane plane = vertex_plane[unique_index];
 
-      // normalize (TODO make a full macro)
-      line = alias_pga3d_mul(alias_pga3d_s(1.0f / alias_pga3d_norm(alias_pga3d_b(line))), alias_pga3d_b(line));
-
-      // project line to origin (a . b) * -b (TODO make a full macro, assuming b is normalized)
-      alias_pga3d_Point origin = alias_pga3d_point(0, 0, 0);
-      line = alias_pga3d_grade_2(
-          alias_pga3d_mul(alias_pga3d_inner_product_bt(line, origin), alias_pga3d_negate_t(origin)));
+      alias_pga3d_Line line = alias_pga3d_inner_product_tv(point, plane);
+      // move to origin
+      line.e01 = 0;
+      line.e02 = 0;
+      line.e03 = 0;
+      line = alias_pga3d_normalize(alias_pga3d_b(line));
 
       alias_pga3d_Line up = {.e12 = 1};
 
       // get a rotator between two lines, this case up and desired normal
       // normalize(1 + l1 * l2) where l1 == up, l2 == line
       // TODO: do the same for tangent/bitangent angle first?
-      alias_pga3d_Motor rotator = alias_pga3d_add(alias_pga3d_s(1), alias_pga3d_mul_bb(up, line));
-
-      // normalize (TODO make a full macro)
-      rotator = alias_pga3d_mul(alias_pga3d_s(1.0f / alias_pga3d_norm(alias_pga3d_m(rotator))), alias_pga3d_m(rotator));
+      alias_pga3d_Motor rotator = alias_pga3d_add(alias_pga3d_s(1), alias_pga3d_mul_bb(line, up));
+      rotator = alias_pga3d_normalize(alias_pga3d_m(rotator));
 
       alias_pga3d_Motor translator = alias_pga3d_translator_to(point);
 
@@ -572,5 +561,5 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
 
   alias_free(NULL, triangle_plane, sizeof(*triangle_plane) * (render_mesh->num_indexes / 3), 4);
   alias_free(NULL, unique_vertex_id, sizeof(*unique_vertex_id) * render_mesh->num_vertexes, 4);
-  alias_free(NULL, vertex_line, sizeof(*vertex_line) * render_mesh->num_vertexes, 4);
+  alias_free(NULL, vertex_plane, sizeof(*vertex_plane) * render_mesh->num_vertexes, 4);
 }
