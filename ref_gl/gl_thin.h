@@ -37,5 +37,9 @@ struct DrawAssets {
   //          bitangent
 };
 
+void GL_initialize_draw_state(const struct DrawState *state);
+void GL_apply_draw_state(const struct DrawState *state);
+void GL_apply_draw_assets(const struct DrawAssets *assets);
+
 void GL_begin_draw(const struct DrawState *state, const struct DrawAssets *assets);
 void GL_end_draw(void);

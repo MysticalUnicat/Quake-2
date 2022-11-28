@@ -89,81 +89,6 @@ struct ImageSet R_TextureAnimation(mtexinfo_t *tex) {
   return result;
 }
 
-#if 0
-/*
-=================
-WaterWarpPolyVerts
-
-Mangles the x and y coordinates in a copy of the poly
-so that any drawing routine can be water warped
-=================
-*/
-glpoly_t *WaterWarpPolyVerts (glpoly_t *p)
-{
-	int		i;
-	float	*v, *nv;
-	static byte	buffer[1024];
-	glpoly_t *out;
-
-	out = (glpoly_t *)buffer;
-
-	out->numverts = p->numverts;
-	v = p->verts[0];
-	nv = out->verts[0];
-	for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE, nv+=VERTEXSIZE)
-	{
-		nv[0] = v[0] + 4*sin(v[1]*0.05+r_newrefdef.time)*sin(v[2]*0.05+r_newrefdef.time);
-		nv[1] = v[1] + 4*sin(v[0]*0.05+r_newrefdef.time)*sin(v[2]*0.05+r_newrefdef.time);
-
-		nv[2] = v[2];
-		nv[3] = v[3];
-		nv[4] = v[4];
-		nv[5] = v[5];
-		nv[6] = v[6];
-	}
-
-	return out;
-}
-
-/*
-================
-DrawGLWaterPoly
-
-Warp the vertex coordinates
-================
-*/
-void DrawGLWaterPoly (glpoly_t *p)
-{
-	int		i;
-	float	*v;
-
-	p = WaterWarpPolyVerts (p);
-	glBegin (GL_TRIANGLE_FAN);
-	v = p->verts[0];
-	for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE)
-	{
-		glTexCoord2f (v[3], v[4]);
-		glVertex3fv (v);
-	}
-	glEnd ();
-}
-void DrawGLWaterPolyLightmap (glpoly_t *p)
-{
-	int		i;
-	float	*v;
-
-	p = WaterWarpPolyVerts (p);
-	glBegin (GL_TRIANGLE_FAN);
-	v = p->verts[0];
-	for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE)
-	{
-		glTexCoord2f (v[5], v[6]);
-		glVertex3fv (v);
-	}
-	glEnd ();
-}
-#endif
-
 /*
 ================
 DrawGLPoly
@@ -668,21 +593,14 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       R_SetCacheState(surf);
     }
 
-    GL_MBind(GL_TEXTURE3, gl_state.lightmap_textures + lmtex + 0);
-    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 0, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                    GL_UNSIGNED_BYTE, temp_rgb0);
-
-    GL_MBind(GL_TEXTURE4, gl_state.lightmap_textures + lmtex + 1);
-    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 1, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                    GL_UNSIGNED_BYTE, temp_r1);
-
-    GL_MBind(GL_TEXTURE5, gl_state.lightmap_textures + lmtex + 2);
-    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 2, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                    GL_UNSIGNED_BYTE, temp_g1);
-
-    GL_MBind(GL_TEXTURE6, gl_state.lightmap_textures + lmtex + 3);
-    glTexSubImage2D(gl_state.lightmap_textures + lmtex + 3, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                    GL_UNSIGNED_BYTE, temp_b1);
+    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 0, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
+                        GL_UNSIGNED_BYTE, temp_rgb0);
+    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 1, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
+                        GL_UNSIGNED_BYTE, temp_r1);
+    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 2, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
+                        GL_UNSIGNED_BYTE, temp_g1);
+    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 3, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
+                        GL_UNSIGNED_BYTE, temp_b1);
   }
 
   c_brush_polys++;

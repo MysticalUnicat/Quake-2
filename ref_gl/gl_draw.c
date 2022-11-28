@@ -22,6 +22,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 
+#include "gl_thin.h"
+
 image_t *draw_chars;
 
 /*
@@ -36,6 +38,11 @@ void Draw_InitLocal(void) {
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
+
+static struct DrawState draw_state_quad = {.primitive = GL_QUADS,
+                                           .blend_enable = true,
+                                           .blend_src_factor = GL_SRC_ALPHA,
+                                           .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 /*
 ================
@@ -65,9 +72,8 @@ void Draw_Char(int x, int y, int num) {
   fcol = col * 0.0625;
   size = 0.0625;
 
-  GL_Bind(draw_chars->texnum);
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = draw_chars->texnum});
 
-  glBegin(GL_QUADS);
   glTexCoord2f(fcol, frow);
   glVertex2f(x, y);
   glTexCoord2f(fcol + size, frow);
@@ -76,7 +82,8 @@ void Draw_Char(int x, int y, int num) {
   glVertex2f(x + 8, y + 8);
   glTexCoord2f(fcol, frow + size);
   glVertex2f(x, y + 8);
-  glEnd();
+
+  GL_end_draw();
 }
 
 /*

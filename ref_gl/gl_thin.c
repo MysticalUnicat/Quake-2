@@ -57,7 +57,7 @@ void glProgram_init(struct glProgram *prog, const char *vsource, const char *fso
   prog->program = program;
 }
 
-static inline initialize_draw_state(const struct DrawState *state) {
+void GL_initialize_draw_state(const struct DrawState *state) {
   if(state->vertex_shader_source != NULL && state->vertex_shader_object == 0) {
     GLuint shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(shader, 1, &state->vertex_shader_source, NULL);
@@ -81,7 +81,7 @@ static inline initialize_draw_state(const struct DrawState *state) {
   }
 }
 
-static inline apply_draw_state(const struct DrawState *state) {
+void GL_apply_draw_state(const struct DrawState *state) {
   static struct DrawState current_draw_state;
 
   if(current_draw_state.program_object != state->program_object) {
@@ -94,6 +94,11 @@ static inline apply_draw_state(const struct DrawState *state) {
 
   if(current_draw_state.depth_mask != state->depth_mask) {
     glDepthMask(state->depth_mask ? GL_TRUE : GL_FALSE);
+  }
+
+  if(current_draw_state.depth_range_min != state->depth_range_min ||
+     current_draw_state.depth_range_max != state->depth_range_max) {
+    glDepthRangef(state->depth_range_min, state->depth_range_max);
   }
 
   if(state->blend_enable) {
@@ -109,7 +114,7 @@ static inline apply_draw_state(const struct DrawState *state) {
   current_draw_state = *state;
 }
 
-static inline void apply_draw_assets(const struct DrawAssets *assets) {
+void GL_apply_draw_assets(const struct DrawAssets *assets) {
   static struct DrawAssets current_draw_assets;
 
   if(assets == NULL)
@@ -118,7 +123,8 @@ static inline void apply_draw_assets(const struct DrawAssets *assets) {
   for(uint32_t i = 0; i < 8; i++) {
     if(assets->images[i]) {
       if(current_draw_assets.images[i] != assets->images[i]) {
-        glBindTextureUnit(GL_TEXTURE0, assets->images[i]);
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, assets->images[i]);
         current_draw_assets.images[i] = assets->images[i];
       }
     }
@@ -126,9 +132,9 @@ static inline void apply_draw_assets(const struct DrawAssets *assets) {
 }
 
 void GL_begin_draw(const struct DrawState *state, const struct DrawAssets *assets) {
-  initialize_draw_state(state);
-  apply_draw_state(state);
-  apply_draw_assets(assets);
+  GL_initialize_draw_state(state);
+  GL_apply_draw_state(state);
+  GL_apply_draw_assets(assets);
 
   glad_glBegin(state->primitive);
 }

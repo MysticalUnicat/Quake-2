@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 
+#include "gl_thin.h"
+
 union rgba_u32 {
   struct {
     uint8_t r;
@@ -422,10 +424,12 @@ void GL_Bind(int texnum) {
 
   if(gl_nobind->value && draw_chars) // performance evaluation option
     texnum = draw_chars->texnum;
-  if(gl_state.currenttextures[gl_state.currenttmu] == texnum)
-    return;
-  gl_state.currenttextures[gl_state.currenttmu] = texnum;
-  glBindTexture(GL_TEXTURE_2D, texnum);
+
+  // hack until we move to thin gl
+  struct DrawAssets assets;
+  memset(&assets, 0, sizeof(assets));
+  assets.images[gl_state.currenttmu] = texnum;
+  GL_apply_draw_assets(&assets);
 }
 
 void GL_MBind(GLenum target, int texnum) {
