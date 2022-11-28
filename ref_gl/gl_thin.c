@@ -102,11 +102,11 @@ void GL_apply_draw_state(const struct DrawState *state) {
   }
 
   if(state->blend_enable) {
-    if(!current_draw_state.blend_enable || current_draw_state.blend_src_factor != state->blend_src_factor ||
-       current_draw_state.blend_dst_factor != state->blend_dst_factor) {
-      glEnable(GL_BLEND);
-      glBlendFunc(state->blend_src_factor, state->blend_dst_factor);
-    }
+    // if(!current_draw_state.blend_enable || current_draw_state.blend_src_factor != state->blend_src_factor ||
+    //  current_draw_state.blend_dst_factor != state->blend_dst_factor) {
+    glEnable(GL_BLEND);
+    glBlendFunc(state->blend_src_factor, state->blend_dst_factor);
+    // }
   } else if(current_draw_state.blend_enable) {
     glDisable(GL_BLEND);
   }

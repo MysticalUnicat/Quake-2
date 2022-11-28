@@ -414,7 +414,7 @@ void GL_TexEnv(GLenum mode) {
   static int lastmodes[2] = {-1, -1};
 
   if(mode != lastmodes[gl_state.currenttmu]) {
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
+    // glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
     lastmodes[gl_state.currenttmu] = mode;
   }
 }

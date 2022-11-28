@@ -44,6 +44,11 @@ static struct DrawState draw_state_quad = {.primitive = GL_QUADS,
                                            .blend_src_factor = GL_SRC_ALPHA,
                                            .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
+static struct DrawState draw_state_triangle = {.primitive = GL_TRIANGLES,
+                                               .blend_enable = true,
+                                               .blend_src_factor = GL_SRC_ALPHA,
+                                               .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
 /*
 ================
 Draw_Char
@@ -73,6 +78,8 @@ void Draw_Char(int x, int y, int num) {
   size = 0.0625;
 
   GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = draw_chars->texnum});
+
+  glColor4f(1, 1, 1, 1);
 
   glTexCoord2f(fcol, frow);
   glVertex2f(x, y);
@@ -135,11 +142,10 @@ void Draw_StretchPic(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !gl->has_alpha)
-    glDisable(GL_ALPHA_TEST);
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = gl->texnum});
 
-  GL_Bind(gl->texnum);
-  glBegin(GL_QUADS);
+  glColor4f(1, 1, 1, 1);
+
   glTexCoord2f(gl->base.s0, gl->base.t0);
   glVertex2f(x, y);
   glTexCoord2f(gl->base.s1, gl->base.t0);
@@ -148,10 +154,8 @@ void Draw_StretchPic(int x, int y, int w, int h, const char *pic) {
   glVertex2f(x + w, y + h);
   glTexCoord2f(gl->base.s0, gl->base.t1);
   glVertex2f(x, y + h);
-  glEnd();
 
-  if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !gl->has_alpha)
-    glEnable(GL_ALPHA_TEST);
+  GL_end_draw();
 }
 
 /*
@@ -168,11 +172,10 @@ void Draw_Pic(int x, int y, const char *pic) {
     return;
   }
 
-  if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !gl->has_alpha)
-    glDisable(GL_ALPHA_TEST);
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = gl->texnum});
 
-  GL_Bind(gl->texnum);
-  glBegin(GL_QUADS);
+  glColor4f(1, 1, 1, 1);
+
   glTexCoord2f(gl->base.s0, gl->base.t0);
   glVertex2f(x, y);
   glTexCoord2f(gl->base.s1, gl->base.t0);
@@ -181,10 +184,8 @@ void Draw_Pic(int x, int y, const char *pic) {
   glVertex2f(x + gl->base.width, y + gl->base.height);
   glTexCoord2f(gl->base.s0, gl->base.t1);
   glVertex2f(x, y + gl->base.height);
-  glEnd();
 
-  if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !gl->has_alpha)
-    glEnable(GL_ALPHA_TEST);
+  GL_end_draw();
 }
 
 /*
@@ -204,11 +205,10 @@ void Draw_TileClear(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !image->has_alpha)
-    glDisable(GL_ALPHA_TEST);
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = image->texnum});
 
-  GL_Bind(image->texnum);
-  glBegin(GL_QUADS);
+  glColor4f(1, 1, 1, 1);
+
   glTexCoord2f(x / 64.0, y / 64.0);
   glVertex2f(x, y);
   glTexCoord2f((x + w) / 64.0, y / 64.0);
@@ -217,10 +217,8 @@ void Draw_TileClear(int x, int y, int w, int h, const char *pic) {
   glVertex2f(x + w, y + h);
   glTexCoord2f(x / 64.0, (y + h) / 64.0);
   glVertex2f(x, y + h);
-  glEnd();
 
-  if(((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION)) && !image->has_alpha)
-    glEnable(GL_ALPHA_TEST);
+  GL_end_draw();
 }
 
 /*
@@ -239,21 +237,17 @@ void Draw_Fill(int x, int y, int w, int h, int c) {
   if((unsigned)c > 255)
     ri.Sys_Error(ERR_FATAL, "Draw_Fill: bad color");
 
-  glDisable(GL_TEXTURE_2D);
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
 
   color.c = d_8to24table[c];
   glColor3f(color.v[0] / 255.0, color.v[1] / 255.0, color.v[2] / 255.0);
-
-  glBegin(GL_QUADS);
 
   glVertex2f(x, y);
   glVertex2f(x + w, y);
   glVertex2f(x + w, y + h);
   glVertex2f(x, y + h);
 
-  glEnd();
-  glColor3f(1, 1, 1);
-  glEnable(GL_TEXTURE_2D);
+  GL_end_draw();
 }
 
 //=============================================================================
@@ -265,20 +259,16 @@ Draw_FadeScreen
 ================
 */
 void Draw_FadeScreen(void) {
-  glEnable(GL_BLEND);
-  glDisable(GL_TEXTURE_2D);
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
+
   glColor4f(0, 0, 0, 0.8);
-  glBegin(GL_QUADS);
 
   glVertex2f(0, 0);
   glVertex2f(vid.width, 0);
   glVertex2f(vid.width, vid.height);
   glVertex2f(0, vid.height);
 
-  glEnd();
-  glColor4f(1, 1, 1, 1);
-  glEnable(GL_TEXTURE_2D);
-  glDisable(GL_BLEND);
+  GL_end_draw();
 }
 
 //====================================================================
@@ -300,7 +290,7 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
   int row;
   float t;
 
-  GL_Bind(0);
+  GL_Bind(1);
 
   if(rows <= 256) {
     hscale = 1;
@@ -332,10 +322,8 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  if((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION))
-    glDisable(GL_ALPHA_TEST);
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = 1});
 
-  glBegin(GL_QUADS);
   glTexCoord2f(0, 0);
   glVertex2f(x, y);
   glTexCoord2f(1, 0);
@@ -344,22 +332,13 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
   glVertex2f(x + w, y + h);
   glTexCoord2f(0, t);
   glVertex2f(x, y + h);
-  glEnd();
 
-  if((gl_config.renderer == GL_RENDERER_MCD) || (gl_config.renderer & GL_RENDERER_RENDITION))
-    glEnable(GL_ALPHA_TEST);
+  GL_end_draw();
 }
 
 void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
                     const uint32_t *indexes, uint32_t num_indexes) {
-
-  GL_Bind(((image_t *)image)->texnum);
-
-  GL_TexEnv(GL_MODULATE);
-
-  glEnable(GL_BLEND);
-  glDisable(GL_ALPHA_TEST);
-  glBegin(GL_TRIANGLES);
+  GL_begin_draw(&draw_state_triangle, &(struct DrawAssets){.images[0] = ((image_t *)image)->texnum});
 
   for(int i = 0; i < num_indexes; i++) {
     uint32_t index = indexes[i];
@@ -368,8 +347,5 @@ void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vert
     glVertex2fv(vertexes[index].xy);
   }
 
-  glEnd();
-  glDisable(GL_BLEND);
-  glEnable(GL_ALPHA_TEST);
-  //   GL_TexEnv(GL_REPLACE);
+  GL_end_draw();
 }

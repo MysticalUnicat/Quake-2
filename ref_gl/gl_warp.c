@@ -504,6 +504,8 @@ int skytexorder[6] = {0, 2, 1, 3, 4, 5};
 void R_DrawSkyBox(void) {
   int i;
 
+  glColor4f(1, 1, 1, 1);
+
 #if 0
 qglEnable (GL_BLEND);
 GL_TexEnv( GL_MODULATE );
