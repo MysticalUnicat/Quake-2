@@ -40,7 +40,7 @@ extern GLFWwindow *glfw_window;
 
 enum _ControlList { AxisNada = 0, AxisForward, AxisLook, AxisSide, AxisTurn, AxisUp };
 
-int dwAxisFlags[JOY_MAX_AXES] = {JOY_RETURNX, JOY_RETURNY, JOY_RETURNZ, JOY_RETURNR, JOY_RETURNU, JOY_RETURNV};
+int dwAxisFlags[JOY_MAX_AXES];
 
 int dwAxisMap[JOY_MAX_AXES];
 int dwControlMap[JOY_MAX_AXES];
@@ -373,8 +373,6 @@ IN_StartupJoystick
 */
 void IN_StartupJoystick(void) {
   int numdevs;
-  JOYCAPS jc;
-  MMRESULT mmr;
   cvar_t *cv;
 
   // assume no joystick
@@ -457,7 +455,7 @@ void IN_Commands(void) {
     // this avoids any potential problems related to moving from one
     // direction to another without going through the center position
     povstate = 0;
-    if(hats[0] != JOY_POVCENTERED) {
+    if(hats[0] != 0) {
       if(hats[0] & GLFW_HAT_UP)
         povstate |= 0x01;
       if(hats[0] & GLFW_HAT_RIGHT)

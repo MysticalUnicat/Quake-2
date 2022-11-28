@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "qcommon.h"
 
+#include <uv.h>
+
 // define this to dissalow any data but the demo pak file
 //#define	NO_ADDONS
 
@@ -129,7 +131,7 @@ void FS_CreatePath(const char *path_) {
       *ofs = 0;
 
       uv_fs_t req;
-      uv_fs_mkdir(&global_uv_loop, &req, path, 0777, NULL);
+      uv_fs_mkdir(global_uv_loop(), &req, path, 0777, NULL);
       uv_fs_req_cleanup(&req);
 
       // Sys_Mkdir(path);
@@ -465,7 +467,7 @@ pack_t *FS_LoadPackFile(char *packfile) {
   pack->files = newfiles;
 
   uv_fs_t req;
-  uv_fs_open(&global_uv_loop, &req, packfile, O_RDONLY, 0, NULL);
+  uv_fs_open(global_uv_loop(), &req, packfile, O_RDONLY, 0, NULL);
   pack->handle = uv_fs_get_result(&req);
   uv_fs_req_cleanup(&req);
 
@@ -562,7 +564,7 @@ void FS_SetGamedir(const char *dir) {
     if(fs_searchpaths->pack) {
       // fclose(fs_searchpaths->pack->handle);
       uv_fs_t req;
-      uv_fs_close(&global_uv_loop, &req, fs_searchpaths->pack->handle, NULL);
+      uv_fs_close(global_uv_loop(), &req, fs_searchpaths->pack->handle, NULL);
       uv_fs_req_cleanup(&req);
 
       Z_Free(fs_searchpaths->pack->files);
@@ -856,7 +858,7 @@ void LoadAsync_process_read(uv_fs_t *req) {
   }
 
   if(state->file) {
-    uv_fs_close(&global_uv_loop, req, state->file, LoadAsync_process_close);
+    uv_fs_close(global_uv_loop(), req, state->file, LoadAsync_process_close);
   } else {
     Z_Free(state);
   }
@@ -874,7 +876,7 @@ void LoadAsync_process_fstate(uv_fs_t *req) {
   } else {
     state->size = size;
     state->buffer = Z_Malloc(size);
-    uv_fs_read(&global_uv_loop, req, state->file, &(uv_buf_t){.base = state->buffer, .len = size}, 1, state->offset,
+    uv_fs_read(global_uv_loop(), req, state->file, &(uv_buf_t){.base = state->buffer, .len = size}, 1, state->offset,
                LoadAsync_process_read);
   }
 }
@@ -890,7 +892,7 @@ void LoadAsync_process_open(uv_fs_t *req) {
     LoadAsync_continue(state);
   } else {
     state->file = result;
-    uv_fs_fstat(&global_uv_loop, req, state->file, LoadAsync_process_fstate);
+    uv_fs_fstat(global_uv_loop(), req, state->file, LoadAsync_process_fstate);
   }
 }
 
@@ -903,7 +905,7 @@ void LoadAsync_continue(struct LoadAsyncState *state) {
 
     if(!strncmp(state->path, link->from, link->fromlength)) {
       Com_sprintf(temp_path, sizeof(temp_path), "%s%s", link->to, state->path + link->fromlength);
-      uv_fs_open(&global_uv_loop, &state->req, temp_path, O_RDONLY, 0, LoadAsync_process_open);
+      uv_fs_open(global_uv_loop(), &state->req, temp_path, O_RDONLY, 0, LoadAsync_process_open);
       return;
     }
   }
@@ -919,7 +921,7 @@ void LoadAsync_continue(struct LoadAsyncState *state) {
           state->offset = pack_file->filepos;
           state->buffer = Z_Malloc(state->size);
 
-          uv_fs_read(&global_uv_loop, &state->req, state->search->pack->handle,
+          uv_fs_read(global_uv_loop(), &state->req, state->search->pack->handle,
                      &(uv_buf_t){.base = state->buffer, .len = state->size}, 1, state->offset, LoadAsync_process_read);
           return;
         }
@@ -932,7 +934,7 @@ void LoadAsync_continue(struct LoadAsyncState *state) {
       state->search = search->next;
 
       Com_sprintf(temp_path, sizeof(temp_path), "%s/%s", search->filename, state->path);
-      uv_fs_open(&global_uv_loop, &state->req, temp_path, O_RDONLY, 0, LoadAsync_process_open);
+      uv_fs_open(global_uv_loop(), &state->req, temp_path, O_RDONLY, 0, LoadAsync_process_open);
       return;
     }
   }

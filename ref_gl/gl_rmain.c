@@ -1134,7 +1134,6 @@ bool R_Init(void *hinstance, void *hWnd) {
   Draw_InitLocal();
 
   GL_IBSPInit();
-  GL_MD2Init();
 
   err = glGetError();
   if(err != GL_NO_ERROR)

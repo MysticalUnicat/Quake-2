@@ -131,6 +131,7 @@ add_library(refresh STATIC
     ref_gl/gl_mesh.c
     ref_gl/gl_rmain.c
     ref_gl/gl_rsurf.c
+    ref_gl/gl_thin.c
     ref_gl/glimp_glfw.c
     ref_gl/qgl_glfw.c
     ref_gl/render_mesh.c

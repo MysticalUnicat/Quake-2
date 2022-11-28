@@ -303,7 +303,7 @@ static void insert_into_image_cache_emit(void *ud, const uint8_t *buffer, size_t
 static void insert_into_image_cache(const char *name, const byte *data, uint32_t width, uint32_t height, int channels) {
   extern void FS_CreatePath(const char *path_);
 
-  char path[MAX_PATH];
+  char path[MAX_QPATH];
 
   if(channels != 3 && channels != 4)
     return;

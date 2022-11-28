@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "qcommon.h"
 #include <setjmp.h>
 
+#include <uv.h>
+
 #define MAXPRINTMSG 4096
 
 #define MAX_NUM_ARGVS 50
@@ -53,7 +55,8 @@ int time_after_game;
 int time_before_ref;
 int time_after_ref;
 
-uv_loop_t global_uv_loop;
+uv_loop_t global_uv_loop_value;
+void *global_uv_loop(void) { return &global_uv_loop_value; }
 
 /*
 ============================================================================
@@ -1167,7 +1170,7 @@ static void frame_uv_timer_cb(uv_timer_t *timer) {
   static uint64_t old_time;
   (void)timer;
 
-  uint64_t time = uv_now(&global_uv_loop);
+  uint64_t time = uv_now(global_uv_loop());
   uint64_t delta = time - old_time;
   old_time = time;
 
@@ -1187,12 +1190,12 @@ void Qcommon_Init(int argc, char **argv) {
   if(setjmp(abortframe))
     Sys_Error("Error during initialization");
 
-  uv_loop_init(&global_uv_loop);
+  uv_loop_init(&global_uv_loop_value);
 
   srand(uv_hrtime());
 
   static uv_timer_t frame_uv_timer;
-  uv_timer_init(&global_uv_loop, &frame_uv_timer);
+  uv_timer_init(global_uv_loop(), &frame_uv_timer);
   uv_timer_start(&frame_uv_timer, frame_uv_timer_cb, 0, 10); // just above 90fps
 
   z_chain.next = z_chain.prev = &z_chain;
@@ -1356,7 +1359,7 @@ void Qcommon_Frame(int msec) {
   }
 }
 
-int Qcommon_RunFrames(void) { return uv_run(&global_uv_loop, UV_RUN_DEFAULT); }
+int Qcommon_RunFrames(void) { return uv_run(global_uv_loop(), UV_RUN_DEFAULT); }
 
 /*
 =================

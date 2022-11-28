@@ -20,6 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // sys_win.h
 
 #include "../qcommon/qcommon.h"
+
+#include <uv.h>
+
 #include "../win32/conproc.h"
 #include "resource.h"
 #include "winquake.h"
@@ -135,7 +138,7 @@ Sys_Init
 */
 void Sys_Init(void) {
   static uv_idle_t windows_uv_idle;
-  uv_idle_init(&global_uv_loop, &windows_uv_idle);
+  uv_idle_init(global_uv_loop(), &windows_uv_idle);
   uv_idle_start(&windows_uv_idle, windows_uv_idle_cb);
 
   OSVERSIONINFO vinfo;

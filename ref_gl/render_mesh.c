@@ -460,14 +460,16 @@ void RenderMesh_set_texture_coord_2(struct RenderMesh *render_mesh, uint32_t ver
 void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
   alias_pga3d_Plane *triangle_plane = alias_malloc(NULL, sizeof(*triangle_plane) * (render_mesh->num_indexes / 3), 4);
   uint32_t *unique_vertex_id = alias_malloc(NULL, sizeof(*unique_vertex_id) * render_mesh->num_vertexes, 4);
-  alias_pga3d_Plane *vertex_plane = alias_malloc(NULL, sizeof(*vertex_plane) * render_mesh->num_vertexes, 4);
+  alias_pga3d_Plane *vertex_normal = alias_malloc(NULL, sizeof(*vertex_normal) * render_mesh->num_vertexes, 4);
+  float *vertex_texture_space = alias_malloc(NULL, sizeof(*vertex_texture_space) * render_mesh->num_vertexes * 2, 4);
 
   for(uint32_t shape_index = 0; shape_index < render_mesh->num_shapes; shape_index++) {
     // naively count unique vertexes positions
     for(uint32_t vertex_index_a = 0; vertex_index_a < render_mesh->num_vertexes; vertex_index_a++) {
       unique_vertex_id[vertex_index_a] = UINT32_MAX;
     }
-    alias_memory_clear(vertex_plane, sizeof(*vertex_plane) * render_mesh->num_vertexes);
+    alias_memory_clear(vertex_normal, sizeof(*vertex_normal) * render_mesh->num_vertexes);
+    alias_memory_clear(vertex_texture_space, sizeof(*vertex_texture_space) * render_mesh->num_vertexes * 2);
 
     for(uint32_t vertex_index_a = 0; vertex_index_a < render_mesh->num_vertexes; vertex_index_a++) {
       if(unique_vertex_id[vertex_index_a] != UINT32_MAX)
@@ -519,10 +521,44 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
       // join points into plane
       triangle_plane[triangle_index] = alias_pga3d_join(alias_pga3d_t(point_a), alias_pga3d_join_tt(point_b, point_c));
 
-      // adding vertex lines
-      vertex_plane[unique_index_a] = alias_pga3d_add_vv(vertex_plane[unique_index_a], triangle_plane[triangle_index]);
-      vertex_plane[unique_index_b] = alias_pga3d_add_vv(vertex_plane[unique_index_b], triangle_plane[triangle_index]);
-      vertex_plane[unique_index_c] = alias_pga3d_add_vv(vertex_plane[unique_index_c], triangle_plane[triangle_index]);
+      // adding vertex normals
+      vertex_normal[unique_index_a] = alias_pga3d_add_vv(vertex_normal[unique_index_a], triangle_plane[triangle_index]);
+      vertex_normal[unique_index_b] = alias_pga3d_add_vv(vertex_normal[unique_index_b], triangle_plane[triangle_index]);
+      vertex_normal[unique_index_c] = alias_pga3d_add_vv(vertex_normal[unique_index_c], triangle_plane[triangle_index]);
+
+      // get texture space
+      if(render_mesh->flags & RENDER_MESH_FLAG_TEXTURE_COORD_1) {
+        alias_pga3d_Plane s = {
+            .e1 = render_mesh->vertexes_st_1[index_b].st[0] - render_mesh->vertexes_st_1[index_a].st[0],
+            .e2 = render_mesh->vertexes_st_1[index_b].st[1] - render_mesh->vertexes_st_1[index_a].st[1],
+            .e3 = 0,
+            .e0 = 0};
+
+        alias_pga3d_Plane t = {
+            .e1 = render_mesh->vertexes_st_1[index_c].st[0] - render_mesh->vertexes_st_1[index_a].st[0],
+            .e2 = render_mesh->vertexes_st_1[index_c].st[1] - render_mesh->vertexes_st_1[index_a].st[1],
+            .e3 = 0,
+            .e0 = 0};
+
+        // bisector of s plane and t plane
+        s = alias_pga3d_normalize(alias_pga3d_v(s));
+        t = alias_pga3d_normalize(alias_pga3d_v(t));
+
+        // only store e1 and e2
+        vertex_texture_space[index_a * 2 + 0] += s.e1 + t.e1;
+        vertex_texture_space[index_a * 2 + 1] += s.e2 + t.e2;
+        vertex_texture_space[index_b * 2 + 0] += s.e1 + t.e1;
+        vertex_texture_space[index_b * 2 + 1] += s.e2 + t.e2;
+        vertex_texture_space[index_c * 2 + 0] += s.e1 + t.e1;
+        vertex_texture_space[index_c * 2 + 1] += s.e2 + t.e2;
+      } else {
+        vertex_texture_space[index_a * 2 + 0] = 1;
+        vertex_texture_space[index_a * 2 + 1] = 0;
+        vertex_texture_space[index_b * 2 + 0] = 1;
+        vertex_texture_space[index_b * 2 + 1] = 0;
+        vertex_texture_space[index_c * 2 + 0] = 1;
+        vertex_texture_space[index_c * 2 + 1] = 0;
+      }
     }
 
     for(uint32_t vertex_index = 0; vertex_index < render_mesh->num_vertexes; vertex_index++) {
@@ -534,7 +570,7 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
       alias_pga3d_Point point = alias_pga3d_point(0, 0, 0);
       point = alias_pga3d_grade_3(alias_pga3d_sandwich(alias_pga3d_t(point), alias_pga3d_m(vertex)));
 
-      alias_pga3d_Plane plane = vertex_plane[unique_index];
+      alias_pga3d_Plane plane = vertex_normal[unique_index];
 
       alias_pga3d_Line line = alias_pga3d_inner_product_tv(point, plane);
       // move to origin
@@ -553,6 +589,20 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
 
       alias_pga3d_Motor translator = alias_pga3d_translator_to(point);
 
+      // take bisector st plane and create a motor by multiplying with each other
+      alias_pga3d_Plane texture_space_st_plane = {.e1 = vertex_texture_space[vertex_index * 2 + 0],
+                                                  .e2 = vertex_texture_space[vertex_index * 2 + 1]};
+      texture_space_st_plane = alias_pga3d_normalize(alias_pga3d_v(texture_space_st_plane));
+
+      alias_pga3d_Plane reference_texture_space_st_plane = {.e1 = 1, .e2 = 1};
+      reference_texture_space_st_plane = alias_pga3d_normalize(alias_pga3d_v(reference_texture_space_st_plane));
+
+      alias_pga3d_00001 nothing = {.e0123 = 0};
+      alias_pga3d_Motor texture_space = alias_pga3d_add(
+          alias_pga3d_S(nothing), alias_pga3d_mul_vv(texture_space_st_plane, reference_texture_space_st_plane));
+
+      // alias_pga3d_Motor motor = alias_pga3d_mul(alias_pga3d_m(translator), alias_pga3d_mul_mm(rotator,
+      // texture_space));
       alias_pga3d_Motor motor = alias_pga3d_mul_mm(translator, rotator);
 
       compress_motor(render_mesh->vertexes[shape_index * render_mesh->num_vertexes + vertex_index].motor, motor);
@@ -561,5 +611,6 @@ void RenderMesh_generate_vertex_orientations(struct RenderMesh *render_mesh) {
 
   alias_free(NULL, triangle_plane, sizeof(*triangle_plane) * (render_mesh->num_indexes / 3), 4);
   alias_free(NULL, unique_vertex_id, sizeof(*unique_vertex_id) * render_mesh->num_vertexes, 4);
-  alias_free(NULL, vertex_plane, sizeof(*vertex_plane) * render_mesh->num_vertexes, 4);
+  alias_free(NULL, vertex_normal, sizeof(*vertex_normal) * render_mesh->num_vertexes, 4);
+  alias_free(NULL, vertex_texture_space, sizeof(*vertex_texture_space) * render_mesh->num_vertexes * 2, 4);
 }

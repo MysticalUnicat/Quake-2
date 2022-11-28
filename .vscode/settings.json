@@ -43,7 +43,13 @@
         "pga3d.h": "c",
         "math.h": "c",
         "algorithm": "c",
-        "iterator": "c"
+        "iterator": "c",
+        "log.h": "c",
+        "streambuf": "c",
+        "glad.h": "c",
+        "gl_thin.h": "c",
+        "uv.h": "c",
+        "win.h": "c"
     },
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "C_Cpp.errorSquiggles": "Disabled"
