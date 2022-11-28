@@ -380,17 +380,13 @@ void R_RenderBrushPoly(msurface_t *fa) {
     GL_Bind(image->texnum);
 
     // warp texture, no lightmaps
-    GL_TexEnv(GL_MODULATE);
     glColor4f(gl_state.inverse_intensity, gl_state.inverse_intensity, gl_state.inverse_intensity, 1.0F);
     EmitWaterPolys(fa);
-    GL_TexEnv(GL_REPLACE);
 
     return;
   }
 
   GL_Bind(image->texnum);
-
-  GL_TexEnv(GL_REPLACE);
 
   //======
   // PGM
@@ -476,7 +472,6 @@ void R_DrawAlphaSurfaces(void) {
   glLoadMatrixf(r_world_matrix);
 
   glEnable(GL_BLEND);
-  GL_TexEnv(GL_MODULATE);
 
   for(s = r_alpha_surfaces; s; s = s->texturechain) {
     GL_Bind(s->texinfo->albedo_image->texnum);
@@ -494,7 +489,6 @@ void R_DrawAlphaSurfaces(void) {
       DrawGLPoly(s->polys);
   }
 
-  GL_TexEnv(GL_REPLACE);
   glColor4f(1, 1, 1, 1);
   glDisable(GL_BLEND);
 
@@ -541,8 +535,6 @@ void DrawTextureChains(void) {
 
     image->texturechain = NULL;
   }
-
-  GL_TexEnv(GL_REPLACE);
 }
 
 static void GL_RenderLightmappedPoly(msurface_t *surf) {
@@ -659,7 +651,6 @@ void R_DrawInlineBModel(int cmodel_index) {
   if(currententity->flags & RF_TRANSLUCENT) {
     glEnable(GL_BLEND);
     glColor4f(1, 1, 1, 0.25);
-    GL_TexEnv(GL_MODULATE);
   }
 
   //
@@ -690,7 +681,6 @@ void R_DrawInlineBModel(int cmodel_index) {
   if((currententity->flags & RF_TRANSLUCENT)) {
     glDisable(GL_BLEND);
     glColor4f(1, 1, 1, 1);
-    GL_TexEnv(GL_REPLACE);
   }
 }
 
@@ -708,7 +698,6 @@ void R_DrawBrushModel(entity_t *e) {
     return;
 
   currententity = e;
-  gl_state.currenttextures[0] = gl_state.currenttextures[1] = -1;
 
   if(e->angles[0] || e->angles[1] || e->angles[2]) {
     rotated = true;
@@ -901,8 +890,6 @@ void R_DrawWorld(int cmodel_index) {
   memset(&ent, 0, sizeof(ent));
   ent.frame = (int)(r_newrefdef.time * 2);
   currententity = &ent;
-
-  gl_state.currenttextures[0] = gl_state.currenttextures[1] = -1;
 
   glColor3f(1, 1, 1);
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));

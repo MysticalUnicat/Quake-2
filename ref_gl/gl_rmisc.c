@@ -214,8 +214,6 @@ void GL_SetDefaultState(void) {
 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  GL_TexEnv(GL_REPLACE);
-
   if(glPointParameterf) {
     float attenuations[3];
 

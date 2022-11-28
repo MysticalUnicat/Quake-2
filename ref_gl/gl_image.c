@@ -390,14 +390,11 @@ void GL_EnableMultitexture(bool enable) {
   if(enable) {
     GL_SelectTexture(GL_TEXTURE1);
     glEnable(GL_TEXTURE_2D);
-    GL_TexEnv(GL_REPLACE);
   } else {
     GL_SelectTexture(GL_TEXTURE1);
     glDisable(GL_TEXTURE_2D);
-    GL_TexEnv(GL_REPLACE);
   }
   GL_SelectTexture(GL_TEXTURE0);
-  GL_TexEnv(GL_REPLACE);
 }
 
 void GL_SelectTexture(GLenum texture) {
@@ -408,15 +405,6 @@ void GL_SelectTexture(GLenum texture) {
 
   gl_state.currenttmu = tmu;
   glActiveTexture(texture);
-}
-
-void GL_TexEnv(GLenum mode) {
-  static int lastmodes[2] = {-1, -1};
-
-  if(mode != lastmodes[gl_state.currenttmu]) {
-    // glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
-    lastmodes[gl_state.currenttmu] = mode;
-  }
 }
 
 void GL_Bind(int texnum) {

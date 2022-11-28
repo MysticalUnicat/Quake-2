@@ -653,7 +653,6 @@ void R_DrawAliasModel(entity_t *e) {
 
   glShadeModel(GL_SMOOTH);
 
-  GL_TexEnv(GL_MODULATE);
   if(currententity->flags & RF_TRANSLUCENT) {
     glEnable(GL_BLEND);
   }
@@ -739,7 +738,6 @@ void R_DrawAliasModel(entity_t *e) {
     glEnd();
   }
 
-  GL_TexEnv(GL_REPLACE);
   glShadeModel(GL_FLAT);
 
   glPopMatrix();

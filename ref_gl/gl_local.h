@@ -416,7 +416,6 @@ extern float r_world_matrix[16];
 void R_TranslatePlayerSkin(int playernum);
 void GL_Bind(int texnum);
 void GL_MBind(GLenum target, int texnum);
-void GL_TexEnv(GLenum value);
 void GL_EnableMultitexture(bool enable);
 void GL_SelectTexture(GLenum);
 
@@ -461,16 +460,6 @@ void R_DrawSkyBox(void);
 void R_MarkLights(int codel_index, dlight_t *light, int bit, mnode_t *node);
 
 void GL_IBSPInit(void);
-
-#if 0
-short LittleShort (short l);
-short BigShort (short l);
-int	LittleLong (int l);
-float LittleFloat (float f);
-
-char	*va(char *format, ...);
-// does a varargs printf into a temp buffer
-#endif
 
 void COM_StripExtension(char *in, char *out);
 
@@ -577,7 +566,6 @@ typedef struct {
 
   int lightmap_textures;
 
-  int currenttextures[32];
   int currenttmu;
 
   float camera_separation;

@@ -231,8 +231,6 @@ void R_DrawSpriteModel(entity_t *e) {
 
   GL_Bind(currentmodel->skins[e->frame]->texnum);
 
-  GL_TexEnv(GL_MODULATE);
-
   if(alpha == 1.0)
     glEnable(GL_ALPHA_TEST);
   else
@@ -263,7 +261,6 @@ void R_DrawSpriteModel(entity_t *e) {
   glEnd();
 
   glDisable(GL_ALPHA_TEST);
-  GL_TexEnv(GL_REPLACE);
 
   if(alpha != 1.0F)
     glDisable(GL_BLEND);
@@ -404,7 +401,6 @@ void GL_DrawParticles(int num_particles, const particle_t particles[], const uin
   GL_Bind(r_particletexture->texnum);
   glDepthMask(GL_FALSE); // no z buffering
   glEnable(GL_BLEND);
-  GL_TexEnv(GL_MODULATE);
   glBegin(GL_TRIANGLES);
 
   VectorScale(vup, 1.5, up);
@@ -439,7 +435,6 @@ void GL_DrawParticles(int num_particles, const particle_t particles[], const uin
   glDisable(GL_BLEND);
   glColor4f(1, 1, 1, 1);
   glDepthMask(1); // back to normal Z buffering
-  GL_TexEnv(GL_REPLACE);
 }
 
 /*
