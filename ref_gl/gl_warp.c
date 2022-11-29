@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // gl_warp.c -- sky and water polygons
 
 #include "gl_local.h"
+#include "gl_thin.h"
 
 extern model_t *loadmodel;
 
@@ -194,46 +195,46 @@ EmitWaterPolys
 Does a water warp on the pre-fragmented glpoly_t chain
 =============
 */
-void EmitWaterPolys(msurface_t *fa) {
-  glpoly_t *p, *bp;
-  float *v;
-  int i;
-  float s, t, os, ot;
-  float scroll;
-  float rdt = r_newrefdef.time;
+void EmitWaterPolys(msurface_t *fa, GLuint texture) {
+  //   glpoly_t *p, *bp;
+  //   float *v;
+  //   int i;
+  //   float s, t, os, ot;
+  //   float scroll;
+  //   float rdt = r_newrefdef.time;
 
-  if(fa->texinfo->flags & SURF_FLOWING)
-    scroll = -64 * ((r_newrefdef.time * 0.5) - (int)(r_newrefdef.time * 0.5));
-  else
-    scroll = 0;
-  for(bp = fa->polys; bp; bp = bp->next) {
-    p = bp;
+  //   if(fa->texinfo->flags & SURF_FLOWING)
+  //     scroll = -64 * ((r_newrefdef.time * 0.5) - (int)(r_newrefdef.time * 0.5));
+  //   else
+  //     scroll = 0;
+  //   for(bp = fa->polys; bp; bp = bp->next) {
+  //     p = bp;
 
-    glBegin(GL_TRIANGLE_FAN);
-    for(i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE) {
-      os = v[3];
-      ot = v[4];
+  //     glBegin(GL_TRIANGLE_FAN);
+  //     for(i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE) {
+  //       os = v[3];
+  //       ot = v[4];
 
-#if !id386
-      s = os + r_turbsin[(int)((ot * 0.125 + r_newrefdef.time) * TURBSCALE) & 255];
-#else
-      s = os + r_turbsin[Q_ftol(((ot * 0.125 + rdt) * TURBSCALE)) & 255];
-#endif
-      s += scroll;
-      s *= (1.0 / 64);
+  // #if !id386
+  //       s = os + r_turbsin[(int)((ot * 0.125 + r_newrefdef.time) * TURBSCALE) & 255];
+  // #else
+  //       s = os + r_turbsin[Q_ftol(((ot * 0.125 + rdt) * TURBSCALE)) & 255];
+  // #endif
+  //       s += scroll;
+  //       s *= (1.0 / 64);
 
-#if !id386
-      t = ot + r_turbsin[(int)((os * 0.125 + rdt) * TURBSCALE) & 255];
-#else
-      t = ot + r_turbsin[Q_ftol(((os * 0.125 + rdt) * TURBSCALE)) & 255];
-#endif
-      t *= (1.0 / 64);
+  // #if !id386
+  //       t = ot + r_turbsin[(int)((os * 0.125 + rdt) * TURBSCALE) & 255];
+  // #else
+  //       t = ot + r_turbsin[Q_ftol(((os * 0.125 + rdt) * TURBSCALE)) & 255];
+  // #endif
+  //       t *= (1.0 / 64);
 
-      glTexCoord2f(s, t);
-      glVertex3fv(v);
-    }
-    glEnd();
-  }
+  //       glTexCoord2f(s, t);
+  //       glVertex3fv(v);
+  //     }
+  //     glEnd();
+  //   }
 }
 
 //===================================================================
@@ -255,19 +256,11 @@ int st_to_vec[6][3] = {
 };
 
 // s = [0]/[2], t = [1]/[2]
-int vec_to_st[6][3] = {
-    {-2, 3, 1},
-    {2, 3, -1},
+int vec_to_st[6][3] = {{-2, 3, 1},  {2, 3, -1},
 
-    {1, 3, 2},
-    {-1, 3, -2},
+                       {1, 3, 2},   {-1, 3, -2},
 
-    {-2, -1, 3},
-    {-2, 1, -3}
-
-    //	{-1,2,3},
-    //	{1,2,-3}
-};
+                       {-2, -1, 3}, {-2, 1, -3}};
 
 float skymins[2][6], skymaxs[2][6];
 float sky_min, sky_max;
@@ -280,16 +273,7 @@ void DrawSkyPolygon(int nump, vec3_t vecs) {
   float *vp;
 
   c_sky++;
-#if 0
-glBegin (GL_POLYGON);
-for (i=0 ; i<nump ; i++, vecs+=3)
-{
-	VectorAdd(vecs, r_origin, v);
-	qglVertex3fv (v);
-}
-glEnd();
-return;
-#endif
+
   // decide which face it maps to
   VectorCopy(vec3_origin, v);
   for(i = 0, vp = vecs; i < nump; i++, vp += 3) {
@@ -501,17 +485,15 @@ R_DrawSkyBox
 ==============
 */
 int skytexorder[6] = {0, 2, 1, 3, 4, 5};
+
+static struct DrawState sky_draw_state = {
+    .primitive = GL_QUADS, .depth_mask = false, .depth_test_enable = true, .depth_range_min = 0, .depth_range_max = 1};
+
 void R_DrawSkyBox(void) {
   int i;
 
   glColor4f(1, 1, 1, 1);
 
-#if 0
-qglEnable (GL_BLEND);
-GL_TexEnv( GL_MODULATE );
-qglColor4f (1,1,1,0.5);
-qglDisable (GL_DEPTH_TEST);
-#endif
   if(skyrotate) { // check for no sky at all
     for(i = 0; i < 6; i++)
       if(skymins[0][i] < skymaxs[0][i] && skymins[1][i] < skymaxs[1][i])
@@ -535,22 +517,17 @@ qglDisable (GL_DEPTH_TEST);
     if(skymins[0][i] >= skymaxs[0][i] || skymins[1][i] >= skymaxs[1][i])
       continue;
 
-    GL_Bind(sky_images[skytexorder[i]]->texnum);
+    GL_begin_draw(&sky_draw_state, &(struct DrawAssets){.images[0] = sky_images[skytexorder[i]]->texnum});
 
-    glBegin(GL_QUADS);
     MakeSkyVec(skymins[0][i], skymins[1][i], i);
     MakeSkyVec(skymins[0][i], skymaxs[1][i], i);
     MakeSkyVec(skymaxs[0][i], skymaxs[1][i], i);
     MakeSkyVec(skymaxs[0][i], skymins[1][i], i);
-    glEnd();
+
+    GL_end_draw();
   }
+
   glPopMatrix();
-#if 0
-glDisable (GL_BLEND);
-glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-glColor4f (1,1,1,0.5);
-glEnable (GL_DEPTH_TEST);
-#endif
 }
 
 /*

@@ -386,45 +386,6 @@ void GL_SetTexturePalette(unsigned palette[256]) {
   }
 }
 
-void GL_EnableMultitexture(bool enable) {
-  if(enable) {
-    GL_SelectTexture(GL_TEXTURE1);
-    glEnable(GL_TEXTURE_2D);
-  } else {
-    GL_SelectTexture(GL_TEXTURE1);
-    glDisable(GL_TEXTURE_2D);
-  }
-  GL_SelectTexture(GL_TEXTURE0);
-}
-
-void GL_SelectTexture(GLenum texture) {
-  int tmu = texture - GL_TEXTURE0;
-
-  if(tmu == gl_state.currenttmu)
-    return;
-
-  gl_state.currenttmu = tmu;
-  glActiveTexture(texture);
-}
-
-void GL_Bind(int texnum) {
-  extern image_t *draw_chars;
-
-  if(gl_nobind->value && draw_chars) // performance evaluation option
-    texnum = draw_chars->texnum;
-
-  // hack until we move to thin gl
-  struct DrawAssets assets;
-  memset(&assets, 0, sizeof(assets));
-  assets.images[gl_state.currenttmu] = texnum;
-  GL_apply_draw_assets(&assets);
-}
-
-void GL_MBind(GLenum target, int texnum) {
-  GL_SelectTexture(target);
-  GL_Bind(texnum);
-}
-
 typedef struct {
   char *name;
   int minimize, maximize;
@@ -486,9 +447,8 @@ void GL_TextureMode(char *string) {
   // change all the existing mipmap texture objects
   for(i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
     if(glt->type != it_pic && glt->type != it_sky) {
-      GL_Bind(glt->texnum);
-      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
-      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
+      glTextureParameterf(glt->texnum, GL_TEXTURE_MIN_FILTER, gl_filter_min);
+      glTextureParameterf(glt->texnum, GL_TEXTURE_MAG_FILTER, gl_filter_max);
     }
   }
 }
@@ -1162,7 +1122,7 @@ image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetyp
 
   image->scrap = false;
   image->texnum = TEXNUM_IMAGES + (image - gltextures);
-  GL_Bind(image->texnum);
+  glBindTexture(GL_TEXTURE_2D, image->texnum);
   image->has_alpha =
       GL_Upload32((unsigned *)pic, width, height, (image->type != it_pic && image->type != it_sky), channels);
   image->upload_width = upload_width; // after power of 2 and scales

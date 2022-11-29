@@ -49,7 +49,8 @@
         "glad.h": "c",
         "gl_thin.h": "c",
         "uv.h": "c",
-        "win.h": "c"
+        "win.h": "c",
+        "warpsin.h": "c"
     },
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "C_Cpp.errorSquiggles": "Disabled"

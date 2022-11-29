@@ -24,8 +24,54 @@ struct DrawState {
   GLuint program_object;
 };
 
+enum DrawUniformType {
+  DrawUniformType_Unused,
+  DrawUniformType_Float,
+  DrawUniformType_Vec2,
+  DrawUniformType_Vec3,
+  DrawUniformType_Vec4,
+  DrawUniformType_Int,
+  DrawUniformType_IVec2,
+  DrawUniformType_IVec3,
+  DrawUniformType_IVec4,
+  DrawUniformType_Uint,
+  DrawUniformType_UVec2,
+  DrawUniformType_UVec3,
+  DrawUniformType_UVec4,
+  DrawUniformType_Mat2,
+  DrawUniformType_Mat3,
+  DrawUniformType_Mat4,
+  DrawUniformType_Mat2x3,
+  DrawUniformType_Mat3x2,
+  DrawUniformType_Mat2x4,
+  DrawUniformType_Mat4x2,
+  DrawUniformType_Mat3x4,
+  DrawUniformType_Mat4x3
+};
+
 struct DrawAssets {
   GLuint images[8];
+
+  struct {
+    enum DrawUniformType type;
+    GLsizei count;
+    bool transpose;
+    const void *pointer;
+    union {
+      float _float;
+      float vec2[2];
+      float vec3[3];
+      float vec4[4];
+      GLint _int;
+      GLint ivec2[2];
+      GLint ivec3[3];
+      GLint ivec4[4];
+      GLuint uint;
+      GLuint uvec2[2];
+      GLuint uvec3[3];
+      GLuint uvec4[4];
+    };
+  } uniforms[8];
 
   // element buffer and format info
 

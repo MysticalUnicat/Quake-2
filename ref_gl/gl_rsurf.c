@@ -139,6 +139,62 @@ GL_MSTR(
     out_color = vec4(albedo_map * lightmap * 2, 1);
   }
 );
+static const char bsp_turbulent_fragment_shader_source[] =
+"#version 460 compatibility\n"
+GL_MSTR(
+  layout(binding = 0) uniform sampler2D u_albedo_map;
+  layout(binding = 1) uniform sampler2D u_normal_map;
+  //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
+
+  layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
+  layout(binding = 4) uniform sampler2D u_lightmap_r1;
+  layout(binding = 5) uniform sampler2D u_lightmap_g1;
+  layout(binding = 6) uniform sampler2D u_lightmap_b1;
+
+  layout(location = 0) uniform float u_time;
+
+  layout(location = 0) in vec2 in_main_st;
+  layout(location = 1) in vec2 in_lightmap_st;
+  layout(location = 2) in vec3 in_texture_space_0;
+  layout(location = 3) in vec3 in_texture_space_1;
+  layout(location = 4) in vec3 in_texture_space_2;
+
+  layout(location = 0) out vec4 out_color;
+
+  float do_sh1(float r0, vec3 r1, vec3 normal) {
+    float r1_length = length(r1);
+    vec3 r1_normalized = r1 / r1_length;
+    float q = 0.5 * (1 + dot(r1_normalized, normal));
+    float r1_length_over_r0 = r1_length / r0;
+    float p = 1 + 2 * r1_length_over_r0;
+    float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+    return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
+  }
+
+  void main() {
+    mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
+
+    vec2 turbuluent_st = vec2(sin((in_main_st.t * 0.25 + u_time) * 1) * 0.125, sin((in_main_st.s * 0.25 + u_time) * 1) * 0.125);
+    vec2 main_st = in_main_st + turbuluent_st;
+
+    vec3 albedo_map = texture(u_albedo_map, main_st).rgb;
+    vec3 normal_map = texture(u_normal_map, main_st).rgb;
+    vec3 normal = texture_space * normalize(normal_map * 2 - 1);
+
+    vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
+    vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
+    vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
+    vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
+
+    vec3 lightmap = vec3(
+      do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
+      do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
+      do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
+    );
+
+    out_color = vec4(albedo_map * lightmap * 2, 1);
+  }
+);
 // clang-format on
 
 static struct DrawState draw_state_opaque = {.primitive = GL_POLYGON,
@@ -159,6 +215,26 @@ static struct DrawState draw_state_transparent = {.primitive = GL_POLYGON,
                                                   .blend_enable = true,
                                                   .blend_src_factor = GL_SRC_ALPHA,
                                                   .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
+static struct DrawState draw_state_turbulent_opaque = {.primitive = GL_POLYGON,
+                                                       .vertex_shader_source = bsp_vertex_shader_source,
+                                                       .fragment_shader_source = bsp_turbulent_fragment_shader_source,
+                                                       .depth_range_min = 0,
+                                                       .depth_range_max = 1,
+                                                       .depth_test_enable = true,
+                                                       .depth_mask = true};
+
+static struct DrawState draw_state_turbulent_transparent = {.primitive = GL_POLYGON,
+                                                            .vertex_shader_source = bsp_vertex_shader_source,
+                                                            .fragment_shader_source =
+                                                                bsp_turbulent_fragment_shader_source,
+                                                            .depth_range_min = 0,
+                                                            .depth_range_max = 1,
+                                                            .depth_test_enable = true,
+                                                            .depth_mask = false,
+                                                            .blend_enable = true,
+                                                            .blend_src_factor = GL_SRC_ALPHA,
+                                                            .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 /*
 ===============
@@ -189,17 +265,17 @@ struct ImageSet R_TextureAnimation(mtexinfo_t *tex) {
 DrawGLPoly
 ================
 */
-void DrawGLPoly(glpoly_t *p) {
-  int i;
-  float *v;
+void DrawGLPoly(glpoly_t *p, GLuint texture) {
+  // int i;
+  // float *v;
 
-  glBegin(GL_POLYGON);
-  v = p->verts[0];
-  for(i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-    glTexCoord2f(v[3], v[4]);
-    glVertex3fv(v);
-  }
-  glEnd();
+  // glBegin(GL_POLYGON);
+  // v = p->verts[0];
+  // for(i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
+  //   glTexCoord2f(v[3], v[4]);
+  //   glVertex3fv(v);
+  // }
+  // glEnd();
 }
 
 //============
@@ -210,342 +286,59 @@ DrawGLFlowingPoly -- version of DrawGLPoly that handles scrolling texture
 ================
 */
 void DrawGLFlowingPoly(msurface_t *fa) {
-  int i;
-  float *v;
-  glpoly_t *p;
-  float scroll;
+  // int i;
+  // float *v;
+  // glpoly_t *p;
+  // float scroll;
 
-  p = fa->polys;
+  // p = fa->polys;
 
-  scroll = -64 * ((r_newrefdef.time / 40.0) - (int)(r_newrefdef.time / 40.0));
-  if(scroll == 0.0)
-    scroll = -64.0;
+  // scroll = -64 * ((r_newrefdef.time / 40.0) - (int)(r_newrefdef.time / 40.0));
+  // if(scroll == 0.0)
+  //   scroll = -64.0;
 
-  glBegin(GL_POLYGON);
-  v = p->verts[0];
-  for(i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-    glTexCoord2f((v[3] + scroll), v[4]);
-    glVertex3fv(v);
-  }
-  glEnd();
+  // glBegin(GL_POLYGON);
+  // v = p->verts[0];
+  // for(i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
+  //   glTexCoord2f((v[3] + scroll), v[4]);
+  //   glVertex3fv(v);
+  // }
+  // glEnd();
 }
 // PGM
 //============
 
 /*
-** R_DrawTriangleOutlines
-*/
-void R_DrawTriangleOutlines(void) {
-  int i, j;
-  glpoly_t *p;
-
-  if(!gl_showtris->value)
-    return;
-
-  glDisable(GL_TEXTURE_2D);
-  glDisable(GL_DEPTH_TEST);
-  glColor4f(1, 1, 1, 1);
-
-  for(i = 0; i < MAX_LIGHTMAPS * CMODEL_COUNT; i++) {
-    msurface_t *surf;
-
-    for(surf = gl_lms.lightmap_surfaces[i]; surf != 0; surf = surf->lightmapchain) {
-      p = surf->polys;
-      for(; p; p = p->chain) {
-        for(j = 2; j < p->numverts; j++) {
-          glBegin(GL_LINE_STRIP);
-          glVertex3fv(p->verts[0]);
-          glVertex3fv(p->verts[j - 1]);
-          glVertex3fv(p->verts[j]);
-          glVertex3fv(p->verts[0]);
-          glEnd();
-        }
-      }
-    }
-  }
-
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_TEXTURE_2D);
-}
-
-/*
 ** DrawGLPolyChain
 */
 void DrawGLPolyChain(glpoly_t *p, float soffset, float toffset) {
-  if(soffset == 0 && toffset == 0) {
-    for(; p != 0; p = p->chain) {
-      float *v;
-      int j;
+  // if(soffset == 0 && toffset == 0) {
+  //   for(; p != 0; p = p->chain) {
+  //     float *v;
+  //     int j;
 
-      glBegin(GL_POLYGON);
-      v = p->verts[0];
-      for(j = 0; j < p->numverts; j++, v += VERTEXSIZE) {
-        glTexCoord2f(v[5], v[6]);
-        glVertex3fv(v);
-      }
-      glEnd();
-    }
-  } else {
-    for(; p != 0; p = p->chain) {
-      float *v;
-      int j;
+  //     glBegin(GL_POLYGON);
+  //     v = p->verts[0];
+  //     for(j = 0; j < p->numverts; j++, v += VERTEXSIZE) {
+  //       glTexCoord2f(v[5], v[6]);
+  //       glVertex3fv(v);
+  //     }
+  //     glEnd();
+  //   }
+  // } else {
+  //   for(; p != 0; p = p->chain) {
+  //     float *v;
+  //     int j;
 
-      glBegin(GL_POLYGON);
-      v = p->verts[0];
-      for(j = 0; j < p->numverts; j++, v += VERTEXSIZE) {
-        glTexCoord2f(v[5] - soffset, v[6] - toffset);
-        glVertex3fv(v);
-      }
-      glEnd();
-    }
-  }
-}
-
-/*
-** R_BlendLightMaps
-**
-** This routine takes all the given light mapped surfaces in the world and
-** blends them into the framebuffer.
-*/
-void R_BlendLightmaps(int cmodel_index) {
-  int i;
-  msurface_t *surf, *newdrawsurf = 0;
-
-  // don't bother if we're set to fullbright
-  if(r_fullbright->value)
-    return;
-  if(!r_worldmodel[cmodel_index]->lightdata)
-    return;
-
-  // don't bother writing Z
-  glDepthMask(0);
-
-  /*
-  ** set the appropriate blending mode unless we're only looking at the
-  ** lightmaps.
-  */
-  if(!gl_lightmap->value) {
-    glEnable(GL_BLEND);
-
-    if(gl_saturatelighting->value) {
-      glBlendFunc(GL_ONE, GL_ONE);
-    } else {
-      if(gl_monolightmap->string[0] != '0') {
-        switch(toupper(gl_monolightmap->string[0])) {
-        case 'I':
-          glBlendFunc(GL_ZERO, GL_SRC_COLOR);
-          break;
-        case 'L':
-          glBlendFunc(GL_ZERO, GL_SRC_COLOR);
-          break;
-        case 'A':
-        default:
-          glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-          break;
-        }
-      } else {
-        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
-      }
-    }
-  }
-
-  if(currentmodel == r_worldmodel[cmodel_index])
-    c_visible_lightmaps = 0;
-
-  /*
-  ** render static lightmaps first
-  */
-  for(i = 1; i < MAX_LIGHTMAPS * CMODEL_COUNT; i++) {
-    if(gl_lms.lightmap_surfaces[i]) {
-      if(currentmodel == r_worldmodel[cmodel_index])
-        c_visible_lightmaps++;
-      GL_Bind(gl_state.lightmap_textures + i);
-
-      for(surf = gl_lms.lightmap_surfaces[i]; surf != 0; surf = surf->lightmapchain) {
-        if(surf->polys)
-          DrawGLPolyChain(surf->polys, 0, 0);
-      }
-    }
-  }
-
-  /*
-  ** render dynamic lightmaps
-  */
-  if(gl_dynamic->value) {
-    LM_InitBlock();
-
-    GL_Bind(gl_state.lightmap_textures + 0);
-
-    if(currentmodel == r_worldmodel[cmodel_index])
-      c_visible_lightmaps++;
-
-    newdrawsurf = gl_lms.lightmap_surfaces[0];
-
-    for(surf = gl_lms.lightmap_surfaces[0]; surf != 0; surf = surf->lightmapchain) {
-      int smax, tmax;
-      byte *base_rgb0, *base_r1, *base_g1, *base_b1;
-
-      smax = (surf->extents[0] >> 4) + 1;
-      tmax = (surf->extents[1] >> 4) + 1;
-
-      if(LM_AllocBlock(smax, tmax, &surf->dlight_s, &surf->dlight_t)) {
-        base_rgb0 = gl_lms.lightmap_buffer_rgb0;
-        base_r1 = gl_lms.lightmap_buffer_r1;
-        base_g1 = gl_lms.lightmap_buffer_g1;
-        base_b1 = gl_lms.lightmap_buffer_b1;
-        base_rgb0 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-        base_r1 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-        base_g1 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-        base_b1 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-
-        R_BuildLightMap(surf, base_rgb0, base_r1, base_g1, base_b1, LIGHTMAP_WIDTH * 3);
-      } else {
-        msurface_t *drawsurf;
-
-        // upload what we have so far
-        LM_UploadBlock(true);
-
-        // draw all surfaces that use this lightmap
-        for(drawsurf = newdrawsurf; drawsurf != surf; drawsurf = drawsurf->lightmapchain) {
-          if(drawsurf->polys)
-            DrawGLPolyChain(drawsurf->polys, (drawsurf->light_s - drawsurf->dlight_s) * (1.0 / 128.0),
-                            (drawsurf->light_t - drawsurf->dlight_t) * (1.0 / 128.0));
-        }
-
-        newdrawsurf = drawsurf;
-
-        // clear the block
-        LM_InitBlock();
-
-        // try uploading the block now
-        if(!LM_AllocBlock(smax, tmax, &surf->dlight_s, &surf->dlight_t)) {
-          ri.Sys_Error(ERR_FATAL, "Consecutive calls to LM_AllocBlock(%d,%d) failed (dynamic)\n", smax, tmax);
-        }
-
-        base_rgb0 = gl_lms.lightmap_buffer_rgb0;
-        base_r1 = gl_lms.lightmap_buffer_r1;
-        base_g1 = gl_lms.lightmap_buffer_g1;
-        base_b1 = gl_lms.lightmap_buffer_b1;
-        base_rgb0 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-        base_r1 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-        base_g1 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-        base_b1 += (surf->dlight_t * LIGHTMAP_WIDTH + surf->dlight_s) * 3;
-
-        R_BuildLightMap(surf, base_rgb0, base_r1, base_g1, base_b1, LIGHTMAP_WIDTH * 3);
-      }
-    }
-
-    /*
-    ** draw remainder of dynamic lightmaps that haven't been uploaded yet
-    */
-    if(newdrawsurf)
-      LM_UploadBlock(true);
-
-    for(surf = newdrawsurf; surf != 0; surf = surf->lightmapchain) {
-      if(surf->polys)
-        DrawGLPolyChain(surf->polys, (surf->light_s - surf->dlight_s) * (1.0 / 128.0),
-                        (surf->light_t - surf->dlight_t) * (1.0 / 128.0));
-    }
-  }
-
-  /*
-  ** restore state
-  */
-  glDisable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glDepthMask(1);
-}
-
-/*
-================
-R_RenderBrushPoly
-================
-*/
-void R_RenderBrushPoly(msurface_t *fa) {
-  int maps;
-  image_t *image;
-  bool is_dynamic = false;
-
-  c_brush_polys++;
-
-  struct ImageSet image_set = R_TextureAnimation(fa->texinfo);
-  image = image_set.albedo;
-
-  if(fa->flags & SURF_DRAWTURB) {
-    GL_Bind(image->texnum);
-
-    // warp texture, no lightmaps
-    glColor4f(gl_state.inverse_intensity, gl_state.inverse_intensity, gl_state.inverse_intensity, 1.0F);
-    EmitWaterPolys(fa);
-
-    return;
-  }
-
-  GL_Bind(image->texnum);
-
-  //======
-  // PGM
-  if(fa->texinfo->flags & SURF_FLOWING)
-    DrawGLFlowingPoly(fa);
-  else
-    DrawGLPoly(fa->polys);
-  // PGM
-  //======
-
-  /*
-  ** check for lightmap modification
-  */
-  for(maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++) {
-    if(r_newrefdef.lightstyles[fa->styles[maps]].white != fa->cached_light[maps])
-      goto dynamic;
-  }
-
-  // dynamic this frame or dynamic previously
-  if((fa->dlightframe == r_framecount)) {
-  dynamic:
-    if(gl_dynamic->value) {
-      if(!(fa->texinfo->flags & (SURF_SKY | SURF_TRANS33 | SURF_TRANS66 | SURF_WARP))) {
-        is_dynamic = true;
-      }
-    }
-  }
-
-  if(is_dynamic) {
-    if((fa->styles[maps] >= 32 || fa->styles[maps] == 0) && (fa->dlightframe != r_framecount)) {
-      unsigned temp_rgb0[34 * 34];
-      unsigned temp_r1[34 * 34];
-      unsigned temp_g1[34 * 34];
-      unsigned temp_b1[34 * 34];
-      int smax, tmax;
-
-      smax = (fa->extents[0] >> 4) + 1;
-      tmax = (fa->extents[1] >> 4) + 1;
-
-      R_BuildLightMap(fa, (void *)temp_rgb0, (void *)temp_r1, (void *)temp_g1, (void *)temp_b1, smax * 4);
-      R_SetCacheState(fa);
-
-      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 0);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGB, GL_UNSIGNED_BYTE, temp_rgb0);
-
-      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 1);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGB, GL_UNSIGNED_BYTE, temp_r1);
-
-      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 2);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGB, GL_UNSIGNED_BYTE, temp_g1);
-
-      GL_Bind(gl_state.lightmap_textures + fa->lightmaptexturenum + 3);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGB, GL_UNSIGNED_BYTE, temp_b1);
-
-      fa->lightmapchain = gl_lms.lightmap_surfaces[fa->lightmaptexturenum];
-      gl_lms.lightmap_surfaces[fa->lightmaptexturenum] = fa;
-    } else {
-      fa->lightmapchain = gl_lms.lightmap_surfaces[0];
-      gl_lms.lightmap_surfaces[0] = fa;
-    }
-  } else {
-    fa->lightmapchain = gl_lms.lightmap_surfaces[fa->lightmaptexturenum];
-    gl_lms.lightmap_surfaces[fa->lightmaptexturenum] = fa;
-  }
+  //     glBegin(GL_POLYGON);
+  //     v = p->verts[0];
+  //     for(j = 0; j < p->numverts; j++, v += VERTEXSIZE) {
+  //       glTexCoord2f(v[5] - soffset, v[6] - toffset);
+  //       glVertex3fv(v);
+  //     }
+  //     glEnd();
+  //   }
+  // }
 }
 
 /*
@@ -566,11 +359,7 @@ void R_DrawAlphaSurfaces(void) {
   //
   glLoadMatrixf(r_world_matrix);
 
-  glEnable(GL_BLEND);
-
   for(s = r_alpha_surfaces; s; s = s->texturechain) {
-    GL_Bind(s->texinfo->albedo_image->texnum);
-
     c_brush_polys++;
     if(s->texinfo->flags & SURF_TRANS33)
       glColor4f(1, 1, 1, 0.33);
@@ -578,58 +367,16 @@ void R_DrawAlphaSurfaces(void) {
       glColor4f(1, 1, 1, 0.66);
     else
       glColor4f(1, 1, 1, 1);
+
     if(s->flags & SURF_DRAWTURB)
-      EmitWaterPolys(s);
+      EmitWaterPolys(s, s->texinfo->albedo_image->texnum);
     else
-      DrawGLPoly(s->polys);
+      DrawGLPoly(s->polys, s->texinfo->albedo_image->texnum);
   }
 
   glColor4f(1, 1, 1, 1);
-  glDisable(GL_BLEND);
 
   r_alpha_surfaces = NULL;
-}
-
-/*
-================
-DrawTextureChains
-================
-*/
-void DrawTextureChains(void) {
-  int i;
-  msurface_t *s;
-  image_t *image;
-
-  c_visible_textures = 0;
-
-  for(i = 0, image = gltextures; i < numgltextures; i++, image++) {
-    if(!image->registration_sequence)
-      continue;
-    if(!image->texturechain)
-      continue;
-    c_visible_textures++;
-
-    for(s = image->texturechain; s; s = s->texturechain) {
-      if(!(s->flags & SURF_DRAWTURB))
-        R_RenderBrushPoly(s);
-    }
-  }
-
-  GL_EnableMultitexture(false);
-  for(i = 0, image = gltextures; i < numgltextures; i++, image++) {
-    if(!image->registration_sequence)
-      continue;
-    s = image->texturechain;
-    if(!s)
-      continue;
-
-    for(; s; s = s->texturechain) {
-      if(s->flags & SURF_DRAWTURB)
-        R_RenderBrushPoly(s);
-    }
-
-    image->texturechain = NULL;
-  }
 }
 
 static void GL_RenderLightmappedPoly(msurface_t *surf) {
@@ -692,19 +439,22 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 
   c_brush_polys++;
 
-  // GL_MBind(GL_TEXTURE0, image_set.albedo->texnum);
-  // GL_MBind(GL_TEXTURE1, image_set.normal->texnum);
+  struct DrawState *draw_state;
 
-  // GL_MBind(GL_TEXTURE3, gl_state.lightmap_textures + lmtex + 0);
-  // GL_MBind(GL_TEXTURE4, gl_state.lightmap_textures + lmtex + 1);
-  // GL_MBind(GL_TEXTURE5, gl_state.lightmap_textures + lmtex + 2);
-  // GL_MBind(GL_TEXTURE6, gl_state.lightmap_textures + lmtex + 3);
   struct DrawAssets assets = {.images[0] = image_set.albedo->texnum,
                               .images[1] = image_set.normal->texnum,
                               .images[3] = gl_state.lightmap_textures + lmtex + 0,
                               .images[4] = gl_state.lightmap_textures + lmtex + 1,
                               .images[5] = gl_state.lightmap_textures + lmtex + 2,
                               .images[6] = gl_state.lightmap_textures + lmtex + 3};
+
+  if(surf->texinfo->flags & SURF_WARP) {
+    draw_state = &draw_state_turbulent_opaque;
+    assets.uniforms[0].type = DrawUniformType_Float;
+    assets.uniforms[0]._float = r_newrefdef.time;
+  } else {
+    draw_state = &draw_state_opaque;
+  }
 
   float scroll =
       (surf->texinfo->flags & SURF_FLOWING) ? -64 * ((r_newrefdef.time / 40.0) - (int)(r_newrefdef.time / 40.0)) : 0;
@@ -714,8 +464,8 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 
   for(p = surf->polys; p; p = p->chain) {
     v = p->verts[0];
-    // glBegin(GL_POLYGON);
-    GL_begin_draw(&draw_state_opaque, &assets);
+
+    GL_begin_draw(draw_state, &assets);
 
     glMultiTexCoord3fv(GL_TEXTURE2, surf->texture_space_mat3[0]);
     glMultiTexCoord3fv(GL_TEXTURE3, surf->texture_space_mat3[1]);
@@ -726,7 +476,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       glVertex3fv(v);
     }
 
-    glEnd();
+    GL_end_draw();
   }
 }
 
@@ -753,7 +503,6 @@ void R_DrawInlineBModel(int cmodel_index) {
   psurf = &currentmodel->surfaces[currentmodel->firstmodelsurface];
 
   if(currententity->flags & RF_TRANSLUCENT) {
-    glEnable(GL_BLEND);
     glColor4f(1, 1, 1, 0.25);
   }
 
@@ -772,18 +521,13 @@ void R_DrawInlineBModel(int cmodel_index) {
       if(psurf->texinfo->flags & (SURF_TRANS33 | SURF_TRANS66)) { // add to the translucent chain
         psurf->texturechain = r_alpha_surfaces;
         r_alpha_surfaces = psurf;
-      } else if(!(psurf->flags & SURF_DRAWTURB)) {
-        GL_RenderLightmappedPoly(psurf);
       } else {
-        GL_EnableMultitexture(false);
-        R_RenderBrushPoly(psurf);
-        GL_EnableMultitexture(true);
+        GL_RenderLightmappedPoly(psurf);
       }
     }
   }
 
   if((currententity->flags & RF_TRANSLUCENT)) {
-    glDisable(GL_BLEND);
     glColor4f(1, 1, 1, 1);
   }
 }
@@ -840,17 +584,7 @@ void R_DrawBrushModel(entity_t *e) {
   e->angles[0] = -e->angles[0]; // stupid quake bug
   e->angles[2] = -e->angles[2]; // stupid quake bug
 
-  // GL_EnableMultitexture(true);
-  // GL_SelectTexture(GL_TEXTURE0);
-  // GL_TexEnv(GL_REPLACE);
-  // GL_SelectTexture(GL_TEXTURE1);
-  // GL_TexEnv(GL_MODULATE);
-  // glUseProgram(gl_state.bsp_program.program);
-
   R_DrawInlineBModel(r_newrefdef.cmodel_index);
-
-  GL_EnableMultitexture(false);
-  // glUseProgram(0);
 
   glPopMatrix();
 }
@@ -952,16 +686,7 @@ void R_RecursiveWorldNode(int cmodel_index, mnode_t *node) {
       surf->texturechain = r_alpha_surfaces;
       r_alpha_surfaces = surf;
     } else {
-      if(!(surf->flags & SURF_DRAWTURB)) {
-        GL_RenderLightmappedPoly(surf);
-      } else {
-        // the polygon is visible, so add it to the texture
-        // sorted chain
-        // FIXME: this is a hack for animation
-        image = R_TextureAnimation(surf->texinfo).albedo;
-        surf->texturechain = image->texturechain;
-        image->texturechain = surf;
-      }
+      GL_RenderLightmappedPoly(surf);
     }
   }
 
@@ -999,22 +724,9 @@ void R_DrawWorld(int cmodel_index) {
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
   R_ClearSkyBox();
 
-  // glUseProgram(gl_state.bsp_program.program);
-
   R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
 
-  // glUseProgram(0);
-
-  /*
-  ** theoretically nothing should happen in the next two functions
-  ** if multitexture is enabled
-  */
-  DrawTextureChains();
-  R_BlendLightmaps(cmodel_index);
-
   R_DrawSkyBox();
-
-  R_DrawTriangleOutlines();
 }
 
 /*
@@ -1109,49 +821,49 @@ static void LM_UploadBlock(bool dynamic) {
         height = gl_lms.allocated[i];
     }
 
-    GL_Bind(gl_state.lightmap_textures + texture + 0);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 0);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
                     gl_lms.lightmap_buffer_rgb0);
 
-    GL_Bind(gl_state.lightmap_textures + texture + 1);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 1);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
                     gl_lms.lightmap_buffer_r1);
 
-    GL_Bind(gl_state.lightmap_textures + texture + 2);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 2);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
                     gl_lms.lightmap_buffer_g1);
 
-    GL_Bind(gl_state.lightmap_textures + texture + 3);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 3);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
                     gl_lms.lightmap_buffer_b1);
   } else {
-    GL_Bind(gl_state.lightmap_textures + texture + 0);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 0);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
                  gl_lms.lightmap_buffer_rgb0);
 
-    GL_Bind(gl_state.lightmap_textures + texture + 1);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 1);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
                  gl_lms.lightmap_buffer_r1);
 
-    GL_Bind(gl_state.lightmap_textures + texture + 2);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 2);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
                  gl_lms.lightmap_buffer_g1);
 
-    GL_Bind(gl_state.lightmap_textures + texture + 3);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 3);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
@@ -1274,7 +986,7 @@ void GL_CreateSurfaceLightmap(msurface_t *surf) {
   int smax, tmax;
   byte *base_rgb0, *base_r1, *base_g1, *base_b1;
 
-  if(surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
+  if(surf->flags & SURF_DRAWSKY)
     return;
 
   smax = (surf->extents[0] >> 4) + 1;
@@ -1320,9 +1032,6 @@ void GL_BeginBuildingLightmaps(model_t *m) {
 
   r_framecount = 1; // no dlightcache
 
-  GL_EnableMultitexture(true);
-  GL_SelectTexture(GL_TEXTURE1);
-
   /*
   ** setup the base lightstyles so the lightmaps won't have to be regenerated
   ** the first time they're seen
@@ -1344,25 +1053,25 @@ void GL_BeginBuildingLightmaps(model_t *m) {
   /*
   ** initialize the dynamic lightmap texture
   */
-  GL_Bind(gl_state.lightmap_textures + 0);
+  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + 0);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
                gl_lms.lightmap_buffer_rgb0);
 
-  GL_Bind(gl_state.lightmap_textures + 1);
+  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + 1);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
                gl_lms.lightmap_buffer_r1);
 
-  GL_Bind(gl_state.lightmap_textures + 2);
+  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + 2);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
                gl_lms.lightmap_buffer_g1);
 
-  GL_Bind(gl_state.lightmap_textures + 3);
+  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + 3);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
@@ -1374,85 +1083,4 @@ void GL_BeginBuildingLightmaps(model_t *m) {
 GL_EndBuildingLightmaps
 =======================
 */
-void GL_EndBuildingLightmaps(void) {
-  LM_UploadBlock(false);
-  GL_EnableMultitexture(false);
-}
-
-void GL_IBSPInit(void) {
-  // // clang-format off
-  // static const char * vsource =
-  // "#version 460 compatibility\n"
-  // GL_MSTR(
-  //   layout(location = 0) out vec2 out_main_st;
-  //   layout(location = 1) out vec2 out_lightmap_st;
-  //   layout(location = 2) out vec3 out_texture_space_0;
-  //   layout(location = 3) out vec3 out_texture_space_1;
-  //   layout(location = 4) out vec3 out_texture_space_2;
-
-  //   void main() {
-  //     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-
-  //     out_main_st = gl_MultiTexCoord0.st;
-  //     out_lightmap_st = gl_MultiTexCoord1.st;
-
-  //     out_texture_space_0 = gl_MultiTexCoord2.xyz;
-  //     out_texture_space_1 = gl_MultiTexCoord3.xyz;
-  //     out_texture_space_2 = gl_MultiTexCoord4.xyz;
-  //   }
-  // );
-  // static const char * fsource =
-  // "#version 460 compatibility\n"
-  // GL_MSTR(
-  //   layout(binding = 0) uniform sampler2D u_albedo_map;
-  //   layout(binding = 1) uniform sampler2D u_normal_map;
-  //   //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
-
-  //   layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
-  //   layout(binding = 4) uniform sampler2D u_lightmap_r1;
-  //   layout(binding = 5) uniform sampler2D u_lightmap_g1;
-  //   layout(binding = 6) uniform sampler2D u_lightmap_b1;
-
-  //   layout(location = 0) in vec2 in_main_st;
-  //   layout(location = 1) in vec2 in_lightmap_st;
-  //   layout(location = 2) in vec3 in_texture_space_0;
-  //   layout(location = 3) in vec3 in_texture_space_1;
-  //   layout(location = 4) in vec3 in_texture_space_2;
-
-  //   layout(location = 0) out vec4 out_color;
-
-  //   float do_sh1(float r0, vec3 r1, vec3 normal) {
-  //     float r1_length = length(r1);
-  //     vec3 r1_normalized = r1 / r1_length;
-  //     float q = 0.5 * (1 + dot(r1_normalized, normal));
-  //     float r1_length_over_r0 = r1_length / r0;
-  //     float p = 1 + 2 * r1_length_over_r0;
-  //     float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
-  //     return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
-  //   }
-
-  //   void main() {
-  //     mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
-
-  //     vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
-  //     vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
-  //     vec3 normal = texture_space * normalize(normal_map * 2 - 1);
-
-  //     vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
-  //     vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
-  //     vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
-  //     vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
-
-  //     vec3 lightmap = vec3(
-  //       do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
-  //       do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
-  //       do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
-  //     );
-
-  //     out_color = vec4(albedo_map * lightmap * 2, 1);
-  //   }
-  // );
-  // // clang-format on
-
-  // glProgram_init(&gl_state.bsp_program, vsource, fsource);
-}
+void GL_EndBuildingLightmaps(void) { LM_UploadBlock(false); }

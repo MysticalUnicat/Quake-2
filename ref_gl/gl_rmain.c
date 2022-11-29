@@ -249,6 +249,20 @@ void R_DrawSpriteModel(entity_t *e) {
 R_DrawNullModel
 =============
 */
+static struct DrawState null_draw_state_opaque = {.primitive = GL_TRIANGLES,
+                                                  .depth_mask = true,
+                                                  .depth_test_enable = true,
+                                                  .depth_range_min = 0,
+                                                  .depth_range_max = 1};
+static struct DrawState null_draw_state_transparent = {.primitive = GL_TRIANGLES,
+                                                       .depth_mask = false,
+                                                       .depth_test_enable = true,
+                                                       .depth_range_min = 0,
+                                                       .depth_range_max = 1,
+                                                       .blend_enable = true,
+                                                       .blend_src_factor = GL_SRC_ALPHA,
+                                                       .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
 void R_DrawNullModel(void) {
   struct SH1 shadelight;
   int i;
@@ -261,24 +275,27 @@ void R_DrawNullModel(void) {
   glPushMatrix();
   R_RotateForEntity(currententity);
 
-  glDisable(GL_TEXTURE_2D);
-  glColor3f(shadelight.f[0], shadelight.f[4], shadelight.f[8]);
+  GL_begin_draw((currententity->flags & RF_TRANSLUCENT) ? &null_draw_state_transparent : &null_draw_state_opaque, NULL);
 
-  glBegin(GL_TRIANGLE_FAN);
-  glVertex3f(0, 0, -16);
-  for(i = 0; i <= 4; i++)
+  glColor4f(shadelight.f[0], shadelight.f[4], shadelight.f[8],
+            (currententity->flags & RF_TRANSLUCENT) ? currententity->alpha : 1);
+
+  for(i = 1; i <= 4; i++) {
+    glVertex3f(0, 0, -16);
+    glVertex3f(16 * cos((i - 1) * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
     glVertex3f(16 * cos(i * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
-  glEnd();
+  }
 
-  glBegin(GL_TRIANGLE_FAN);
-  glVertex3f(0, 0, 16);
-  for(i = 4; i >= 0; i--)
+  for(i = 4; i >= 1; i--) {
+    glVertex3f(0, 0, 16);
+    glVertex3f(16 * cos((i - 1) * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
     glVertex3f(16 * cos(i * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
-  glEnd();
+  }
 
-  glColor3f(1, 1, 1);
+  GL_end_draw();
+
+  glColor4f(1, 1, 1, 1);
   glPopMatrix();
-  glEnable(GL_TEXTURE_2D);
 }
 
 /*
@@ -326,7 +343,6 @@ void R_DrawEntitiesOnList(void) {
 
   // draw transparent entities
   // we could sort these if it ever becomes a problem...
-  glDepthMask(0); // no z writes
   for(i = 0; i < r_newrefdef.num_entities; i++) {
     currententity = &r_newrefdef.entities[i];
     if(!(currententity->flags & RF_TRANSLUCENT))
@@ -358,57 +374,6 @@ void R_DrawEntitiesOnList(void) {
       }
     }
   }
-  glDepthMask(1); // back to writing
-}
-
-/*
-** GL_DrawParticles
-**
-*/
-void GL_DrawParticles(int num_particles, const particle_t particles[], const uint32_t colortable[256]) {
-  const particle_t *p;
-  int i;
-  vec3_t up, right;
-  float scale;
-  byte color[4];
-
-  GL_Bind(r_particletexture->texnum);
-  glDepthMask(GL_FALSE); // no z buffering
-  glEnable(GL_BLEND);
-  glBegin(GL_TRIANGLES);
-
-  VectorScale(vup, 1.5, up);
-  VectorScale(vright, 1.5, right);
-
-  for(p = particles, i = 0; i < num_particles; i++, p++) {
-    // hack a scale up to keep particles from disapearing
-    scale = (p->origin[0] - r_origin[0]) * vpn[0] + (p->origin[1] - r_origin[1]) * vpn[1] +
-            (p->origin[2] - r_origin[2]) * vpn[2];
-
-    if(scale < 20)
-      scale = 1;
-    else
-      scale = 1 + scale * 0.004;
-
-    *(int *)color = colortable[p->color];
-    color[3] = p->alpha * 255;
-
-    glColor4ubv(color);
-
-    glTexCoord2f(0.0625, 0.0625);
-    glVertex3fv(p->origin);
-
-    glTexCoord2f(1.0625, 0.0625);
-    glVertex3f(p->origin[0] + up[0] * scale, p->origin[1] + up[1] * scale, p->origin[2] + up[2] * scale);
-
-    glTexCoord2f(0.0625, 1.0625);
-    glVertex3f(p->origin[0] + right[0] * scale, p->origin[1] + right[1] * scale, p->origin[2] + right[2] * scale);
-  }
-
-  glEnd();
-  glDisable(GL_BLEND);
-  glColor4f(1, 1, 1, 1);
-  glDepthMask(1); // back to normal Z buffering
 }
 
 /*
@@ -416,37 +381,36 @@ void GL_DrawParticles(int num_particles, const particle_t particles[], const uin
 R_DrawParticles
 ===============
 */
+static struct DrawState particle_draw_state = {.primitive = GL_POINTS,
+                                               .depth_test_enable = true,
+                                               .depth_range_min = 0,
+                                               .depth_range_max = 1,
+                                               .depth_mask = false,
+                                               .blend_enable = true,
+                                               .blend_src_factor = GL_SRC_ALPHA,
+                                               .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
 void R_DrawParticles(void) {
-  if(gl_ext_pointparameters->value && glPointParameterf) {
-    int i;
-    unsigned char color[4];
-    const particle_t *p;
+  int i;
+  unsigned char color[4];
+  const particle_t *p;
 
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
+  glPointSize(gl_particle_size->value);
 
-    glPointSize(gl_particle_size->value);
+  GL_begin_draw(&particle_draw_state, NULL);
 
-    glBegin(GL_POINTS);
-    for(i = 0, p = r_newrefdef.particles; i < r_newrefdef.num_particles; i++, p++) {
-      *(int *)color = d_8to24table[p->color];
-      color[3] = p->alpha * 255;
+  for(i = 0, p = r_newrefdef.particles; i < r_newrefdef.num_particles; i++, p++) {
+    *(int *)color = d_8to24table[p->color];
+    color[3] = p->alpha * 255;
 
-      glColor4ubv(color);
+    glColor4ubv(color);
 
-      glVertex3fv(p->origin);
-    }
-    glEnd();
-
-    glDisable(GL_BLEND);
-    glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_TEXTURE_2D);
-
-  } else {
-    GL_DrawParticles(r_newrefdef.num_particles, r_newrefdef.particles, d_8to24table);
+    glVertex3fv(p->origin);
   }
+
+  GL_end_draw();
+
+  glColor4f(1, 1, 1, 1);
 }
 
 /*
@@ -454,16 +418,20 @@ void R_DrawParticles(void) {
 R_PolyBlend
 ============
 */
+static struct DrawState polyblend_draw_state = {.primitive = GL_QUADS,
+                                                .depth_test_enable = false,
+                                                .depth_range_min = 0,
+                                                .depth_range_max = 1,
+                                                .depth_mask = false,
+                                                .blend_enable = true,
+                                                .blend_src_factor = GL_SRC_ALPHA,
+                                                .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
 void R_PolyBlend(void) {
   if(!gl_polyblend->value)
     return;
   if(!v_blend[3])
     return;
-
-  glDisable(GL_ALPHA_TEST);
-  glEnable(GL_BLEND);
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_TEXTURE_2D);
 
   glLoadIdentity();
 
@@ -473,17 +441,14 @@ void R_PolyBlend(void) {
 
   glColor4fv(v_blend);
 
-  glBegin(GL_QUADS);
+  GL_begin_draw(&polyblend_draw_state, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
 
   glVertex3f(10, 100, 100);
   glVertex3f(10, -100, 100);
   glVertex3f(10, -100, -100);
   glVertex3f(10, 100, -100);
-  glEnd();
 
-  glDisable(GL_BLEND);
-  glEnable(GL_TEXTURE_2D);
-  glEnable(GL_ALPHA_TEST);
+  GL_end_draw();
 
   glColor4f(1, 1, 1, 1);
 }
@@ -506,24 +471,6 @@ int SignbitsForPlane(cplane_t *out) {
 void R_SetFrustum(void) {
   int i;
 
-#if 0
-	/*
-	** this code is wrong, since it presume a 90 degree FOV both in the
-	** horizontal and vertical plane
-	*/
-	// front side is visible
-	VectorAdd (vpn, vright, frustum[0].normal);
-	VectorSubtract (vpn, vright, frustum[1].normal);
-	VectorAdd (vpn, vup, frustum[2].normal);
-	VectorSubtract (vpn, vup, frustum[3].normal);
-
-	// we theoretically don't need to normalize these vectors, but I do it
-	// anyway so that debugging is a little easier
-	VectorNormalize( frustum[0].normal );
-	VectorNormalize( frustum[1].normal );
-	VectorNormalize( frustum[2].normal );
-	VectorNormalize( frustum[3].normal );
-#else
   // rotate VPN right by FOV_X/2 degrees
   RotatePointAroundVector(frustum[0].normal, vup, vpn, -(90 - r_newrefdef.fov_x / 2));
   // rotate VPN left by FOV_X/2 degrees
@@ -532,7 +479,6 @@ void R_SetFrustum(void) {
   RotatePointAroundVector(frustum[2].normal, vright, vpn, 90 - r_newrefdef.fov_y / 2);
   // rotate VPN down by FOV_X/2 degrees
   RotatePointAroundVector(frustum[3].normal, vright, vpn, -(90 - r_newrefdef.fov_y / 2));
-#endif
 
   for(i = 0; i < 4; i++) {
     frustum[i].type = PLANE_ANYZ;
@@ -674,10 +620,6 @@ void R_SetupGL(void) {
     glEnable(GL_CULL_FACE);
   else
     glDisable(GL_CULL_FACE);
-
-  glDisable(GL_BLEND);
-  glDisable(GL_ALPHA_TEST);
-  glEnable(GL_DEPTH_TEST);
 }
 
 /*
@@ -686,36 +628,13 @@ R_Clear
 =============
 */
 void R_Clear(void) {
-  // hack fix while moving to gl thin
-  glDepthMask(GL_TRUE);
-
-  if(gl_ztrick->value) {
-    static int trickframe;
-
-    if(gl_clear->value)
-      glClear(GL_COLOR_BUFFER_BIT);
-
-    trickframe++;
-    if(trickframe & 1) {
-      gldepthmin = 0;
-      gldepthmax = 0.49999;
-      glDepthFunc(GL_LEQUAL);
-    } else {
-      gldepthmin = 1;
-      gldepthmax = 0.5;
-      glDepthFunc(GL_GEQUAL);
-    }
-  } else {
-    if(gl_clear->value)
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    else
-      glClear(GL_DEPTH_BUFFER_BIT);
-    gldepthmin = 0;
-    gldepthmax = 1;
-    glDepthFunc(GL_LEQUAL);
+  if(gl_clear->value)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  else {
+    glDepthMask(GL_TRUE);
+    glClear(GL_DEPTH_BUFFER_BIT);
   }
-
-  glDepthRange(gldepthmin, gldepthmax);
+  glDepthFunc(GL_LEQUAL);
 }
 
 void R_Flash(void) { R_PolyBlend(); }
@@ -778,49 +697,8 @@ void R_SetGL2D(void) {
   glOrtho(0, vid.width, vid.height, 0, -99999, 99999);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  glDisable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
-  glDisable(GL_BLEND);
-  glEnable(GL_ALPHA_TEST);
   glColor4f(1, 1, 1, 1);
-}
-
-static void GL_DrawColoredStereoLinePair(float r, float g, float b, float y) {
-  glColor3f(r, g, b);
-  glVertex2f(0, y);
-  glVertex2f(vid.width, y);
-  glColor3f(0, 0, 0);
-  glVertex2f(0, y + 1);
-  glVertex2f(vid.width, y + 1);
-}
-
-static void GL_DrawStereoPattern(void) {
-  int i;
-
-  if(!(gl_config.renderer & GL_RENDERER_INTERGRAPH))
-    return;
-
-  if(!gl_state.stereo_enabled)
-    return;
-
-  R_SetGL2D();
-
-  glDrawBuffer(GL_BACK_LEFT);
-
-  for(i = 0; i < 20; i++) {
-    glBegin(GL_LINES);
-    GL_DrawColoredStereoLinePair(1, 0, 0, 0);
-    GL_DrawColoredStereoLinePair(1, 0, 0, 2);
-    GL_DrawColoredStereoLinePair(1, 0, 0, 4);
-    GL_DrawColoredStereoLinePair(1, 0, 0, 6);
-    GL_DrawColoredStereoLinePair(0, 1, 0, 8);
-    GL_DrawColoredStereoLinePair(1, 1, 0, 10);
-    GL_DrawColoredStereoLinePair(1, 1, 0, 12);
-    GL_DrawColoredStereoLinePair(0, 1, 0, 14);
-    glEnd();
-
-    GLimp_EndFrame();
-  }
 }
 
 /*
@@ -1103,8 +981,6 @@ bool R_Init(void *hinstance, void *hWnd) {
   R_InitParticleTexture();
   Draw_InitLocal();
 
-  GL_IBSPInit();
-
   err = glGetError();
   if(err != GL_NO_ERROR)
     ri.Con_Printf(PRINT_ALL, "glGetError() = 0x%x\n", err);
@@ -1194,10 +1070,7 @@ void R_BeginFrame(float camera_separation) {
   glOrtho(0, vid.width, vid.height, 0, -99999, 99999);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  glDisable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
-  glDisable(GL_BLEND);
-  glEnable(GL_ALPHA_TEST);
   glColor4f(1, 1, 1, 1);
 
   /*
@@ -1231,11 +1104,6 @@ void R_BeginFrame(float camera_separation) {
     GL_TextureSolidMode(gl_texturesolidmode->string);
     gl_texturesolidmode->modified = false;
   }
-
-  /*
-  ** swapinterval stuff
-  */
-  GL_UpdateSwapInterval();
 
   //
   // clear screen if desired
@@ -1280,6 +1148,15 @@ void R_SetPalette(const unsigned char *palette) {
 /*
 ** R_DrawBeam
 */
+static struct DrawState beam_draw_state = {.primitive = GL_TRIANGLE_STRIP,
+                                           .depth_test_enable = true,
+                                           .depth_range_min = 0,
+                                           .depth_range_max = 1,
+                                           .depth_mask = false,
+                                           .blend_enable = true,
+                                           .blend_src_factor = GL_SRC_ALPHA,
+                                           .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
 void R_DrawBeam(entity_t *e) {
 #define NUM_BEAM_SEGS 6
 
@@ -1315,10 +1192,6 @@ void R_DrawBeam(entity_t *e) {
     VectorAdd(start_points[i], direction, end_points[i]);
   }
 
-  glDisable(GL_TEXTURE_2D);
-  glEnable(GL_BLEND);
-  glDepthMask(GL_FALSE);
-
   r = (d_8to24table[e->skinnum & 0xFF]) & 0xFF;
   g = (d_8to24table[e->skinnum & 0xFF] >> 8) & 0xFF;
   b = (d_8to24table[e->skinnum & 0xFF] >> 16) & 0xFF;
@@ -1329,18 +1202,16 @@ void R_DrawBeam(entity_t *e) {
 
   glColor4f(r, g, b, e->alpha);
 
-  glBegin(GL_TRIANGLE_STRIP);
+  GL_begin_draw(&beam_draw_state, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
+
   for(i = 0; i < NUM_BEAM_SEGS; i++) {
     glVertex3fv(start_points[i]);
     glVertex3fv(end_points[i]);
     glVertex3fv(start_points[(i + 1) % NUM_BEAM_SEGS]);
     glVertex3fv(end_points[(i + 1) % NUM_BEAM_SEGS]);
   }
-  glEnd();
 
-  glEnable(GL_TEXTURE_2D);
-  glDisable(GL_BLEND);
-  glDepthMask(GL_TRUE);
+  GL_end_draw();
 }
 
 //===================================================================

@@ -414,10 +414,6 @@ extern int c_visible_textures;
 extern float r_world_matrix[16];
 
 void R_TranslatePlayerSkin(int playernum);
-void GL_Bind(int texnum);
-void GL_MBind(GLenum target, int texnum);
-void GL_EnableMultitexture(bool enable);
-void GL_SelectTexture(GLenum);
 
 struct SH1 R_LightPoint(int cmodel_index, vec3_t p);
 void R_PushDlights(int cmodel_index);
@@ -453,7 +449,7 @@ void R_RotateForEntity(entity_t *e);
 void R_MarkLeaves(int cmodel_index);
 
 glpoly_t *WaterWarpPolyVerts(glpoly_t *p);
-void EmitWaterPolys(msurface_t *fa);
+void EmitWaterPolys(msurface_t *fa, GLuint texture);
 void R_AddSkySurface(msurface_t *fa);
 void R_ClearSkyBox(void);
 void R_DrawSkyBox(void);

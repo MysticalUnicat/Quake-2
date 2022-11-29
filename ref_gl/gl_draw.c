@@ -34,9 +34,8 @@ Draw_InitLocal
 void Draw_InitLocal(void) {
   // load console characters (don't bilerp characters)
   draw_chars = GL_FindImage("pics/conchars.pcx", it_pic);
-  GL_Bind(draw_chars->texnum);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTextureParameterf(draw_chars->texnum, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTextureParameterf(draw_chars->texnum, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
 static struct DrawState draw_state_quad = {.primitive = GL_QUADS,
@@ -294,7 +293,7 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
   int row;
   float t;
 
-  GL_Bind(1);
+  glBindTexture(GL_TEXTURE_2D, 1);
 
   if(rows <= 256) {
     hscale = 1;

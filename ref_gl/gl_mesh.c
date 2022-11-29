@@ -376,9 +376,6 @@ void R_DrawAliasModel(entity_t *e) {
     skin = r_notexture; // fallback...
 
   // draw it
-
-  glShadeModel(GL_SMOOTH);
-
   const struct RenderMesh *render_mesh = (const struct RenderMesh *)currentmodel->extradata;
 
   if((currententity->frame >= render_mesh->num_shapes) || (currententity->frame < 0)) {
@@ -463,8 +460,6 @@ void R_DrawAliasModel(entity_t *e) {
 
     glEnd();
   }
-
-  glShadeModel(GL_FLAT);
 
   glPopMatrix();
 

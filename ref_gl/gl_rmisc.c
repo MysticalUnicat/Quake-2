@@ -193,14 +193,9 @@ void GL_SetDefaultState(void) {
   glEnable(GL_ALPHA_TEST);
   glAlphaFunc(GL_GREATER, 0.666);
 
-  glDisable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
-  glDisable(GL_BLEND);
 
   glColor4f(1, 1, 1, 1);
-
-  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  glShadeModel(GL_FLAT);
 
   GL_TextureMode(gl_texturemode->string);
   GL_TextureAlphaMode(gl_texturealphamode->string);
@@ -211,8 +206,6 @@ void GL_SetDefaultState(void) {
 
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   if(glPointParameterf) {
     float attenuations[3];
@@ -225,16 +218,5 @@ void GL_SetDefaultState(void) {
     glPointParameterf(GL_POINT_SIZE_MIN, gl_particle_min_size->value);
     glPointParameterf(GL_POINT_SIZE_MAX, gl_particle_max_size->value);
     glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, attenuations);
-  }
-
-  GL_UpdateSwapInterval();
-}
-
-void GL_UpdateSwapInterval(void) {
-  if(gl_swapinterval->modified) {
-    gl_swapinterval->modified = false;
-
-    if(!gl_state.stereo_enabled) {
-    }
   }
 }
