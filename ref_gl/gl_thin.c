@@ -89,24 +89,34 @@ void GL_apply_draw_state(const struct DrawState *state) {
   }
 
   if(current_draw_state.depth_test_enable != state->depth_test_enable) {
-    (state->depth_test_enable ? glEnable : glDisable)(GL_DEPTH_TEST);
+    if(state->depth_test_enable) {
+      glEnable(GL_DEPTH_TEST);
+    } else {
+      glDisable(GL_DEPTH_TEST);
+    }
   }
 
   if(current_draw_state.depth_mask != state->depth_mask) {
-    glDepthMask(state->depth_mask ? GL_TRUE : GL_FALSE);
+    if(state->depth_mask) {
+      glDepthMask(GL_TRUE);
+    } else {
+      glDepthMask(GL_FALSE);
+    }
   }
 
   if(current_draw_state.depth_range_min != state->depth_range_min ||
      current_draw_state.depth_range_max != state->depth_range_max) {
-    glDepthRangef(state->depth_range_min, state->depth_range_max);
+    glDepthRange(state->depth_range_min, state->depth_range_max);
   }
 
   if(state->blend_enable) {
-    // if(!current_draw_state.blend_enable || current_draw_state.blend_src_factor != state->blend_src_factor ||
-    //  current_draw_state.blend_dst_factor != state->blend_dst_factor) {
-    glEnable(GL_BLEND);
-    glBlendFunc(state->blend_src_factor, state->blend_dst_factor);
-    // }
+    if(!current_draw_state.blend_enable) {
+      glEnable(GL_BLEND);
+    }
+    if(current_draw_state.blend_src_factor != state->blend_src_factor ||
+       current_draw_state.blend_dst_factor != state->blend_dst_factor) {
+      glBlendFunc(state->blend_src_factor, state->blend_dst_factor);
+    }
   } else if(current_draw_state.blend_enable) {
     glDisable(GL_BLEND);
   }

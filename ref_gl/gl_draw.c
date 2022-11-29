@@ -40,11 +40,15 @@ void Draw_InitLocal(void) {
 }
 
 static struct DrawState draw_state_quad = {.primitive = GL_QUADS,
+                                           .depth_range_min = 0,
+                                           .depth_range_max = 1,
                                            .blend_enable = true,
                                            .blend_src_factor = GL_SRC_ALPHA,
                                            .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 static struct DrawState draw_state_triangle = {.primitive = GL_TRIANGLES,
+                                               .depth_range_min = 0,
+                                               .depth_range_max = 1,
                                                .blend_enable = true,
                                                .blend_src_factor = GL_SRC_ALPHA,
                                                .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};

@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 
+#include "gl_thin.h"
+
 #include <assert.h>
 
 static vec3_t modelorg; // relative to viewpoint
@@ -64,6 +66,99 @@ extern void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, by
 
 =============================================================
 */
+
+// clang-format off
+static const char bsp_vertex_shader_source[] =
+"#version 460 compatibility\n"
+GL_MSTR(
+  layout(location = 0) out vec2 out_main_st;
+  layout(location = 1) out vec2 out_lightmap_st;
+  layout(location = 2) out vec3 out_texture_space_0;
+  layout(location = 3) out vec3 out_texture_space_1;
+  layout(location = 4) out vec3 out_texture_space_2;
+
+  void main() {
+    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+    out_main_st = gl_MultiTexCoord0.st;
+    out_lightmap_st = gl_MultiTexCoord1.st;
+
+    out_texture_space_0 = gl_MultiTexCoord2.xyz;
+    out_texture_space_1 = gl_MultiTexCoord3.xyz;
+    out_texture_space_2 = gl_MultiTexCoord4.xyz;
+  }
+);
+static const char bsp_fragment_shader_source[] =
+"#version 460 compatibility\n"
+GL_MSTR(
+  layout(binding = 0) uniform sampler2D u_albedo_map;
+  layout(binding = 1) uniform sampler2D u_normal_map;
+  //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
+
+  layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
+  layout(binding = 4) uniform sampler2D u_lightmap_r1;
+  layout(binding = 5) uniform sampler2D u_lightmap_g1;
+  layout(binding = 6) uniform sampler2D u_lightmap_b1;
+
+  layout(location = 0) in vec2 in_main_st;
+  layout(location = 1) in vec2 in_lightmap_st;
+  layout(location = 2) in vec3 in_texture_space_0;
+  layout(location = 3) in vec3 in_texture_space_1;
+  layout(location = 4) in vec3 in_texture_space_2;
+
+  layout(location = 0) out vec4 out_color;
+
+  float do_sh1(float r0, vec3 r1, vec3 normal) {
+    float r1_length = length(r1);
+    vec3 r1_normalized = r1 / r1_length;
+    float q = 0.5 * (1 + dot(r1_normalized, normal));
+    float r1_length_over_r0 = r1_length / r0;
+    float p = 1 + 2 * r1_length_over_r0;
+    float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+    return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
+  }
+
+  void main() {
+    mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
+
+    vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
+    vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
+    vec3 normal = texture_space * normalize(normal_map * 2 - 1);
+
+    vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
+    vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
+    vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
+    vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
+
+    vec3 lightmap = vec3(
+      do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
+      do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
+      do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
+    );
+
+    out_color = vec4(albedo_map * lightmap * 2, 1);
+  }
+);
+// clang-format on
+
+static struct DrawState draw_state_opaque = {.primitive = GL_POLYGON,
+                                             .vertex_shader_source = bsp_vertex_shader_source,
+                                             .fragment_shader_source = bsp_fragment_shader_source,
+                                             .depth_range_min = 0,
+                                             .depth_range_max = 1,
+                                             .depth_test_enable = true,
+                                             .depth_mask = true};
+
+static struct DrawState draw_state_transparent = {.primitive = GL_POLYGON,
+                                                  .vertex_shader_source = bsp_vertex_shader_source,
+                                                  .fragment_shader_source = bsp_fragment_shader_source,
+                                                  .depth_range_min = 0,
+                                                  .depth_range_max = 1,
+                                                  .depth_test_enable = true,
+                                                  .depth_mask = false,
+                                                  .blend_enable = true,
+                                                  .blend_src_factor = GL_SRC_ALPHA,
+                                                  .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 /*
 ===============
@@ -597,13 +692,19 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 
   c_brush_polys++;
 
-  GL_MBind(GL_TEXTURE0, image_set.albedo->texnum);
-  GL_MBind(GL_TEXTURE1, image_set.normal->texnum);
+  // GL_MBind(GL_TEXTURE0, image_set.albedo->texnum);
+  // GL_MBind(GL_TEXTURE1, image_set.normal->texnum);
 
-  GL_MBind(GL_TEXTURE3, gl_state.lightmap_textures + lmtex + 0);
-  GL_MBind(GL_TEXTURE4, gl_state.lightmap_textures + lmtex + 1);
-  GL_MBind(GL_TEXTURE5, gl_state.lightmap_textures + lmtex + 2);
-  GL_MBind(GL_TEXTURE6, gl_state.lightmap_textures + lmtex + 3);
+  // GL_MBind(GL_TEXTURE3, gl_state.lightmap_textures + lmtex + 0);
+  // GL_MBind(GL_TEXTURE4, gl_state.lightmap_textures + lmtex + 1);
+  // GL_MBind(GL_TEXTURE5, gl_state.lightmap_textures + lmtex + 2);
+  // GL_MBind(GL_TEXTURE6, gl_state.lightmap_textures + lmtex + 3);
+  struct DrawAssets assets = {.images[0] = image_set.albedo->texnum,
+                              .images[1] = image_set.normal->texnum,
+                              .images[3] = gl_state.lightmap_textures + lmtex + 0,
+                              .images[4] = gl_state.lightmap_textures + lmtex + 1,
+                              .images[5] = gl_state.lightmap_textures + lmtex + 2,
+                              .images[6] = gl_state.lightmap_textures + lmtex + 3};
 
   float scroll =
       (surf->texinfo->flags & SURF_FLOWING) ? -64 * ((r_newrefdef.time / 40.0) - (int)(r_newrefdef.time / 40.0)) : 0;
@@ -613,7 +714,9 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 
   for(p = surf->polys; p; p = p->chain) {
     v = p->verts[0];
-    glBegin(GL_POLYGON);
+    // glBegin(GL_POLYGON);
+    GL_begin_draw(&draw_state_opaque, &assets);
+
     glMultiTexCoord3fv(GL_TEXTURE2, surf->texture_space_mat3[0]);
     glMultiTexCoord3fv(GL_TEXTURE3, surf->texture_space_mat3[1]);
     glMultiTexCoord3fv(GL_TEXTURE4, surf->texture_space_mat3[2]);
@@ -622,6 +725,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
       glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
       glVertex3fv(v);
     }
+
     glEnd();
   }
 }
@@ -741,12 +845,12 @@ void R_DrawBrushModel(entity_t *e) {
   // GL_TexEnv(GL_REPLACE);
   // GL_SelectTexture(GL_TEXTURE1);
   // GL_TexEnv(GL_MODULATE);
-  glUseProgram(gl_state.bsp_program.program);
+  // glUseProgram(gl_state.bsp_program.program);
 
   R_DrawInlineBModel(r_newrefdef.cmodel_index);
 
   GL_EnableMultitexture(false);
-  glUseProgram(0);
+  // glUseProgram(0);
 
   glPopMatrix();
 }
@@ -895,11 +999,11 @@ void R_DrawWorld(int cmodel_index) {
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
   R_ClearSkyBox();
 
-  glUseProgram(gl_state.bsp_program.program);
+  // glUseProgram(gl_state.bsp_program.program);
 
   R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
 
-  glUseProgram(0);
+  // glUseProgram(0);
 
   /*
   ** theoretically nothing should happen in the next two functions
@@ -1276,79 +1380,79 @@ void GL_EndBuildingLightmaps(void) {
 }
 
 void GL_IBSPInit(void) {
-  // clang-format off
-  static const char * vsource =
-  "#version 460 compatibility\n"
-  GL_MSTR(
-    layout(location = 0) out vec2 out_main_st;
-    layout(location = 1) out vec2 out_lightmap_st;
-    layout(location = 2) out vec3 out_texture_space_0;
-    layout(location = 3) out vec3 out_texture_space_1;
-    layout(location = 4) out vec3 out_texture_space_2;
+  // // clang-format off
+  // static const char * vsource =
+  // "#version 460 compatibility\n"
+  // GL_MSTR(
+  //   layout(location = 0) out vec2 out_main_st;
+  //   layout(location = 1) out vec2 out_lightmap_st;
+  //   layout(location = 2) out vec3 out_texture_space_0;
+  //   layout(location = 3) out vec3 out_texture_space_1;
+  //   layout(location = 4) out vec3 out_texture_space_2;
 
-    void main() {
-      gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+  //   void main() {
+  //     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
 
-      out_main_st = gl_MultiTexCoord0.st;
-      out_lightmap_st = gl_MultiTexCoord1.st;
+  //     out_main_st = gl_MultiTexCoord0.st;
+  //     out_lightmap_st = gl_MultiTexCoord1.st;
 
-      out_texture_space_0 = gl_MultiTexCoord2.xyz;
-      out_texture_space_1 = gl_MultiTexCoord3.xyz;
-      out_texture_space_2 = gl_MultiTexCoord4.xyz;
-    }
-  );
-  static const char * fsource =
-  "#version 460 compatibility\n"
-  GL_MSTR(
-    layout(binding = 0) uniform sampler2D u_albedo_map;
-    layout(binding = 1) uniform sampler2D u_normal_map;
-    //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
+  //     out_texture_space_0 = gl_MultiTexCoord2.xyz;
+  //     out_texture_space_1 = gl_MultiTexCoord3.xyz;
+  //     out_texture_space_2 = gl_MultiTexCoord4.xyz;
+  //   }
+  // );
+  // static const char * fsource =
+  // "#version 460 compatibility\n"
+  // GL_MSTR(
+  //   layout(binding = 0) uniform sampler2D u_albedo_map;
+  //   layout(binding = 1) uniform sampler2D u_normal_map;
+  //   //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
 
-    layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
-    layout(binding = 4) uniform sampler2D u_lightmap_r1;
-    layout(binding = 5) uniform sampler2D u_lightmap_g1;
-    layout(binding = 6) uniform sampler2D u_lightmap_b1;
+  //   layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
+  //   layout(binding = 4) uniform sampler2D u_lightmap_r1;
+  //   layout(binding = 5) uniform sampler2D u_lightmap_g1;
+  //   layout(binding = 6) uniform sampler2D u_lightmap_b1;
 
-    layout(location = 0) in vec2 in_main_st;
-    layout(location = 1) in vec2 in_lightmap_st;
-    layout(location = 2) in vec3 in_texture_space_0;
-    layout(location = 3) in vec3 in_texture_space_1;
-    layout(location = 4) in vec3 in_texture_space_2;
+  //   layout(location = 0) in vec2 in_main_st;
+  //   layout(location = 1) in vec2 in_lightmap_st;
+  //   layout(location = 2) in vec3 in_texture_space_0;
+  //   layout(location = 3) in vec3 in_texture_space_1;
+  //   layout(location = 4) in vec3 in_texture_space_2;
 
-    layout(location = 0) out vec4 out_color;
+  //   layout(location = 0) out vec4 out_color;
 
-    float do_sh1(float r0, vec3 r1, vec3 normal) {
-      float r1_length = length(r1);
-      vec3 r1_normalized = r1 / r1_length;
-      float q = 0.5 * (1 + dot(r1_normalized, normal));
-      float r1_length_over_r0 = r1_length / r0;
-      float p = 1 + 2 * r1_length_over_r0;
-      float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
-      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
-    }
+  //   float do_sh1(float r0, vec3 r1, vec3 normal) {
+  //     float r1_length = length(r1);
+  //     vec3 r1_normalized = r1 / r1_length;
+  //     float q = 0.5 * (1 + dot(r1_normalized, normal));
+  //     float r1_length_over_r0 = r1_length / r0;
+  //     float p = 1 + 2 * r1_length_over_r0;
+  //     float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+  //     return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
+  //   }
 
-    void main() {
-      mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
+  //   void main() {
+  //     mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
 
-      vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
-      vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
-      vec3 normal = texture_space * normalize(normal_map * 2 - 1);
+  //     vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
+  //     vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
+  //     vec3 normal = texture_space * normalize(normal_map * 2 - 1);
 
-      vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
-      vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
-      vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
-      vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
+  //     vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
+  //     vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
+  //     vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
+  //     vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
 
-      vec3 lightmap = vec3(
-        do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
-        do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
-        do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
-      );
+  //     vec3 lightmap = vec3(
+  //       do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
+  //       do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
+  //       do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
+  //     );
 
-      out_color = vec4(albedo_map * lightmap * 2, 1);
-    }
-  );
-  // clang-format on
+  //     out_color = vec4(albedo_map * lightmap * 2, 1);
+  //   }
+  // );
+  // // clang-format on
 
-  glProgram_init(&gl_state.bsp_program, vsource, fsource);
+  // glProgram_init(&gl_state.bsp_program, vsource, fsource);
 }

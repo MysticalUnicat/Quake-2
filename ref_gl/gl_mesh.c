@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gl_local.h"
 
+#include "gl_thin.h"
+
 #include "render_mesh.h"
 
 /*
@@ -31,304 +33,34 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 =============================================================
 */
 
-#define NUMVERTEXNORMALS 162
-
-float r_avertexnormals[NUMVERTEXNORMALS][3] = {
-#include "anorms.h"
-};
-
-typedef float vec4_t[4];
-
-static vec4_t s_lerped[MAX_VERTS];
-// static	vec3_t	lerped[MAX_VERTS];
-
-// vec3_t shadevector;
-// float shadelight[3];
 struct SH1 shadelight;
 
-// precalculated dot products for quantized angles
-#define SHADEDOT_QUANT 16
-float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
-#include "anormtab.h"
-    ;
-
-float *shadedots = r_avertexnormal_dots[0];
-
-void GL_LerpVerts(int nverts, dtrivertx_t *v, dtrivertx_t *ov, dtrivertx_t *verts, float *lerp, float move[3],
-                  float frontv[3], float backv[3]) {
-  int i;
-
-  // PMM -- added RF_SHELL_DOUBLE, RF_SHELL_HALF_DAM
-  if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) {
-    for(i = 0; i < nverts; i++, v++, ov++, lerp += 4) {
-      float *normal = r_avertexnormals[verts[i].lightnormalindex];
-
-      lerp[0] = move[0] + ov->v[0] * backv[0] + v->v[0] * frontv[0] + normal[0] * POWERSUIT_SCALE;
-      lerp[1] = move[1] + ov->v[1] * backv[1] + v->v[1] * frontv[1] + normal[1] * POWERSUIT_SCALE;
-      lerp[2] = move[2] + ov->v[2] * backv[2] + v->v[2] * frontv[2] + normal[2] * POWERSUIT_SCALE;
-    }
-  } else {
-    for(i = 0; i < nverts; i++, v++, ov++, lerp += 4) {
-      lerp[0] = move[0] + ov->v[0] * backv[0] + v->v[0] * frontv[0];
-      lerp[1] = move[1] + ov->v[1] * backv[1] + v->v[1] * frontv[1];
-      lerp[2] = move[2] + ov->v[2] * backv[2] + v->v[2] * frontv[2];
-    }
-  }
-}
-
-/*
-=============
-GL_DrawAliasFrameLerp
-
-interpolates between two frames and origins
-FIXME: batch lerp all vertexes
-=============
-*/
-void GL_DrawAliasFrameLerp(dmdl_t *paliashdr, float backlerp) {
-  float l;
-  daliasframe_t *frame, *oldframe;
-  dtrivertx_t *v, *ov, *verts;
-  int *order;
-  int count;
-  float frontlerp;
-  float alpha;
-  vec3_t move, delta, vectors[3];
-  vec3_t frontv, backv;
-  int i;
-  int index_xyz;
-  float *lerp;
-
-  frame = (daliasframe_t *)((byte *)paliashdr + paliashdr->ofs_frames + currententity->frame * paliashdr->framesize);
-  verts = v = frame->verts;
-
-  oldframe =
-      (daliasframe_t *)((byte *)paliashdr + paliashdr->ofs_frames + currententity->oldframe * paliashdr->framesize);
-  ov = oldframe->verts;
-
-  order = (int *)((byte *)paliashdr + paliashdr->ofs_glcmds);
-
-  //	glTranslatef (frame->translate[0], frame->translate[1], frame->translate[2]);
-  //	glScalef (frame->scale[0], frame->scale[1], frame->scale[2]);
-
-  if(currententity->flags & RF_TRANSLUCENT)
-    alpha = currententity->alpha;
-  else
-    alpha = 1.0;
-
-  // PMM - added double shell
-  if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM))
-    glDisable(GL_TEXTURE_2D);
-
-  frontlerp = 1.0 - backlerp;
-
-  // move should be the delta back to the previous frame * backlerp
-  VectorSubtract(currententity->oldorigin, currententity->origin, delta);
-  AngleVectors(currententity->angles, vectors[0], vectors[1], vectors[2]);
-
-  move[0] = DotProduct(delta, vectors[0]);  // forward
-  move[1] = -DotProduct(delta, vectors[1]); // left
-  move[2] = DotProduct(delta, vectors[2]);  // up
-
-  VectorAdd(move, oldframe->translate, move);
-
-  for(i = 0; i < 3; i++) {
-    move[i] = backlerp * move[i] + frontlerp * frame->translate[i];
-  }
-
-  for(i = 0; i < 3; i++) {
-    frontv[i] = frontlerp * frame->scale[i];
-    backv[i] = backlerp * oldframe->scale[i];
-  }
-
-  lerp = s_lerped[0];
-
-  GL_LerpVerts(paliashdr->num_xyz, v, ov, verts, lerp, move, frontv, backv);
-
-  // experimental
-  float theta = currententity->angles[1] * (M_PI * 2 / 360), sin_theta, cos_theta;
-  sincosf(theta, &sin_theta, &cos_theta);
-  shadelight.f[1] = shadelight.f[1] * cos_theta - shadelight.f[2] * sin_theta;
-  shadelight.f[2] = shadelight.f[2] * sin_theta + shadelight.f[1] * cos_theta;
-  shadelight.f[5] = shadelight.f[5] * cos_theta - shadelight.f[6] * sin_theta;
-  shadelight.f[6] = shadelight.f[6] * sin_theta + shadelight.f[5] * cos_theta;
-  shadelight.f[9] = shadelight.f[9] * cos_theta - shadelight.f[10] * sin_theta;
-  shadelight.f[10] = shadelight.f[10] * sin_theta + shadelight.f[9] * cos_theta;
-
-  if(gl_vertex_arrays->value) {
-    float colorArray[MAX_VERTS * 4];
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 16, s_lerped); // padded for SIMD
-
-    //		if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
-    // PMM - added double damage shell
-    if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) {
-      glColor4f(shadelight.f[0], shadelight.f[4], shadelight.f[8], alpha);
-    } else {
-      glEnableClientState(GL_COLOR_ARRAY);
-      glColorPointer(3, GL_FLOAT, 0, colorArray);
-
-      //
-      // pre light everything
-      //
-      for(i = 0; i < paliashdr->num_xyz; i++) {
-        // float l = shadedots[verts[i].lightnormalindex];
-        SH1_Sample(shadelight, r_avertexnormals[verts[i].lightnormalindex], colorArray + (i * 3));
-      }
-    }
-
-    while(1) {
-      // get the vertex count and primitive type
-      count = *order++;
-      if(!count)
-        break; // done
-      if(count < 0) {
-        count = -count;
-        glBegin(GL_TRIANGLE_FAN);
-      } else {
-        glBegin(GL_TRIANGLE_STRIP);
-      }
-
-      // PMM - added double damage shell
-      if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) {
-        do {
-          index_xyz = order[2];
-          order += 3;
-
-          glVertex3fv(s_lerped[index_xyz]);
-
-        } while(--count);
-      } else {
-        do {
-          // texture coordinates come from the draw list
-          glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
-          index_xyz = order[2];
-
-          order += 3;
-
-          // normals and vertexes come from the frame list
-          //					l = shadedots[verts[index_xyz].lightnormalindex];
-
-          //					glColor4f (l* shadelight[0], l*shadelight[1], l*shadelight[2], alpha);
-          glArrayElement(index_xyz);
-
-        } while(--count);
-      }
-      glEnd();
-    }
-  } else {
-    while(1) {
-      // get the vertex count and primitive type
-      count = *order++;
-      if(!count)
-        break; // done
-      if(count < 0) {
-        count = -count;
-        glBegin(GL_TRIANGLE_FAN);
-      } else {
-        glBegin(GL_TRIANGLE_STRIP);
-      }
-
-      if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE)) {
-        do {
-          index_xyz = order[2];
-          order += 3;
-
-          glColor4f(shadelight.f[0], shadelight.f[4], shadelight.f[8], alpha);
-          glVertex3fv(s_lerped[index_xyz]);
-
-        } while(--count);
-      } else {
-        do {
-          // texture coordinates come from the draw list
-          glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
-          index_xyz = order[2];
-          order += 3;
-
-          // normals and vertexes come from the frame list
-          vec3_t shade_color;
-          SH1_Sample(shadelight, r_avertexnormals[verts[index_xyz].lightnormalindex], shade_color);
-
-          glColor4f(shade_color[0], shade_color[1], shade_color[2], alpha);
-          glVertex3fv(s_lerped[index_xyz]);
-        } while(--count);
-      }
-
-      glEnd();
-    }
-  }
-
-  //	if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
-  // PMM - added double damage shell
-  if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM))
-    glEnable(GL_TEXTURE_2D);
-}
-
-#if 1
-/*
-=============
-GL_DrawAliasShadow
-=============
-*/
-extern vec3_t lightspot;
-
-void GL_DrawAliasShadow(dmdl_t *paliashdr, int posenum) {
-  // dtrivertx_t *verts;
-  // int *order;
-  // vec3_t point;
-  // float height, lheight;
-  // int count;
-  // daliasframe_t *frame;
-
-  // lheight = currententity->origin[2] - lightspot[2];
-
-  // frame = (daliasframe_t *)((byte *)paliashdr + paliashdr->ofs_frames + currententity->frame * paliashdr->framesize);
-  // verts = frame->verts;
-
-  // height = 0;
-
-  // order = (int *)((byte *)paliashdr + paliashdr->ofs_glcmds);
-
-  // height = -lheight + 1.0;
-
-  // while(1) {
-  //   // get the vertex count and primitive type
-  //   count = *order++;
-  //   if(!count)
-  //     break; // done
-  //   if(count < 0) {
-  //     count = -count;
-  //     glBegin(GL_TRIANGLE_FAN);
-  //   } else
-  //     glBegin(GL_TRIANGLE_STRIP);
-
-  //   do {
-  //     // normals and vertexes come from the frame list
-  //     /*
-  //           point[0] = verts[order[2]].v[0] * frame->scale[0] + frame->translate[0];
-  //           point[1] = verts[order[2]].v[1] * frame->scale[1] + frame->translate[1];
-  //           point[2] = verts[order[2]].v[2] * frame->scale[2] + frame->translate[2];
-  //     */
-
-  //     memcpy(point, s_lerped[order[2]], sizeof(point));
-
-  //     point[0] -= shadevector[0] * (point[2] + lheight);
-  //     point[1] -= shadevector[1] * (point[2] + lheight);
-  //     point[2] = height;
-  //     //			height -= 0.001;
-  //     glVertex3fv(point);
-
-  //     order += 3;
-
-  //     //			verts++;
-
-  //   } while(--count);
-
-  //   glEnd();
-  // }
-}
-
-#endif
+static struct DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
+                                             .depth_mask = true,
+                                             .depth_test_enable = true,
+                                             .depth_range_min = 0,
+                                             .depth_range_max = 1};
+static struct DrawState draw_state_opaque_depthhack = {.primitive = GL_TRIANGLES,
+                                                       .depth_mask = true,
+                                                       .depth_test_enable = true,
+                                                       .depth_range_min = 0,
+                                                       .depth_range_max = 0.3};
+static struct DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
+                                                  .depth_mask = false,
+                                                  .depth_test_enable = true,
+                                                  .depth_range_min = 0,
+                                                  .depth_range_max = 1,
+                                                  .blend_enable = true,
+                                                  .blend_src_factor = GL_SRC_ALPHA,
+                                                  .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct DrawState draw_state_transparent_depthhack = {.primitive = GL_TRIANGLES,
+                                                            .depth_mask = false,
+                                                            .depth_test_enable = true,
+                                                            .depth_range_min = 0,
+                                                            .depth_range_max = 0.3,
+                                                            .blend_enable = true,
+                                                            .blend_src_factor = GL_SRC_ALPHA,
+                                                            .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 /*
 ** R_CullAliasModel
@@ -595,8 +327,6 @@ void R_DrawAliasModel(entity_t *e) {
   // PGM
   // =================
 
-  shadedots = r_avertexnormal_dots[((int)(currententity->angles[1] * (SHADEDOT_QUANT / 360.0))) & (SHADEDOT_QUANT - 1)];
-
   // an = currententity->angles[1] / 180 * M_PI;
   // shadevector[0] = cos(-an);
   // shadevector[1] = sin(-an);
@@ -612,9 +342,6 @@ void R_DrawAliasModel(entity_t *e) {
   //
   // draw all the triangles
   //
-  if(currententity->flags & RF_DEPTHHACK) // hack the depth range to prevent view model from poking into walls
-    glDepthRange(gldepthmin, gldepthmin + 0.3 * (gldepthmax - gldepthmin));
-
   if((currententity->flags & RF_WEAPONMODEL) && (r_lefthand->value == 1.0F)) {
     extern void MYgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);
 
@@ -647,15 +374,10 @@ void R_DrawAliasModel(entity_t *e) {
   }
   if(!skin)
     skin = r_notexture; // fallback...
-  GL_Bind(skin->texnum);
 
   // draw it
 
   glShadeModel(GL_SMOOTH);
-
-  if(currententity->flags & RF_TRANSLUCENT) {
-    glEnable(GL_BLEND);
-  }
 
   const struct RenderMesh *render_mesh = (const struct RenderMesh *)currentmodel->extradata;
 
@@ -675,6 +397,10 @@ void R_DrawAliasModel(entity_t *e) {
     currententity->backlerp = 0;
 
   // GL_DrawAliasFrameLerp(paliashdr, currententity->backlerp);
+  struct DrawState *draw_state =
+      (currententity->flags & RF_TRANSLUCENT)
+          ? ((currententity->flags & RF_DEPTHHACK) ? &draw_state_transparent_depthhack : &draw_state_transparent)
+          : ((currententity->flags & RF_DEPTHHACK) ? &draw_state_opaque_depthhack : &draw_state_opaque);
 
   {
     static uint32_t index[MAX_TRIANGLES * 3];
@@ -708,7 +434,7 @@ void R_DrawAliasModel(entity_t *e) {
     RenderMesh_render_lerp_shaped(render_mesh, &output, currententity->frame, currententity->oldframe,
                                   currententity->backlerp);
 
-    glBegin(GL_TRIANGLES);
+    GL_begin_draw(draw_state, &(struct DrawAssets){.images[0] = skin->texnum});
 
     if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) {
       glColor3f(shadelight.f[0], shadelight.f[4], shadelight.f[8]);
@@ -749,26 +475,6 @@ void R_DrawAliasModel(entity_t *e) {
     glCullFace(GL_FRONT);
   }
 
-  if(currententity->flags & RF_TRANSLUCENT) {
-    glDisable(GL_BLEND);
-  }
-
-  if(currententity->flags & RF_DEPTHHACK)
-    glDepthRange(gldepthmin, gldepthmax);
-
-#if 0
-  if(gl_shadows->value && !(currententity->flags & (RF_TRANSLUCENT | RF_WEAPONMODEL))) {
-    glPushMatrix();
-    R_RotateForEntity(e);
-    glDisable(GL_TEXTURE_2D);
-    glEnable(GL_BLEND);
-    glColor4f(0, 0, 0, 0.5);
-    GL_DrawAliasShadow(paliashdr, currententity->frame);
-    glEnable(GL_TEXTURE_2D);
-    glDisable(GL_BLEND);
-    glPopMatrix();
-  }
-#endif
   glColor4f(1, 1, 1, 1);
 }
 

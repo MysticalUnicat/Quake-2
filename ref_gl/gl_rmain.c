@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 #include "gl_local.h"
 
+#include "gl_thin.h"
+
 #include <GLFW/glfw3.h>
 
 #include "../client/keys.h"
@@ -176,6 +178,15 @@ void R_RotateForEntity(entity_t *e) {
 =============================================================
 */
 
+static struct DrawState sprite_draw_state = {.primitive = GL_QUADS,
+                                             .depth_test_enable = true,
+                                             .depth_range_min = 0,
+                                             .depth_range_max = 1,
+                                             .depth_mask = false,
+                                             .blend_enable = true,
+                                             .blend_src_factor = GL_SRC_ALPHA,
+                                             .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
 /*
 =================
 R_DrawSpriteModel
@@ -194,49 +205,17 @@ void R_DrawSpriteModel(entity_t *e) {
 
   psprite = (dsprite_t *)currentmodel->extradata;
 
-#if 0
-	if (e->frame < 0 || e->frame >= psprite->numframes)
-	{
-		ri.Con_Printf (PRINT_ALL, "no such sprite frame %i\n", e->frame);
-		e->frame = 0;
-	}
-#endif
   e->frame %= psprite->numframes;
 
   frame = &psprite->frames[e->frame];
 
-#if 0
-	if (psprite->type == SPR_ORIENTED)
-	{	// bullet marks on walls
-	vec3_t		v_forward, v_right, v_up;
-
-	AngleVectors (currententity->angles, v_forward, v_right, v_up);
-		up = v_up;
-		right = v_right;
-	}
-	else
-#endif
-  { // normal sprite
-    up = vup;
-    right = vright;
-  }
+  up = vup;
+  right = vright;
 
   if(e->flags & RF_TRANSLUCENT)
     alpha = e->alpha;
 
-  if(alpha != 1.0F)
-    glEnable(GL_BLEND);
-
-  glColor4f(1, 1, 1, alpha);
-
-  GL_Bind(currentmodel->skins[e->frame]->texnum);
-
-  if(alpha == 1.0)
-    glEnable(GL_ALPHA_TEST);
-  else
-    glDisable(GL_ALPHA_TEST);
-
-  glBegin(GL_QUADS);
+  GL_begin_draw(&sprite_draw_state, &(struct DrawAssets){.images[0] = currentmodel->skins[e->frame]->texnum});
 
   glTexCoord2f(0, 1);
   VectorMA(e->origin, -frame->origin_y, up, point);
@@ -258,12 +237,7 @@ void R_DrawSpriteModel(entity_t *e) {
   VectorMA(point, frame->width - frame->origin_x, right, point);
   glVertex3fv(point);
 
-  glEnd();
-
-  glDisable(GL_ALPHA_TEST);
-
-  if(alpha != 1.0F)
-    glDisable(GL_BLEND);
+  GL_end_draw();
 
   glColor4f(1, 1, 1, 1);
 }
@@ -712,6 +686,9 @@ R_Clear
 =============
 */
 void R_Clear(void) {
+  // hack fix while moving to gl thin
+  glDepthMask(GL_TRUE);
+
   if(gl_ztrick->value) {
     static int trickframe;
 
@@ -780,8 +757,6 @@ void R_RenderView(refdef_t *fd) {
   R_DrawWorld(r_newrefdef.cmodel_index);
 
   R_DrawEntitiesOnList();
-
-  R_RenderDlights();
 
   R_DrawParticles();
 
