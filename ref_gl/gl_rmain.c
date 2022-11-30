@@ -395,9 +395,12 @@ void R_DrawParticles(void) {
   unsigned char color[4];
   const particle_t *p;
 
+  if(r_newrefdef.num_particles == 0)
+    return;
+
   glPointSize(gl_particle_size->value);
 
-  GL_begin_draw(&particle_draw_state, NULL);
+  GL_begin_draw(&particle_draw_state, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
 
   for(i = 0, p = r_newrefdef.particles; i < r_newrefdef.num_particles; i++, p++) {
     *(int *)color = d_8to24table[p->color];
@@ -628,13 +631,19 @@ R_Clear
 =============
 */
 void R_Clear(void) {
+  GLboolean old_mask;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &old_mask);
+
+  glDepthMask(GL_TRUE);
+
   if(gl_clear->value)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  else {
-    glDepthMask(GL_TRUE);
+  else
     glClear(GL_DEPTH_BUFFER_BIT);
-  }
+
   glDepthFunc(GL_LEQUAL);
+
+  glDepthMask(old_mask);
 }
 
 void R_Flash(void) { R_PolyBlend(); }

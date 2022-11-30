@@ -391,7 +391,7 @@ void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *des
     int maps;
 
     for(i = 0; i < size; i++) {
-      s_blocklights[i].f[0] = s_blocklights[i].f[4] = s_blocklights[i].f[8] = 255;
+      s_blocklights[i].f[0] = s_blocklights[i].f[4] = s_blocklights[i].f[8] = 127;
       s_blocklights[i].f[1] = s_blocklights[i].f[2] = s_blocklights[i].f[3] = 0;
       s_blocklights[i].f[5] = s_blocklights[i].f[6] = s_blocklights[i].f[7] = 0;
       s_blocklights[i].f[9] = s_blocklights[i].f[10] = s_blocklights[i].f[11] = 0;

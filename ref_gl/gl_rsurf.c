@@ -174,7 +174,7 @@ GL_MSTR(
   void main() {
     mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
 
-    vec2 turbuluent_st = vec2(sin((in_main_st.t * 0.25 + u_time) * 1) * 0.125, sin((in_main_st.s * 0.25 + u_time) * 1) * 0.125);
+    vec2 turbuluent_st = sin(in_main_st.ts * 4 + vec2(u_time, u_time)) * 0.0625;
     vec2 main_st = in_main_st + turbuluent_st;
 
     vec3 albedo_map = texture(u_albedo_map, main_st).rgb;

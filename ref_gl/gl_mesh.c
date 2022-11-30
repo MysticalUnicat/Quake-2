@@ -431,10 +431,12 @@ void R_DrawAliasModel(entity_t *e) {
     RenderMesh_render_lerp_shaped(render_mesh, &output, currententity->frame, currententity->oldframe,
                                   currententity->backlerp);
 
+    float alpha = (currententity->flags & RF_TRANSLUCENT) ? currententity->alpha : 1;
+
     GL_begin_draw(draw_state, &(struct DrawAssets){.images[0] = skin->texnum});
 
     if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) {
-      glColor3f(shadelight.f[0], shadelight.f[4], shadelight.f[8]);
+      glColor4f(shadelight.f[0], shadelight.f[4], shadelight.f[8], alpha);
 
       for(uint32_t i = 0; i < render_mesh->num_indexes; i++) {
         uint32_t vertex_index = index[i];
@@ -452,7 +454,7 @@ void R_DrawAliasModel(entity_t *e) {
 
         float color[3];
         SH1_Sample(shadelight, &normal[vertex_index * 3], color);
-        glColor3f(color[0], color[1], color[2]);
+        glColor4f(color[0], color[1], color[2], alpha);
 
         glVertex3fv(&position[vertex_index * 3]);
       }

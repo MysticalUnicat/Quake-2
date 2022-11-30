@@ -207,16 +207,14 @@ void GL_SetDefaultState(void) {
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-  if(glPointParameterf) {
-    float attenuations[3];
+  float attenuations[3];
 
-    attenuations[0] = gl_particle_att_a->value;
-    attenuations[1] = gl_particle_att_b->value;
-    attenuations[2] = gl_particle_att_c->value;
+  attenuations[0] = gl_particle_att_a->value;
+  attenuations[1] = gl_particle_att_b->value;
+  attenuations[2] = gl_particle_att_c->value;
 
-    glEnable(GL_POINT_SMOOTH);
-    glPointParameterf(GL_POINT_SIZE_MIN, gl_particle_min_size->value);
-    glPointParameterf(GL_POINT_SIZE_MAX, gl_particle_max_size->value);
-    glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, attenuations);
-  }
+  glEnable(GL_POINT_SMOOTH);
+  glPointParameterf(GL_POINT_SIZE_MIN, gl_particle_min_size->value);
+  glPointParameterf(GL_POINT_SIZE_MAX, gl_particle_max_size->value);
+  glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, attenuations);
 }
