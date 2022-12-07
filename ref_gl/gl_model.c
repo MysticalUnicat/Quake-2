@@ -620,17 +620,12 @@ void Mod_LoadFaces(lump_t *l, struct HunkAllocator *hunk) {
     for(i = 0; i < MAXLIGHTMAPS; i++)
       out->styles[i] = in->styles[i];
     i = LittleLong(in->lightofs);
-    if(i == -1 || (out->texinfo->flags & SURF_WARP))
+    if(i == -1 || (out->texinfo->flags & (SURF_WARP | SURF_TRANS33 | SURF_TRANS66)))
       out->samples = NULL;
     else
       out->samples = loadmodel->lightdata + i;
 
-    // set the drawing flags
-
-    // create lightmaps and polygons
-    if(!(out->texinfo->flags & (SURF_SKY | SURF_TRANS33 | SURF_TRANS66)))
-      GL_CreateSurfaceLightmap(out);
-
+    GL_CreateSurfaceLightmap(out);
     GL_BuildPolygonFromSurface(out, hunk);
 
     VectorNormalize2(out->texinfo->vecs[0], out->texture_space_mat3[0]);

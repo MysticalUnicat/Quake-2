@@ -190,9 +190,6 @@ void GL_SetDefaultState(void) {
   glCullFace(GL_FRONT);
   glEnable(GL_TEXTURE_2D);
 
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.666);
-
   glDisable(GL_CULL_FACE);
 
   glColor4f(1, 1, 1, 1);

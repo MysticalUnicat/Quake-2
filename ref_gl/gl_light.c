@@ -278,7 +278,11 @@ struct SH1 R_LightPoint(int cmodel_index, vec3_t p) {
 
 //===================================================================
 
-static struct SH1 s_blocklights[34 * 34];
+static struct {
+  uint32_t num_blocklights;
+  struct SH1 *blocklights;
+} _ = {0};
+
 /*
 ===============
 R_AddDynamicLights
@@ -323,7 +327,7 @@ void R_AddDynamicLights(msurface_t *surf) {
     local[0] = DotProduct(impact, tex->vecs[0]) + tex->vecs[0][3] - surf->texturemins[0];
     local[1] = DotProduct(impact, tex->vecs[1]) + tex->vecs[1][3] - surf->texturemins[1];
 
-    pfBL = s_blocklights;
+    pfBL = _.blocklights;
     for(t = 0, ftacc = 0; t < tmax; t++, ftacc += 16) {
       td = local[1] - ftacc;
       if(td < 0)
@@ -377,24 +381,24 @@ void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *des
   lightstyle_t *style;
   int monolightmap;
 
-  if(surf->texinfo->flags & (SURF_SKY | SURF_TRANS33 | SURF_TRANS66))
-    ri.Sys_Error(ERR_DROP, "R_BuildLightMap called for non-lit surface");
-
   smax = (surf->extents[0] >> 4) + 1;
   tmax = (surf->extents[1] >> 4) + 1;
   size = smax * tmax;
-  if(size > (sizeof(s_blocklights) / sizeof(s_blocklights[0])))
-    ri.Sys_Error(ERR_DROP, "Bad s_blocklights size");
+  if(size > _.num_blocklights) {
+    _.num_blocklights = size + 1;
+    _.num_blocklights += _.num_blocklights >> 1;
+    _.blocklights = realloc(_.blocklights, _.num_blocklights * sizeof(*_.blocklights));
+  }
 
-  // set to full bright if no light data
+  // set to half bright if no light data
   if(!surf->samples) {
     int maps;
 
     for(i = 0; i < size; i++) {
-      s_blocklights[i].f[0] = s_blocklights[i].f[4] = s_blocklights[i].f[8] = 127;
-      s_blocklights[i].f[1] = s_blocklights[i].f[2] = s_blocklights[i].f[3] = 0;
-      s_blocklights[i].f[5] = s_blocklights[i].f[6] = s_blocklights[i].f[7] = 0;
-      s_blocklights[i].f[9] = s_blocklights[i].f[10] = s_blocklights[i].f[11] = 0;
+      _.blocklights[i].f[0] = _.blocklights[i].f[4] = _.blocklights[i].f[8] = 127;
+      _.blocklights[i].f[1] = _.blocklights[i].f[2] = _.blocklights[i].f[3] = 0;
+      _.blocklights[i].f[5] = _.blocklights[i].f[6] = _.blocklights[i].f[7] = 0;
+      _.blocklights[i].f[9] = _.blocklights[i].f[10] = _.blocklights[i].f[11] = 0;
     }
 
     for(maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
@@ -417,7 +421,7 @@ void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *des
     int maps;
 
     for(maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
-      bl = s_blocklights;
+      bl = _.blocklights;
 
       for(i = 0; i < 3; i++)
         scale[i] = gl_modulate->value * r_newrefdef.lightstyles[surf->styles[maps]].rgb[i];
@@ -457,10 +461,10 @@ void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *des
   } else {
     int maps;
 
-    memset(s_blocklights, 0, sizeof(s_blocklights[0]) * size);
+    memset(_.blocklights, 0, sizeof(_.blocklights[0]) * size);
 
     for(maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
-      bl = s_blocklights;
+      bl = _.blocklights;
 
       for(i = 0; i < 3; i++)
         scale[i] = gl_modulate->value * r_newrefdef.lightstyles[surf->styles[maps]].rgb[i];
@@ -505,7 +509,7 @@ void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, byte *des
 // put into texture format
 store:
   // stride -= (smax << 2);
-  bl = s_blocklights;
+  bl = _.blocklights;
 
   for(i = 0; i < tmax; i++, dest_rgb0 += stride, dest_r1 += stride, dest_g1 += stride, dest_b1 += stride) {
     for(j = 0; j < smax; j++) {

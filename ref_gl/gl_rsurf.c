@@ -76,6 +76,7 @@ GL_MSTR(
   layout(location = 2) out vec3 out_texture_space_0;
   layout(location = 3) out vec3 out_texture_space_1;
   layout(location = 4) out vec3 out_texture_space_2;
+  layout(location = 5) out float out_alpha;
 
   void main() {
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
@@ -86,6 +87,8 @@ GL_MSTR(
     out_texture_space_0 = gl_MultiTexCoord2.xyz;
     out_texture_space_1 = gl_MultiTexCoord3.xyz;
     out_texture_space_2 = gl_MultiTexCoord4.xyz;
+
+    out_alpha = gl_Color.a;
   }
 );
 static const char bsp_fragment_shader_source[] =
@@ -105,6 +108,7 @@ GL_MSTR(
   layout(location = 2) in vec3 in_texture_space_0;
   layout(location = 3) in vec3 in_texture_space_1;
   layout(location = 4) in vec3 in_texture_space_2;
+  layout(location = 5) in float in_alpha;
 
   layout(location = 0) out vec4 out_color;
 
@@ -136,7 +140,7 @@ GL_MSTR(
       do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
     );
 
-    out_color = vec4(albedo_map * lightmap * 2, 1);
+    out_color = vec4(albedo_map * lightmap * 2, in_alpha);
   }
 );
 static const char bsp_turbulent_fragment_shader_source[] =
@@ -158,6 +162,7 @@ GL_MSTR(
   layout(location = 2) in vec3 in_texture_space_0;
   layout(location = 3) in vec3 in_texture_space_1;
   layout(location = 4) in vec3 in_texture_space_2;
+  layout(location = 5) in float in_alpha;
 
   layout(location = 0) out vec4 out_color;
 
@@ -192,7 +197,7 @@ GL_MSTR(
       do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
     );
 
-    out_color = vec4(albedo_map * lightmap * 2, 1);
+    out_color = vec4(albedo_map * lightmap * 2, in_alpha);
   }
 );
 // clang-format on
@@ -260,126 +265,7 @@ struct ImageSet R_TextureAnimation(mtexinfo_t *tex) {
   return result;
 }
 
-/*
-================
-DrawGLPoly
-================
-*/
-void DrawGLPoly(glpoly_t *p, GLuint texture) {
-  // int i;
-  // float *v;
-
-  // glBegin(GL_POLYGON);
-  // v = p->verts[0];
-  // for(i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-  //   glTexCoord2f(v[3], v[4]);
-  //   glVertex3fv(v);
-  // }
-  // glEnd();
-}
-
-//============
-// PGM
-/*
-================
-DrawGLFlowingPoly -- version of DrawGLPoly that handles scrolling texture
-================
-*/
-void DrawGLFlowingPoly(msurface_t *fa) {
-  // int i;
-  // float *v;
-  // glpoly_t *p;
-  // float scroll;
-
-  // p = fa->polys;
-
-  // scroll = -64 * ((r_newrefdef.time / 40.0) - (int)(r_newrefdef.time / 40.0));
-  // if(scroll == 0.0)
-  //   scroll = -64.0;
-
-  // glBegin(GL_POLYGON);
-  // v = p->verts[0];
-  // for(i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-  //   glTexCoord2f((v[3] + scroll), v[4]);
-  //   glVertex3fv(v);
-  // }
-  // glEnd();
-}
-// PGM
-//============
-
-/*
-** DrawGLPolyChain
-*/
-void DrawGLPolyChain(glpoly_t *p, float soffset, float toffset) {
-  // if(soffset == 0 && toffset == 0) {
-  //   for(; p != 0; p = p->chain) {
-  //     float *v;
-  //     int j;
-
-  //     glBegin(GL_POLYGON);
-  //     v = p->verts[0];
-  //     for(j = 0; j < p->numverts; j++, v += VERTEXSIZE) {
-  //       glTexCoord2f(v[5], v[6]);
-  //       glVertex3fv(v);
-  //     }
-  //     glEnd();
-  //   }
-  // } else {
-  //   for(; p != 0; p = p->chain) {
-  //     float *v;
-  //     int j;
-
-  //     glBegin(GL_POLYGON);
-  //     v = p->verts[0];
-  //     for(j = 0; j < p->numverts; j++, v += VERTEXSIZE) {
-  //       glTexCoord2f(v[5] - soffset, v[6] - toffset);
-  //       glVertex3fv(v);
-  //     }
-  //     glEnd();
-  //   }
-  // }
-}
-
-/*
-================
-R_DrawAlphaSurfaces
-
-Draw water surfaces and windows.
-The BSP tree is waled front to back, so unwinding the chain
-of alpha_surfaces will draw back to front, giving proper ordering.
-================
-*/
-void R_DrawAlphaSurfaces(void) {
-  msurface_t *s;
-  float intens;
-
-  //
-  // go back to the world matrix
-  //
-  glLoadMatrixf(r_world_matrix);
-
-  for(s = r_alpha_surfaces; s; s = s->texturechain) {
-    c_brush_polys++;
-    if(s->texinfo->flags & SURF_TRANS33)
-      glColor4f(1, 1, 1, 0.33);
-    else if(s->texinfo->flags & SURF_TRANS66)
-      glColor4f(1, 1, 1, 0.66);
-    else
-      glColor4f(1, 1, 1, 1);
-
-    if(s->flags & SURF_DRAWTURB)
-      EmitWaterPolys(s, s->texinfo->albedo_image->texnum);
-    else
-      DrawGLPoly(s->polys, s->texinfo->albedo_image->texnum);
-  }
-
-  glColor4f(1, 1, 1, 1);
-
-  r_alpha_surfaces = NULL;
-}
-
-static void GL_RenderLightmappedPoly(msurface_t *surf) {
+static void GL_RenderLightmappedPoly(msurface_t *surf, bool transparent) {
   int i, nv = surf->polys->numverts;
   int map;
   float *v;
@@ -449,11 +335,11 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
                               .images[6] = gl_state.lightmap_textures + lmtex + 3};
 
   if(surf->texinfo->flags & SURF_WARP) {
-    draw_state = &draw_state_turbulent_opaque;
+    draw_state = transparent ? &draw_state_turbulent_transparent : &draw_state_turbulent_opaque;
     assets.uniforms[0].type = DrawUniformType_Float;
     assets.uniforms[0]._float = r_newrefdef.time;
   } else {
-    draw_state = &draw_state_opaque;
+    draw_state = transparent ? &draw_state_transparent : &draw_state_opaque;
   }
 
   float scroll =
@@ -481,6 +367,41 @@ static void GL_RenderLightmappedPoly(msurface_t *surf) {
 }
 
 /*
+================
+R_DrawAlphaSurfaces
+
+Draw water surfaces and windows.
+The BSP tree is waled front to back, so unwinding the chain
+of alpha_surfaces will draw back to front, giving proper ordering.
+================
+*/
+void R_DrawAlphaSurfaces(void) {
+  msurface_t *s;
+  float intens;
+
+  //
+  // go back to the world matrix
+  //
+  glLoadMatrixf(r_world_matrix);
+
+  for(s = r_alpha_surfaces; s; s = s->texturechain) {
+    c_brush_polys++;
+    if(s->texinfo->flags & SURF_TRANS33)
+      glColor4f(1, 1, 1, 0.33);
+    else if(s->texinfo->flags & SURF_TRANS66)
+      glColor4f(1, 1, 1, 0.66);
+    else
+      glColor4f(1, 1, 1, 1);
+
+    GL_RenderLightmappedPoly(s, true);
+  }
+
+  glColor4f(1, 1, 1, 1);
+
+  r_alpha_surfaces = NULL;
+}
+
+/*
 =================
 R_DrawInlineBModel
 =================
@@ -502,8 +423,11 @@ void R_DrawInlineBModel(int cmodel_index) {
 
   psurf = &currentmodel->surfaces[currentmodel->firstmodelsurface];
 
+  bool transparent = false;
+
   if(currententity->flags & RF_TRANSLUCENT) {
     glColor4f(1, 1, 1, 0.25);
+    transparent = true;
   }
 
   //
@@ -522,13 +446,9 @@ void R_DrawInlineBModel(int cmodel_index) {
         psurf->texturechain = r_alpha_surfaces;
         r_alpha_surfaces = psurf;
       } else {
-        GL_RenderLightmappedPoly(psurf);
+        GL_RenderLightmappedPoly(psurf, transparent);
       }
     }
-  }
-
-  if((currententity->flags & RF_TRANSLUCENT)) {
-    glColor4f(1, 1, 1, 1);
   }
 }
 
@@ -686,7 +606,7 @@ void R_RecursiveWorldNode(int cmodel_index, mnode_t *node) {
       surf->texturechain = r_alpha_surfaces;
       r_alpha_surfaces = surf;
     } else {
-      GL_RenderLightmappedPoly(surf);
+      GL_RenderLightmappedPoly(surf, false);
     }
   }
 

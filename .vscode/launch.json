@@ -13,14 +13,14 @@
                 "-set",
                 "basedir",
                 "c:\\quake2",
-                "+set",
-                "deathmatch",
-                "1",
+                // "+set",
+                // "deathmatch",
+                // "1",
                 "+set",
                 "cheats",
                 "1",
                 "+map",
-                "q2dm1"
+                "base1"
             ],
             "cwd": "c:\\quake2"
         },
@@ -69,7 +69,7 @@
                 "16",
                 "-scale",
                 "0.5",
-                "c:\\quake2\\baseq2\\maps\\q2dm1.bsp"
+                "c:\\quake2\\baseq2\\maps\\q2dm2.bsp"
             ],
             "cwd": "c:\\quake2"
         },
