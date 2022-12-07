@@ -445,7 +445,7 @@ void R_InitParticleTexture(void);
 void Draw_InitLocal(void);
 void GL_SubdivideSurface(msurface_t *fa, struct HunkAllocator *hunk);
 bool R_CullBox(vec3_t mins, vec3_t maxs);
-void R_RotateForEntity(entity_t *e);
+void GL_TransformForEntity(entity_t *e);
 void R_MarkLeaves(int cmodel_index);
 
 glpoly_t *WaterWarpPolyVerts(glpoly_t *p);

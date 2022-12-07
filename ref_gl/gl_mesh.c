@@ -63,129 +63,6 @@ static struct DrawState draw_state_transparent_depthhack = {.primitive = GL_TRIA
                                                             .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 /*
-** R_CullAliasModel
-*/
-static bool R_CullAliasModel(vec3_t bbox[8], entity_t *e) {
-  int i;
-  vec3_t mins, maxs;
-  dmdl_t *paliashdr;
-  vec3_t vectors[3];
-  vec3_t thismins, oldmins, thismaxs, oldmaxs;
-  daliasframe_t *pframe, *poldframe;
-  vec3_t angles;
-
-  paliashdr = (dmdl_t *)currentmodel->extradata;
-
-  if((e->frame >= paliashdr->num_frames) || (e->frame < 0)) {
-    ri.Con_Printf(PRINT_ALL, "R_CullAliasModel %s: no such frame %d\n", currentmodel->name, e->frame);
-    e->frame = 0;
-  }
-  if((e->oldframe >= paliashdr->num_frames) || (e->oldframe < 0)) {
-    ri.Con_Printf(PRINT_ALL, "R_CullAliasModel %s: no such oldframe %d\n", currentmodel->name, e->oldframe);
-    e->oldframe = 0;
-  }
-
-  pframe = (daliasframe_t *)((byte *)paliashdr + paliashdr->ofs_frames + e->frame * paliashdr->framesize);
-
-  poldframe = (daliasframe_t *)((byte *)paliashdr + paliashdr->ofs_frames + e->oldframe * paliashdr->framesize);
-
-  /*
-  ** compute axially aligned mins and maxs
-  */
-  if(pframe == poldframe) {
-    for(i = 0; i < 3; i++) {
-      mins[i] = pframe->translate[i];
-      maxs[i] = mins[i] + pframe->scale[i] * 255;
-    }
-  } else {
-    for(i = 0; i < 3; i++) {
-      thismins[i] = pframe->translate[i];
-      thismaxs[i] = thismins[i] + pframe->scale[i] * 255;
-
-      oldmins[i] = poldframe->translate[i];
-      oldmaxs[i] = oldmins[i] + poldframe->scale[i] * 255;
-
-      if(thismins[i] < oldmins[i])
-        mins[i] = thismins[i];
-      else
-        mins[i] = oldmins[i];
-
-      if(thismaxs[i] > oldmaxs[i])
-        maxs[i] = thismaxs[i];
-      else
-        maxs[i] = oldmaxs[i];
-    }
-  }
-
-  /*
-  ** compute a full bounding box
-  */
-  for(i = 0; i < 8; i++) {
-    vec3_t tmp;
-
-    if(i & 1)
-      tmp[0] = mins[0];
-    else
-      tmp[0] = maxs[0];
-
-    if(i & 2)
-      tmp[1] = mins[1];
-    else
-      tmp[1] = maxs[1];
-
-    if(i & 4)
-      tmp[2] = mins[2];
-    else
-      tmp[2] = maxs[2];
-
-    VectorCopy(tmp, bbox[i]);
-  }
-
-  /*
-  ** rotate the bounding box
-  */
-  VectorCopy(e->angles, angles);
-  angles[YAW] = -angles[YAW];
-  AngleVectors(angles, vectors[0], vectors[1], vectors[2]);
-
-  for(i = 0; i < 8; i++) {
-    vec3_t tmp;
-
-    VectorCopy(bbox[i], tmp);
-
-    bbox[i][0] = DotProduct(vectors[0], tmp);
-    bbox[i][1] = -DotProduct(vectors[1], tmp);
-    bbox[i][2] = DotProduct(vectors[2], tmp);
-
-    VectorAdd(e->origin, bbox[i], bbox[i]);
-  }
-
-  {
-    int p, f, aggregatemask = ~0;
-
-    for(p = 0; p < 8; p++) {
-      int mask = 0;
-
-      for(f = 0; f < 4; f++) {
-        float dp = DotProduct(frustum[f].normal, bbox[p]);
-
-        if((dp - frustum[f].dist) < 0) {
-          mask |= (1 << f);
-        }
-      }
-
-      aggregatemask &= mask;
-    }
-
-    if(aggregatemask) {
-      return true;
-    }
-
-    return false;
-  }
-}
-
-/*
 =================
 R_DrawAliasModel
 
@@ -193,22 +70,12 @@ R_DrawAliasModel
 */
 void R_DrawAliasModel(entity_t *e) {
   int i;
-  // dmdl_t *paliashdr;
   float an;
   vec3_t bbox[8];
   image_t *skin;
 
-  // if(!(e->flags & RF_WEAPONMODEL)) {
-  //   if(R_CullAliasModel(bbox, e))
-  //     return;
-  // }
-
-  if(e->flags & RF_WEAPONMODEL) {
-    if(r_lefthand->value == 2)
-      return;
-  }
-
-  // paliashdr = (dmdl_t *)currentmodel->extradata;
+  if(e->flags & RF_WEAPONMODEL && r_lefthand->value == 2)
+    return;
 
   //
   // get lighting information
@@ -356,8 +223,13 @@ void R_DrawAliasModel(entity_t *e) {
   }
 
   glPushMatrix();
+
+  glTranslatef((currententity->oldorigin[0] - currententity->origin[0]) * currententity->backlerp,
+               (currententity->oldorigin[1] - currententity->origin[1]) * currententity->backlerp,
+               (currententity->oldorigin[2] - currententity->origin[2]) * currententity->backlerp);
+
   e->angles[PITCH] = -e->angles[PITCH]; // sigh.
-  R_RotateForEntity(e);
+  GL_TransformForEntity(e);
   e->angles[PITCH] = -e->angles[PITCH]; // sigh.
 
   // select skin

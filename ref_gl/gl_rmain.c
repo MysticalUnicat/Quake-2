@@ -162,7 +162,7 @@ bool R_CullBox(vec3_t mins, vec3_t maxs) {
   return false;
 }
 
-void R_RotateForEntity(entity_t *e) {
+void GL_TransformForEntity(entity_t *e) {
   glTranslatef(e->origin[0], e->origin[1], e->origin[2]);
 
   glRotatef(e->angles[1], 0, 0, 1);
@@ -273,7 +273,7 @@ void R_DrawNullModel(void) {
     shadelight = R_LightPoint(r_newrefdef.cmodel_index, currententity->origin);
 
   glPushMatrix();
-  R_RotateForEntity(currententity);
+  GL_TransformForEntity(currententity);
 
   GL_begin_draw((currententity->flags & RF_TRANSLUCENT) ? &null_draw_state_transparent : &null_draw_state_opaque, NULL);
 
