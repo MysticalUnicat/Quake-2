@@ -13,14 +13,14 @@
                 "-set",
                 "basedir",
                 "c:\\quake2",
-                // "+set",
-                // "deathmatch",
-                // "1",
+                "+set",
+                "deathmatch",
+                "1",
                 "+set",
                 "cheats",
                 "1",
                 "+map",
-                "base1"
+                "q2dm1"
             ],
             "cwd": "c:\\quake2"
         },

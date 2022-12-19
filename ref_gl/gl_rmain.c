@@ -377,46 +377,6 @@ void R_DrawEntitiesOnList(void) {
 }
 
 /*
-===============
-R_DrawParticles
-===============
-*/
-static struct DrawState particle_draw_state = {.primitive = GL_POINTS,
-                                               .depth_test_enable = true,
-                                               .depth_range_min = 0,
-                                               .depth_range_max = 1,
-                                               .depth_mask = false,
-                                               .blend_enable = true,
-                                               .blend_src_factor = GL_SRC_ALPHA,
-                                               .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
-
-void R_DrawParticles(void) {
-  int i;
-  unsigned char color[4];
-  const particle_t *p;
-
-  if(r_newrefdef.num_particles == 0)
-    return;
-
-  glPointSize(gl_particle_size->value);
-
-  GL_begin_draw(&particle_draw_state, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
-
-  for(i = 0, p = r_newrefdef.particles; i < r_newrefdef.num_particles; i++, p++) {
-    *(int *)color = d_8to24table[p->color];
-    color[3] = p->alpha * 255;
-
-    glColor4ubv(color);
-
-    glVertex3fv(p->origin);
-  }
-
-  GL_end_draw();
-
-  glColor4f(1, 1, 1, 1);
-}
-
-/*
 ============
 R_PolyBlend
 ============
@@ -686,7 +646,7 @@ void R_RenderView(refdef_t *fd) {
 
   R_DrawEntitiesOnList();
 
-  R_DrawParticles();
+  GL_draw_particles();
 
   R_DrawAlphaSurfaces();
 
@@ -1118,6 +1078,8 @@ void R_BeginFrame(float camera_separation) {
   // clear screen if desired
   //
   R_Clear();
+
+  GL_reset_temporary_buffers();
 }
 
 /*

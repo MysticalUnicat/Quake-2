@@ -259,6 +259,23 @@ static inline void RenderMesh_output_position(const struct RenderMesh *render_me
   }
 }
 
+static inline void RenderMesh_output_quaternion(const struct RenderMesh *render_mesh, const alias_pga3d_10101 *vertexes,
+                                                alias_memory_SubBuffer *subbuffer) {
+  alias_memory_SubBuffer one = *subbuffer;
+  alias_memory_SubBuffer ijk = *subbuffer;
+
+  one.type_length = 1;
+
+  ijk.type_length = 3;
+  ijk.pointer = (void *)((uint8_t *)ijk.pointer + alias_memory_Format_size(ijk.type_format));
+
+  alias_memory_SubBuffer_write(&one, 0, render_mesh->num_vertexes, alias_memory_Format_Float32, sizeof(*vertexes),
+                               &vertexes->one);
+
+  alias_memory_SubBuffer_write(&ijk, 0, render_mesh->num_vertexes, alias_memory_Format_Float32, sizeof(*vertexes),
+                               &vertexes->e12);
+}
+
 static inline void RenderMesh_output_normal(const struct RenderMesh *render_mesh, const alias_pga3d_10101 *vertexes,
                                             alias_memory_SubBuffer *subbuffer) {
   for(int i = 0; i < render_mesh->num_vertexes; i++) {
@@ -316,6 +333,9 @@ static inline void RenderMesh_output_all(const struct RenderMesh *render_mesh, c
   }
   if(output->position.pointer) {
     RenderMesh_output_position(render_mesh, vertexes, &output->position);
+  }
+  if(output->quaternion.pointer) {
+    RenderMesh_output_quaternion(render_mesh, vertexes, &output->quaternion);
   }
   if(output->normal.pointer) {
     RenderMesh_output_normal(render_mesh, vertexes, &output->normal);

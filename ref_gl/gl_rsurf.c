@@ -69,7 +69,6 @@ extern void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, by
 
 // clang-format off
 static const char bsp_vertex_shader_source[] =
-"#version 460 compatibility\n"
 GL_MSTR(
   layout(location = 0) out vec2 out_main_st;
   layout(location = 1) out vec2 out_lightmap_st;
@@ -92,7 +91,6 @@ GL_MSTR(
   }
 );
 static const char bsp_fragment_shader_source[] =
-"#version 460 compatibility\n"
 GL_MSTR(
   layout(binding = 0) uniform sampler2D u_albedo_map;
   layout(binding = 1) uniform sampler2D u_normal_map;
@@ -144,7 +142,6 @@ GL_MSTR(
   }
 );
 static const char bsp_turbulent_fragment_shader_source[] =
-"#version 460 compatibility\n"
 GL_MSTR(
   layout(binding = 0) uniform sampler2D u_albedo_map;
   layout(binding = 1) uniform sampler2D u_normal_map;
@@ -336,8 +333,8 @@ static void GL_RenderLightmappedPoly(msurface_t *surf, bool transparent) {
 
   if(surf->texinfo->flags & SURF_WARP) {
     draw_state = transparent ? &draw_state_turbulent_transparent : &draw_state_turbulent_opaque;
-    assets.uniforms[0].type = DrawUniformType_Float;
-    assets.uniforms[0]._float = r_newrefdef.time;
+    // assets.uniforms[0].type = DrawUniformType_Float;
+    // assets.uniforms[0]._float = r_newrefdef.time;
   } else {
     draw_state = transparent ? &draw_state_transparent : &draw_state_opaque;
   }

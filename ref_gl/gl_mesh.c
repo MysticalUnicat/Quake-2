@@ -35,32 +35,138 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 struct SH1 shadelight;
 
-static struct DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
-                                             .depth_mask = true,
-                                             .depth_test_enable = true,
-                                             .depth_range_min = 0,
-                                             .depth_range_max = 1};
-static struct DrawState draw_state_opaque_depthhack = {.primitive = GL_TRIANGLES,
-                                                       .depth_mask = true,
-                                                       .depth_test_enable = true,
-                                                       .depth_range_min = 0,
-                                                       .depth_range_max = 0.3};
-static struct DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
-                                                  .depth_mask = false,
-                                                  .depth_test_enable = true,
-                                                  .depth_range_min = 0,
-                                                  .depth_range_max = 1,
-                                                  .blend_enable = true,
-                                                  .blend_src_factor = GL_SRC_ALPHA,
-                                                  .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
-static struct DrawState draw_state_transparent_depthhack = {.primitive = GL_TRIANGLES,
-                                                            .depth_mask = false,
-                                                            .depth_test_enable = true,
-                                                            .depth_range_min = 0,
-                                                            .depth_range_max = 0.3,
-                                                            .blend_enable = true,
-                                                            .blend_src_factor = GL_SRC_ALPHA,
-                                                            .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+// clang-format off
+struct GL_VertexFormat vertex_format = {
+  .attribute[0] = {0, alias_memory_Format_Float32, 3, "in_position", 0},
+  .attribute[1] = {1, alias_memory_Format_Unorm16, 2, "in_st", 0},
+  .attribute[2] = {1, alias_memory_Format_Snorm16, 4, "in_quaternion", 4},
+  .binding[0] = {sizeof(float) * 3, 0},
+  .binding[1] = {sizeof(uint16_t) * 2 + sizeof(int16_t) * 4, 0}
+};
+
+struct GL_UniformFormat unfiform_format = {
+  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_rgb0"},
+  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_r1"},
+  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_g1"},
+  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_b1"},
+};
+
+static const char vertex_shader_source[] =
+  GL_MSTR(
+    layout(location = 0) out vec2 out_st;
+    layout(location = 1) out vec3 out_normal;
+
+    mat3 quaternion_to_matrix(vec4 q) {
+      vec4 qn = normalize(q);
+
+      vec4 q2 = qn * 2;
+      float wy = q2.y * qn.w;
+      float wz = q2.z * qn.w;
+      float xy = q2.y * qn.x;
+      float xz = q2.z * qn.x;
+      float yy = q2.y * qn.y;
+      float zz = q2.z * qn.z;
+      vec3 normal = vec3(1 - (yy + zz), xy + wz, xz - wy);
+
+      float wx = q2.x * qn.w;
+      float xx = q2.x * qn.x;
+      float yz = q2.z * qn.y;
+      vec3 tangent = vec3(xy - wz, 1 - (xx + zz), yz + wx);
+
+      vec3 bitangent = sign(q.w) * cross(normal, tangent);
+
+      return mat3(tangent, bitangent, normal);
+    }
+
+    void main() {
+      gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
+
+      out_st = in_st;
+
+      mat3 tbn = quaternion_to_matrix(in_quaternion);
+
+      out_normal = tbn[2];
+    }
+  );
+
+// static const char vertex_shader_shell_source[] =
+//   GL_MSTR(
+//     layout(location = 0) in vec3 in_position;
+//     layout(location = 1) in vec2 in_st;
+//     layout(location = 2) in vec3 in_tangent;
+//     layout(location = 3) in vec3 in_bitangent;
+//     layout(location = 4) in vec3 in_normal;
+
+//     layout(location = 0) out vec2 out_st;
+//     layout(location = 2) out vec3 out_tbn;
+
+//     void main() {
+//       gl_Position = gl_ModelViewProjectionMatrix * in_position + in_normal * 5;
+
+//       out_st = in_st;
+
+//       out_tbn =  mat3(in_tangent, in_bitangent, in_normal);
+//     }
+//   );
+
+static const char fragment_shader_source[] =
+  GL_MSTR(
+    layout(binding = 0) uniform sampler2D u_albedo_map;
+    // layout(binding = 1) uniform sampler2D u_normal_map;
+
+    layout(location = 0) in vec2 in_st;
+    layout(location = 1) in vec3 in_normal;
+
+    layout(location = 0) out vec4 out_color;
+
+    float do_sh1(float r0, vec3 r1, vec3 normal) {
+      float r1_length = length(r1);
+      vec3 r1_normalized = r1 / r1_length;
+      float q = 0.5 * (1 + dot(r1_normalized, normal));
+      float r1_length_over_r0 = r1_length / r0;
+      float p = 1 + 2 * r1_length_over_r0;
+      float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
+    }
+
+    void main() {
+      vec3 albedo_map = texture(u_albedo_map, in_st).rgb;
+      // vec3 normal_map = texture(u_normal_map, in_st).rgb;
+      // vec3 normal = in_tbn * normalize(normal_map * 2 - 1);
+      vec3 normal = in_normal;
+
+      vec3 lightmap = vec3(do_sh1(u_light_rgb0.r, u_light_r1, normal),
+                           do_sh1(u_light_rgb0.g, u_light_g1, normal),
+                           do_sh1(u_light_rgb0.b, u_light_b1, normal));
+
+      out_color = vec4(albedo_map * lightmap * 2, 1);
+      // out_color = vec4(in_normal * 2 + 1, 1);
+    }
+  );
+// clang-format on
+
+#define DRAW_STATE                                                                                                     \
+  .primitive = GL_TRIANGLES, .vertex_format = &vertex_format, .uniform_format = &unfiform_format,                      \
+  .fragment_shader_source = fragment_shader_source
+
+#define NO_SHELL .vertex_shader_source = vertex_shader_source
+
+#define SHELL .vertex_shader_source = vertex_shader_shell_source
+
+#define OPAQUE .depth_mask = true, .depth_test_enable = true
+
+#define TRANSPARENT                                                                                                    \
+  .depth_mask = false, .depth_test_enable = true, .blend_enable = true, .blend_src_factor = GL_SRC_ALPHA,              \
+  .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA
+
+#define NO_DEPTH_HACK .depth_range_min = 0, .depth_range_max = 1
+
+#define DEPTH_HACK .depth_range_min = 0, .depth_range_max = 0.3
+
+static struct DrawState draw_state_opaque = {DRAW_STATE, NO_SHELL, OPAQUE, NO_DEPTH_HACK};
+static struct DrawState draw_state_opaque_depthhack = {DRAW_STATE, NO_SHELL, OPAQUE, DEPTH_HACK};
+static struct DrawState draw_state_transparent = {DRAW_STATE, NO_SHELL, TRANSPARENT, NO_DEPTH_HACK};
+static struct DrawState draw_state_transparent_depthhack = {DRAW_STATE, NO_SHELL, TRANSPARENT, DEPTH_HACK};
 
 /*
 =================
@@ -272,32 +378,49 @@ void R_DrawAliasModel(entity_t *e) {
           : ((currententity->flags & RF_DEPTHHACK) ? &draw_state_opaque_depthhack : &draw_state_opaque);
 
   {
-    static uint32_t index[MAX_TRIANGLES * 3];
-    static float position[MAX_TRIANGLES * 3 * 3];
-    static float normal[MAX_TRIANGLES * 3 * 3];
-    static float texture_coord[MAX_TRIANGLES * 3 * 2];
+    struct VertexPosition {
+      float position[3];
+    };
+
+    struct VertexAttribute {
+      uint16_t st[2];
+      // int16_t normal[3];
+      int16_t quaternion[4];
+    };
+
+    struct GL_Buffer element_vbo =
+        GL_allocate_temporary_buffer(GL_ELEMENT_ARRAY_BUFFER, render_mesh->num_indexes * sizeof(uint32_t));
+    struct GL_Buffer position_vbo =
+        GL_allocate_temporary_buffer(GL_ARRAY_BUFFER, render_mesh->num_vertexes * sizeof(struct VertexPosition));
+    struct GL_Buffer attribute_vbo =
+        GL_allocate_temporary_buffer(GL_ARRAY_BUFFER, render_mesh->num_vertexes * sizeof(struct VertexAttribute));
 
     struct RenderMesh_output output = {
-        .indexes = {.count = MAX_TRIANGLES * 3,
-                    .pointer = index,
+        .indexes = {.count = render_mesh->num_indexes,
+                    .pointer = (uint32_t *)element_vbo.temporary.mapping,
                     .stride = sizeof(uint32_t),
                     .type_format = alias_memory_Format_Uint32,
                     .type_length = 1},
-        .position = {.count = MAX_TRIANGLES * 3,
-                     .pointer = position,
-                     .stride = sizeof(float) * 3,
+        .position = {.count = render_mesh->num_vertexes,
+                     .pointer = &((struct VertexPosition *)position_vbo.temporary.mapping)->position[0],
+                     .stride = sizeof(struct VertexPosition),
                      .type_format = alias_memory_Format_Float32,
                      .type_length = 3},
-        .normal = {.count = MAX_TRIANGLES * 3,
-                   .pointer = normal,
-                   .stride = sizeof(float) * 3,
-                   .type_format = alias_memory_Format_Float32,
-                   .type_length = 3},
-        .texture_coord_1 = {.count = MAX_TRIANGLES * 3,
-                            .pointer = texture_coord,
-                            .stride = sizeof(float) * 2,
-                            .type_format = alias_memory_Format_Float32,
+        .texture_coord_1 = {.count = render_mesh->num_vertexes,
+                            .pointer = &((struct VertexAttribute *)attribute_vbo.temporary.mapping)->st[0],
+                            .stride = sizeof(struct VertexAttribute),
+                            .type_format = alias_memory_Format_Unorm16,
                             .type_length = 2},
+        // .normal = {.count = MAX_TRIANGLES * 3,
+        //            .pointer = &((struct VertexAttribute *)attribute_vbo.temporary.mapping)->normal[0],
+        //            .stride = sizeof(struct VertexAttribute),
+        //            .type_format = alias_memory_Format_Snorm16,
+        //            .type_length = 3},
+        .quaternion = {.count = render_mesh->num_vertexes,
+                       .pointer = &((struct VertexAttribute *)attribute_vbo.temporary.mapping)->quaternion[0],
+                       .stride = sizeof(struct VertexAttribute),
+                       .type_format = alias_memory_Format_Snorm16,
+                       .type_length = 4},
     };
 
     RenderMesh_render_lerp_shaped(render_mesh, &output, currententity->frame, currententity->oldframe,
@@ -305,34 +428,26 @@ void R_DrawAliasModel(entity_t *e) {
 
     float alpha = (currententity->flags & RF_TRANSLUCENT) ? currententity->alpha : 1;
 
-    GL_begin_draw(draw_state, &(struct DrawAssets){.images[0] = skin->texnum});
+    struct DrawAssets assets;
 
-    if(currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) {
-      glColor4f(shadelight.f[0], shadelight.f[4], shadelight.f[8], alpha);
+    alias_memory_clear(&assets, sizeof(assets));
 
-      for(uint32_t i = 0; i < render_mesh->num_indexes; i++) {
-        uint32_t vertex_index = index[i];
-        glTexCoord2fv(&texture_coord[vertex_index * 2]);
-        glVertex3f(position[vertex_index * 3 + 0] + normal[vertex_index * 3 + 0],
-                   position[vertex_index * 3 + 1] + normal[vertex_index * 3 + 1],
-                   position[vertex_index * 3 + 2] + normal[vertex_index * 3 + 2]);
-      }
-    } else {
-      shadelight = SH1_RotateX(SH1_RotateZ(shadelight, -currententity->angles[1]), currententity->angles[0]);
+    // shadelight = SH1_RotateX(SH1_RotateZ(shadelight, -currententity->angles[1]), currententity->angles[0]);
 
-      for(uint32_t i = 0; i < render_mesh->num_indexes; i++) {
-        uint32_t vertex_index = index[i];
-        glTexCoord2fv(&texture_coord[vertex_index * 2]);
+    assets.images[0] = skin->texnum;
+    assets.uniforms[0] = (struct GL_DrawAssetUniform){
+        .vec3[0] = shadelight.f[0], .vec3[1] = shadelight.f[4], .vec3[2] = shadelight.f[8]};
+    assets.uniforms[1] = (struct GL_DrawAssetUniform){
+        .vec3[0] = shadelight.f[1], .vec3[1] = shadelight.f[2], .vec3[2] = shadelight.f[3]};
+    assets.uniforms[2] = (struct GL_DrawAssetUniform){
+        .vec3[0] = shadelight.f[5], .vec3[1] = shadelight.f[6], .vec3[2] = shadelight.f[7]};
+    assets.uniforms[3] = (struct GL_DrawAssetUniform){
+        .vec3[0] = shadelight.f[9], .vec3[1] = shadelight.f[10], .vec3[2] = shadelight.f[11]};
+    assets.element_buffer = &element_vbo;
+    assets.vertex_buffers[0] = &position_vbo;
+    assets.vertex_buffers[1] = &attribute_vbo;
 
-        float color[3];
-        SH1_Sample(shadelight, &normal[vertex_index * 3], color);
-        glColor4f(color[0], color[1], color[2], alpha);
-
-        glVertex3fv(&position[vertex_index * 3]);
-      }
-    }
-
-    glEnd();
+    GL_draw_elements(draw_state, &assets, render_mesh->num_indexes, 1, 0, 0);
   }
 
   glPopMatrix();
@@ -345,84 +460,6 @@ void R_DrawAliasModel(entity_t *e) {
   }
 
   glColor4f(1, 1, 1, 1);
-}
-
-void GL_MD2Init(void) {
-  // clang-format off
-  static const char * vsource =
-  "#version 460 compatibility\n"
-  GL_MSTR(
-    layout(location = 0) out vec2 out_main_st;
-    layout(location = 1) out vec2 out_lightmap_st;
-    layout(location = 2) out vec3 out_texture_space_0;
-    layout(location = 3) out vec3 out_texture_space_1;
-    layout(location = 4) out vec3 out_texture_space_2;
-
-    void main() {
-      gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-
-      out_main_st = gl_MultiTexCoord0.st;
-      out_lightmap_st = gl_MultiTexCoord1.st;
-
-      out_texture_space_0 = gl_MultiTexCoord2.xyz;
-      out_texture_space_1 = gl_MultiTexCoord3.xyz;
-      out_texture_space_2 = gl_MultiTexCoord4.xyz;
-    }
-  );
-  static const char * fsource =
-  "#version 460 compatibility\n"
-  GL_MSTR(
-    layout(binding = 0) uniform sampler2D u_albedo_map;
-    layout(binding = 1) uniform sampler2D u_normal_map;
-    //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
-
-    layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
-    layout(binding = 4) uniform sampler2D u_lightmap_r1;
-    layout(binding = 5) uniform sampler2D u_lightmap_g1;
-    layout(binding = 6) uniform sampler2D u_lightmap_b1;
-
-    layout(location = 0) in vec2 in_main_st;
-    layout(location = 1) in vec2 in_lightmap_st;
-    layout(location = 2) in vec3 in_texture_space_0;
-    layout(location = 3) in vec3 in_texture_space_1;
-    layout(location = 4) in vec3 in_texture_space_2;
-
-    layout(location = 0) out vec4 out_color;
-
-    float do_sh1(float r0, vec3 r1, vec3 normal) {
-      float r1_length = length(r1);
-      vec3 r1_normalized = r1 / r1_length;
-      float q = 0.5 * (1 + dot(r1_normalized, normal));
-      float r1_length_over_r0 = r1_length / r0;
-      float p = 1 + 2 * r1_length_over_r0;
-      float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
-      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
-    }
-
-    void main() {
-      mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
-
-      vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
-      vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
-      vec3 normal = texture_space * normalize(normal_map * 2 - 1);
-
-      vec3 lightmap_rgb0 = texture(u_lightmap_rgb0, in_lightmap_st).rgb;
-      vec3 lightmap_r1 = texture(u_lightmap_r1, in_lightmap_st).rgb;
-      vec3 lightmap_g1 = texture(u_lightmap_g1, in_lightmap_st).rgb;
-      vec3 lightmap_b1 = texture(u_lightmap_b1, in_lightmap_st).rgb;
-
-      vec3 lightmap = vec3(
-        do_sh1(lightmap_rgb0.r, lightmap_r1 * 2 - 1, normal),
-        do_sh1(lightmap_rgb0.g, lightmap_g1 * 2 - 1, normal),
-        do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
-      );
-
-      out_color = vec4(albedo_map * lightmap * 2, 1);
-    }
-  );
-  // clang-format on
-
-  glProgram_init(&gl_state.md2_program, vsource, fsource);
 }
 
 void GL_MD2_Load(model_t *mod, struct HunkAllocator *hunk, const void *buffer) {

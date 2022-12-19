@@ -125,6 +125,7 @@ add_library(refresh STATIC
     ref_gl/gl_draw.c
     ref_gl/gl_light.c
     ref_gl/gl_model.c
+    ref_gl/gl_particle.c
     ref_gl/gl_rmisc.c
     ref_gl/gl_warp.c
     ref_gl/gl_image.c

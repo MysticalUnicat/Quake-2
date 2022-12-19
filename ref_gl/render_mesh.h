@@ -64,6 +64,7 @@ struct RenderMesh {
 struct RenderMesh_output {
   alias_memory_SubBuffer indexes;
   alias_memory_SubBuffer position;
+  alias_memory_SubBuffer quaternion;
   alias_memory_SubBuffer normal;
   alias_memory_SubBuffer tangent;
   alias_memory_SubBuffer bitangent;
