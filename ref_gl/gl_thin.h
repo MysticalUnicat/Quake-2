@@ -4,9 +4,9 @@
 #include <stdbool.h>
 
 #define THIN_GL_MAX_ATTRIBUTES 8
-#define THIN_GL_MAX_BINDINGS 4
+#define THIN_GL_MAX_BINDINGS 2
 #define THIN_GL_MAX_UNIFORMS 16
-#define THIN_GL_MAX_IMAGES 8
+#define THIN_GL_MAX_IMAGES 16
 
 #define THIN_GL_VERTEX_BIT 0x01
 #define THIN_GL_GEOMETRY_BIT 0x02
@@ -50,10 +50,10 @@ enum GL_UniformType {
   GL_UniformType_Mat2x4,
   GL_UniformType_Mat4x2,
   GL_UniformType_Mat3x4,
-  GL_UniformType_Mat4x3
+  GL_UniformType_Mat4x3,
 };
 
-struct GL_UniformFormat {
+struct GL_UniformsFormat {
   struct {
     GLbitfield stage_bits;
     enum GL_UniformType type;
@@ -62,12 +62,35 @@ struct GL_UniformFormat {
   } uniform[THIN_GL_MAX_UNIFORMS];
 };
 
+// NOTE: up to sampler 2D (that was needed at the time)
+enum GL_ImageType {
+  GL_ImageType_Unknown,
+  GL_ImageType_Sampler1D,
+  GL_ImageType_Texture1D,
+  GL_ImageType_Image1D,
+  GL_ImageType_Sampler1DShadow,
+  GL_ImageType_Sampler1DArray,
+  GL_ImageType_Texture1DArray,
+  GL_ImageType_Sampler1DArrayShadow,
+  GL_ImageType_Sampler2D,
+};
+
+struct GL_ImagesFormat {
+  struct {
+    GLbitfield stage_bits;
+    enum GL_ImageType type;
+    const char *name;
+  } image[THIN_GL_MAX_IMAGES];
+};
+
 struct DrawState {
   GLenum primitive;
 
   const struct GL_VertexFormat *vertex_format;
 
-  const struct GL_UniformFormat *uniform_format;
+  const struct GL_UniformsFormat *uniforms_format;
+
+  const struct GL_ImagesFormat *images_format;
 
   const char *vertex_shader_source;
 
@@ -126,7 +149,7 @@ struct GL_DrawAssetUniform {
 };
 
 struct DrawAssets {
-  GLuint images[THIN_GL_MAX_IMAGES];
+  GLuint image[THIN_GL_MAX_IMAGES];
 
   struct GL_DrawAssetUniform uniforms[THIN_GL_MAX_UNIFORMS];
 

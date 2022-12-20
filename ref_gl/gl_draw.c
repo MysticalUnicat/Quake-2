@@ -80,7 +80,7 @@ void Draw_Char(int x, int y, int num) {
   fcol = col * 0.0625;
   size = 0.0625;
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = draw_chars->texnum});
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = draw_chars->texnum});
 
   glColor4f(1, 1, 1, 1);
 
@@ -145,7 +145,7 @@ void Draw_StretchPic(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = gl->texnum});
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = gl->texnum});
 
   glColor4f(1, 1, 1, 1);
 
@@ -175,7 +175,7 @@ void Draw_Pic(int x, int y, const char *pic) {
     return;
   }
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = gl->texnum});
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = gl->texnum});
 
   glColor4f(1, 1, 1, 1);
 
@@ -208,7 +208,7 @@ void Draw_TileClear(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = image->texnum});
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = image->texnum});
 
   glColor4f(1, 1, 1, 1);
 
@@ -240,7 +240,7 @@ void Draw_Fill(int x, int y, int w, int h, int c) {
   if((unsigned)c > 255)
     ri.Sys_Error(ERR_FATAL, "Draw_Fill: bad color");
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
 
   color.c = d_8to24table[c];
   glColor3f(color.v[0] / 255.0, color.v[1] / 255.0, color.v[2] / 255.0);
@@ -262,7 +262,7 @@ Draw_FadeScreen
 ================
 */
 void Draw_FadeScreen(void) {
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
 
   glColor4f(0, 0, 0, 0.8);
 
@@ -325,7 +325,7 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.images[0] = 1});
+  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = 1});
 
   glTexCoord2f(0, 0);
   glVertex2f(x, y);
@@ -341,7 +341,7 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
 
 void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
                     const uint32_t *indexes, uint32_t num_indexes) {
-  GL_begin_draw(&draw_state_triangle, &(struct DrawAssets){.images[0] = ((image_t *)image)->texnum});
+  GL_begin_draw(&draw_state_triangle, &(struct DrawAssets){.image[0] = ((image_t *)image)->texnum});
 
   for(int i = 0; i < num_indexes; i++) {
     uint32_t index = indexes[i];

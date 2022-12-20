@@ -2,6 +2,36 @@
 
 #include "gl_local.h"
 
+struct GL_UniformTypeInfo {
+  const char *name;
+};
+
+static struct GL_UniformTypeInfo uniform_type_info[] = {
+    [GL_UniformType_Float] = {"float"},   [GL_UniformType_Vec2] = {"vec2"},     [GL_UniformType_Vec3] = {"vec3"},
+    [GL_UniformType_Vec4] = {"vec4"},     [GL_UniformType_Int] = {"int"},       [GL_UniformType_IVec2] = {"ivec2"},
+    [GL_UniformType_IVec3] = {"ivec3"},   [GL_UniformType_IVec4] = {"ivec4"},   [GL_UniformType_Uint] = {"uint"},
+    [GL_UniformType_UVec2] = {"uvec2"},   [GL_UniformType_UVec3] = {"uvec3"},   [GL_UniformType_UVec4] = {"uvec4"},
+    [GL_UniformType_Mat2] = {"mat2"},     [GL_UniformType_Mat3] = {"mat3"},     [GL_UniformType_Mat4] = {"mat4"},
+    [GL_UniformType_Mat2x3] = {"mat2x3"}, [GL_UniformType_Mat3x2] = {"mat3x2"}, [GL_UniformType_Mat2x4] = {"mat2x4"},
+    [GL_UniformType_Mat4x2] = {"mat4x2"}, [GL_UniformType_Mat3x4] = {"mat3x4"}, [GL_UniformType_Mat4x3] = {"mat4x3"},
+};
+
+struct GL_ImageTypeInfo {
+  GLenum target;
+  const char *name;
+};
+
+static struct GL_ImageTypeInfo image_type_info[] = {
+    [GL_ImageType_Sampler1D] = {GL_TEXTURE_1D, "sampler1D"},
+    [GL_ImageType_Texture1D] = {GL_TEXTURE_1D, "texture1D"},
+    [GL_ImageType_Image1D] = {GL_TEXTURE_1D, "image1D"},
+    [GL_ImageType_Sampler1DShadow] = {GL_TEXTURE_1D_ARRAY, "sampler1DShadow"},
+    [GL_ImageType_Sampler1DArray] = {GL_TEXTURE_1D_ARRAY, "sampler1DArray"},
+    [GL_ImageType_Texture1DArray] = {GL_TEXTURE_1D_ARRAY, "texture1DArray"},
+    [GL_ImageType_Sampler1DArrayShadow] = {GL_TEXTURE_1D_ARRAY, "sampler1DArrayShadow"},
+    [GL_ImageType_Sampler2D] = {GL_TEXTURE_2D, "sampler2D"},
+};
+
 struct TemporaryBuffer {
   GLuint buffer;
   GLenum type;
@@ -84,15 +114,16 @@ static void script_builder_add_vertex_format(const struct GL_VertexFormat *verte
         break;
       }
       if(vertex_format->attribute[i].size > 1) {
-        script_builder_add("%s%i %s;\n", vec_name, vertex_format->attribute[i].size, vertex_format->attribute[i].name);
+        script_builder_add("%s%i in_%s;\n", vec_name, vertex_format->attribute[i].size,
+                           vertex_format->attribute[i].name);
       } else {
-        script_builder_add("%s %s;\n", type_name, vertex_format->attribute[i].name);
+        script_builder_add("%s in_%s;\n", type_name, vertex_format->attribute[i].name);
       }
     }
   }
 }
 
-static void script_builder_add_uniform_format(const struct GL_UniformFormat *uniform_format, GLbitfield stage_bit) {
+static void script_builder_add_uniform_format(const struct GL_UniformsFormat *uniform_format, GLbitfield stage_bit) {
   if(uniform_format == NULL)
     return;
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
@@ -100,75 +131,21 @@ static void script_builder_add_uniform_format(const struct GL_UniformFormat *uni
       break;
     if(!(uniform_format->uniform[i].stage_bits & stage_bit))
       continue;
-    script_builder_add("layout(location=%i) uniform ", i);
-    switch(uniform_format->uniform[i].type) {
-    case GL_UniformType_Unused:
+    script_builder_add("layout(location=%i) uniform %s u_%s;\n", i,
+                       uniform_type_info[uniform_format->uniform[i].type].name, uniform_format->uniform[i].name);
+  }
+}
+
+static void script_builder_add_images_format(const struct GL_ImagesFormat *images_format, GLbitfield stage_bit) {
+  if(images_format == NULL)
+    return;
+  for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
+    if(images_format->image[i].type == 0)
       break;
-    case GL_UniformType_Float:
-      script_builder_add("float ");
-      break;
-    case GL_UniformType_Vec2:
-      script_builder_add("vec2 ");
-      break;
-    case GL_UniformType_Vec3:
-      script_builder_add("vec3 ");
-      break;
-    case GL_UniformType_Vec4:
-      script_builder_add("float ");
-      break;
-    case GL_UniformType_Int:
-      script_builder_add("float ");
-      break;
-    case GL_UniformType_IVec2:
-      script_builder_add("ivec2 ");
-      break;
-    case GL_UniformType_IVec3:
-      script_builder_add("ivec3 ");
-      break;
-    case GL_UniformType_IVec4:
-      script_builder_add("ivec4 ");
-      break;
-    case GL_UniformType_Uint:
-      script_builder_add("uint ");
-      break;
-    case GL_UniformType_UVec2:
-      script_builder_add("uvec2 ");
-      break;
-    case GL_UniformType_UVec3:
-      script_builder_add("uvec3 ");
-      break;
-    case GL_UniformType_UVec4:
-      script_builder_add("uvec4 ");
-      break;
-    case GL_UniformType_Mat2:
-      script_builder_add("mat2 ");
-      break;
-    case GL_UniformType_Mat3:
-      script_builder_add("mat3 ");
-      break;
-    case GL_UniformType_Mat4:
-      script_builder_add("mat4 ");
-      break;
-    case GL_UniformType_Mat2x3:
-      script_builder_add("mat2x3 ");
-      break;
-    case GL_UniformType_Mat3x2:
-      script_builder_add("mat3x2 ");
-      break;
-    case GL_UniformType_Mat2x4:
-      script_builder_add("mat2x4 ");
-      break;
-    case GL_UniformType_Mat4x2:
-      script_builder_add("mat4x2 ");
-      break;
-    case GL_UniformType_Mat3x4:
-      script_builder_add("mat3x4 ");
-      break;
-    case GL_UniformType_Mat4x3:
-      script_builder_add("mat4x3 ");
-      break;
-    }
-    script_builder_add("%s;\n", uniform_format->uniform[i].name);
+    if(!(images_format->image[i].stage_bits & stage_bit))
+      continue;
+    script_builder_add("layout(binding=%i) uniform %s u_%s;\n", i, image_type_info[images_format->image[i].type].name,
+                       images_format->image[i].name);
   }
 }
 
@@ -232,7 +209,8 @@ void GL_initialize_draw_state(const struct DrawState *state) {
     script_builder_init();
     script_builder_add("#version 460 compatibility\n");
     script_builder_add_vertex_format(state->vertex_format);
-    script_builder_add_uniform_format(state->uniform_format, THIN_GL_VERTEX_BIT);
+    script_builder_add_uniform_format(state->uniforms_format, THIN_GL_VERTEX_BIT);
+    script_builder_add_images_format(state->images_format, THIN_GL_VERTEX_BIT);
 
     GLuint shader = glCreateShader(GL_VERTEX_SHADER);
     const char *sources[2] = {_.script_builder_ptr, state->vertex_shader_source};
@@ -245,7 +223,8 @@ void GL_initialize_draw_state(const struct DrawState *state) {
   if(state->fragment_shader_source != NULL && state->fragment_shader_object == 0) {
     script_builder_init();
     script_builder_add("#version 460 compatibility\n");
-    script_builder_add_uniform_format(state->uniform_format, THIN_GL_FRAGMENT_BIT);
+    script_builder_add_uniform_format(state->uniforms_format, THIN_GL_FRAGMENT_BIT);
+    script_builder_add_images_format(state->images_format, THIN_GL_FRAGMENT_BIT);
 
     GLuint shader = glCreateShader(GL_FRAGMENT_SHADER);
     const char *sources[2] = {_.script_builder_ptr, state->fragment_shader_source};
@@ -417,98 +396,107 @@ void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets
   if(assets == NULL)
     return;
 
-  for(uint32_t i = 0; i < 8; i++) {
-    if(assets->images[i]) {
-      if(current_draw_assets.images[i] != assets->images[i]) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, assets->images[i]);
-        current_draw_assets.images[i] = assets->images[i];
+  for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
+    if(assets->image[i]) {
+      if(current_draw_assets.image[i] != assets->image[i]) {
+        if(state->images_format != NULL) {
+          if(image_type_info[state->images_format->image[i].type].target == GL_SAMPLER) {
+            glBindSampler(i, assets->image[i]);
+          } else {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(image_type_info[state->images_format->image[i].type].target, assets->image[i]);
+          }
+        } else {
+          glActiveTexture(GL_TEXTURE0 + i);
+          glBindTexture(GL_TEXTURE_2D, assets->image[i]);
+        }
+        current_draw_assets.image[i] = assets->image[i];
       }
     }
   }
 
   for(uint32_t i = 0; i < 8; i++) {
-    if(state->uniform_format == NULL || state->uniform_format->uniform[i].type == 0)
+    if(state->uniforms_format == NULL || state->uniforms_format->uniform[i].type == 0)
       break;
     if(assets->uniforms[i].pointer) {
-      switch(state->uniform_format->uniform[i].type) {
+      switch(state->uniforms_format->uniform[i].type) {
       case GL_UniformType_Unused:
         break;
       case GL_UniformType_Float:
-        glUniform1fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform1fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Vec2:
-        glUniform2fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Vec3:
-        glUniform3fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Vec4:
-        glUniform4fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Int:
-        glUniform1iv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform1iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_IVec2:
-        glUniform2iv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform2iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_IVec3:
-        glUniform3iv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform3iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_IVec4:
-        glUniform4iv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform4iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Uint:
-        glUniform1uiv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform1uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_UVec2:
-        glUniform2uiv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform2uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_UVec3:
-        glUniform3uiv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform3uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_UVec4:
-        glUniform4uiv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].pointer);
+        glUniform4uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat2:
-        glUniformMatrix2fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                            assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat3:
-        glUniformMatrix3fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                            assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat4:
-        glUniformMatrix4fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                            assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat2x3:
-        glUniformMatrix2x3fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix2x3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                              assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat3x2:
-        glUniformMatrix3x2fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix3x2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                              assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat2x4:
-        glUniformMatrix2x4fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix2x4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                              assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat4x2:
-        glUniformMatrix4x2fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix4x2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                              assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat3x4:
-        glUniformMatrix3x4fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix3x4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                              assets->uniforms[i].pointer);
         break;
       case GL_UniformType_Mat4x3:
-        glUniformMatrix4x3fv(i, state->uniform_format->uniform[i].count, assets->uniforms[i].transpose,
+        glUniformMatrix4x3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
                              assets->uniforms[i].pointer);
         break;
       }
     } else {
-      switch(state->uniform_format->uniform[i].type) {
+      switch(state->uniforms_format->uniform[i].type) {
       case GL_UniformType_Unused:
         break;
       case GL_UniformType_Float:

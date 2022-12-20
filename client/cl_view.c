@@ -339,7 +339,7 @@ void CL_PrepRefresh(void) {
   SCR_UpdateScreen();
   rotate = atof(cl.configstrings[CS_SKYROTATE]);
   sscanf(cl.configstrings[CS_SKYAXIS], "%f %f %f", &axis[0], &axis[1], &axis[2]);
-  re.SetSky(cl.configstrings[CS_SKY], rotate, axis);
+  re.SetSky(0, cl.configstrings[CS_SKY], rotate, axis);
   Com_Printf("                                     \r");
 
   // the renderer can now free unneeded stuff

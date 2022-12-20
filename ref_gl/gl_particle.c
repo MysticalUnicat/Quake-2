@@ -3,18 +3,18 @@
 #include "gl_thin.h"
 
 // clang-format off
-static struct GL_VertexFormat particle_vertex_format = {
-  .attribute[0] = {0, alias_memory_Format_Float32, 3, "in_position", 0},
-  .attribute[1] = {0, alias_memory_Format_Unorm8, 4, "in_color", 12},
+static struct GL_VertexFormat vertex_format = {
+  .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
+  .attribute[1] = {0, alias_memory_Format_Unorm8, 4, "color", 12},
   .binding[0] = {sizeof(float) * 3 + sizeof(uint8_t) * 4, 0},
 };
 
-static struct GL_UniformFormat particle_unfiform_format = {
-  .uniform[0] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "u_point_size_sizemin_sizemax"},
-  .uniform[1] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "u_point_a_b_c"},
+static struct GL_UniformsFormat uniforms_format = {
+  .uniform[0] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "point_size_sizemin_sizemax"},
+  .uniform[1] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "point_a_b_c"},
 };
 
-static char particle_vertex_shader_source[] =
+static char vertex_shader_source[] =
 GL_MSTR(
   layout(location = 0) out vec4 out_color;
 
@@ -33,7 +33,7 @@ GL_MSTR(
   }
 );
 
-static char particle_fragment_shader_source[] =
+static char fragment_shader_source[] =
 GL_MSTR(
   layout(location = 0) in vec4 in_color;
 
@@ -42,7 +42,8 @@ GL_MSTR(
   void main() {
     vec4 color = in_color;
 
-    if(dot(gl_PointCoord - 0.5, gl_PointCoord - 0.5) > 0.25) {
+    vec2 st = gl_PointCoord - 0.5;
+    if(dot(st, st) > 0.25) {
       color.a = 0;
     }
 
@@ -52,10 +53,10 @@ GL_MSTR(
 // clang-format on
 
 static struct DrawState particle_draw_state = {.primitive = GL_POINTS,
-                                               .vertex_format = &particle_vertex_format,
-                                               .uniform_format = &particle_unfiform_format,
-                                               .vertex_shader_source = particle_vertex_shader_source,
-                                               .fragment_shader_source = particle_fragment_shader_source,
+                                               .vertex_format = &vertex_format,
+                                               .uniforms_format = &uniforms_format,
+                                               .vertex_shader_source = vertex_shader_source,
+                                               .fragment_shader_source = fragment_shader_source,
                                                .depth_test_enable = true,
                                                .depth_range_min = 0,
                                                .depth_range_max = 1,

@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // gl_warp.c -- sky and water polygons
 
+#if 0
+
 #include "gl_local.h"
 #include "gl_thin.h"
 
@@ -517,7 +519,7 @@ void R_DrawSkyBox(void) {
     if(skymins[0][i] >= skymaxs[0][i] || skymins[1][i] >= skymaxs[1][i])
       continue;
 
-    GL_begin_draw(&sky_draw_state, &(struct DrawAssets){.images[0] = sky_images[skytexorder[i]]->texnum});
+    GL_begin_draw(&sky_draw_state, &(struct DrawAssets){.image[0] = sky_images[skytexorder[i]]->texnum});
 
     MakeSkyVec(skymins[0][i], skymins[1][i], i);
     MakeSkyVec(skymins[0][i], skymaxs[1][i], i);
@@ -566,3 +568,5 @@ void R_SetSky(char *name, float rotate, vec3_t axis) {
     }
   }
 }
+
+#endif

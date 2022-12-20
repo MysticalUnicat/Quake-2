@@ -165,7 +165,7 @@ typedef struct {
   struct model_s *(*RegisterModel)(int cmodel_index, const char *name);
   struct BaseImage *(*RegisterSkin)(const char *name);
   struct BaseImage *(*RegisterPic)(const char *name);
-  void (*SetSky)(const char *name, float rotate, vec3_t axis);
+  void (*SetSky)(uint32_t cmodel_index, const char *name, float rotate, vec3_t axis);
   void (*EndRegistration)(void);
 
   void (*RenderFrame)(refdef_t *fd);

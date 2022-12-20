@@ -215,7 +215,7 @@ void R_DrawSpriteModel(entity_t *e) {
   if(e->flags & RF_TRANSLUCENT)
     alpha = e->alpha;
 
-  GL_begin_draw(&sprite_draw_state, &(struct DrawAssets){.images[0] = currentmodel->skins[e->frame]->texnum});
+  GL_begin_draw(&sprite_draw_state, &(struct DrawAssets){.image[0] = currentmodel->skins[e->frame]->texnum});
 
   glTexCoord2f(0, 1);
   VectorMA(e->origin, -frame->origin_y, up, point);
@@ -404,7 +404,7 @@ void R_PolyBlend(void) {
 
   glColor4fv(v_blend);
 
-  GL_begin_draw(&polyblend_draw_state, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
+  GL_begin_draw(&polyblend_draw_state, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
 
   glVertex3f(10, 100, 100);
   glVertex3f(10, -100, 100);
@@ -831,11 +831,6 @@ bool R_Init(void *hinstance, void *hWnd) {
   char vendor_buffer[1000];
   int err;
   int j;
-  extern float r_turbsin[256];
-
-  for(j = 0; j < 256; j++) {
-    r_turbsin[j] *= 0.5;
-  }
 
   ri.Con_Printf(PRINT_ALL, "ref_gl version: " REF_VERSION "\n");
 
@@ -1173,7 +1168,7 @@ void R_DrawBeam(entity_t *e) {
 
   glColor4f(r, g, b, e->alpha);
 
-  GL_begin_draw(&beam_draw_state, &(struct DrawAssets){.images[0] = r_whitepcx->texnum});
+  GL_begin_draw(&beam_draw_state, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
 
   for(i = 0; i < NUM_BEAM_SEGS; i++) {
     glVertex3fv(start_points[i]);
@@ -1212,6 +1207,8 @@ GetRefAPI
 @@@@@@@@@@@@@@@@@@@@@
 */
 refexport_t GetRefAPI(refimport_t rimp) {
+  extern void GL_set_sky(uint32_t cmodel_index, const char *name, float rotate, vec3_t axis);
+
   refexport_t re;
 
   ri = rimp;
@@ -1222,7 +1219,7 @@ refexport_t GetRefAPI(refimport_t rimp) {
   re.RegisterModel = R_RegisterModel;
   re.RegisterSkin = R_RegisterSkin;
   re.RegisterPic = Draw_FindPic;
-  re.SetSky = R_SetSky;
+  re.SetSky = GL_set_sky;
   re.EndRegistration = R_EndRegistration;
 
   re.RenderFrame = R_RenderFrame;

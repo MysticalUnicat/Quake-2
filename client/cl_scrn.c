@@ -366,7 +366,7 @@ void SCR_Sky_f(void) {
     axis[2] = 1;
   }
 
-  re.SetSky(Cmd_Argv(1), rotate, axis);
+  re.SetSky(0, Cmd_Argv(1), rotate, axis);
 }
 
 //============================================================================

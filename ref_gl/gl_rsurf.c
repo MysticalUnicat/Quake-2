@@ -324,12 +324,12 @@ static void GL_RenderLightmappedPoly(msurface_t *surf, bool transparent) {
 
   struct DrawState *draw_state;
 
-  struct DrawAssets assets = {.images[0] = image_set.albedo->texnum,
-                              .images[1] = image_set.normal->texnum,
-                              .images[3] = gl_state.lightmap_textures + lmtex + 0,
-                              .images[4] = gl_state.lightmap_textures + lmtex + 1,
-                              .images[5] = gl_state.lightmap_textures + lmtex + 2,
-                              .images[6] = gl_state.lightmap_textures + lmtex + 3};
+  struct DrawAssets assets = {.image[0] = image_set.albedo->texnum,
+                              .image[1] = image_set.normal->texnum,
+                              .image[3] = gl_state.lightmap_textures + lmtex + 0,
+                              .image[4] = gl_state.lightmap_textures + lmtex + 1,
+                              .image[5] = gl_state.lightmap_textures + lmtex + 2,
+                              .image[6] = gl_state.lightmap_textures + lmtex + 3};
 
   if(surf->texinfo->flags & SURF_WARP) {
     draw_state = transparent ? &draw_state_turbulent_transparent : &draw_state_turbulent_opaque;
@@ -597,8 +597,7 @@ void R_RecursiveWorldNode(int cmodel_index, mnode_t *node) {
     if((surf->flags & SURF_PLANEBACK) != sidebit)
       continue; // wrong side
 
-    if(surf->texinfo->flags & SURF_SKY) { // just adds to visible sky bounds
-      R_AddSkySurface(surf);
+    if(surf->texinfo->flags & SURF_SKY) {                             // just adds to visible sky bounds
     } else if(surf->texinfo->flags & (SURF_TRANS33 | SURF_TRANS66)) { // add to the translucent chain
       surf->texturechain = r_alpha_surfaces;
       r_alpha_surfaces = surf;
@@ -639,11 +638,14 @@ void R_DrawWorld(int cmodel_index) {
 
   glColor3f(1, 1, 1);
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
-  R_ClearSkyBox();
 
   R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
 
-  R_DrawSkyBox();
+  // R_DrawSkyBox();
+  {
+    extern void GL_draw_sky(uint32_t cmodel_index);
+    GL_draw_sky(cmodel_index);
+  }
 }
 
 /*

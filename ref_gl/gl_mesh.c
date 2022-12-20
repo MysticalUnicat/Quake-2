@@ -36,19 +36,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 struct SH1 shadelight;
 
 // clang-format off
-struct GL_VertexFormat vertex_format = {
-  .attribute[0] = {0, alias_memory_Format_Float32, 3, "in_position", 0},
-  .attribute[1] = {1, alias_memory_Format_Unorm16, 2, "in_st", 0},
-  .attribute[2] = {1, alias_memory_Format_Snorm16, 4, "in_quaternion", 4},
+static struct GL_VertexFormat vertex_format = {
+  .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
+  .attribute[1] = {1, alias_memory_Format_Unorm16, 2, "st", 0},
+  .attribute[2] = {1, alias_memory_Format_Snorm16, 4, "quaternion", 4},
   .binding[0] = {sizeof(float) * 3, 0},
   .binding[1] = {sizeof(uint16_t) * 2 + sizeof(int16_t) * 4, 0}
 };
 
-struct GL_UniformFormat unfiform_format = {
-  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_rgb0"},
-  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_r1"},
-  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_g1"},
-  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "u_light_b1"},
+static struct GL_UniformsFormat uniforms_format = {
+  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_rgb0"},
+  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_r1"},
+  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_g1"},
+  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_b1"},
+};
+
+static struct GL_ImagesFormat images_format = {
+  .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "albedo_map"},
 };
 
 static const char vertex_shader_source[] =
@@ -111,9 +115,6 @@ static const char vertex_shader_source[] =
 
 static const char fragment_shader_source[] =
   GL_MSTR(
-    layout(binding = 0) uniform sampler2D u_albedo_map;
-    // layout(binding = 1) uniform sampler2D u_normal_map;
-
     layout(location = 0) in vec2 in_st;
     layout(location = 1) in vec3 in_normal;
 
@@ -146,8 +147,8 @@ static const char fragment_shader_source[] =
 // clang-format on
 
 #define DRAW_STATE                                                                                                     \
-  .primitive = GL_TRIANGLES, .vertex_format = &vertex_format, .uniform_format = &unfiform_format,                      \
-  .fragment_shader_source = fragment_shader_source
+  .primitive = GL_TRIANGLES, .vertex_format = &vertex_format, .uniforms_format = &uniforms_format,                     \
+  .images_format = &images_format, .fragment_shader_source = fragment_shader_source
 
 #define NO_SHELL .vertex_shader_source = vertex_shader_source
 
@@ -434,7 +435,7 @@ void R_DrawAliasModel(entity_t *e) {
 
     // shadelight = SH1_RotateX(SH1_RotateZ(shadelight, -currententity->angles[1]), currententity->angles[0]);
 
-    assets.images[0] = skin->texnum;
+    assets.image[0] = skin->texnum;
     assets.uniforms[0] = (struct GL_DrawAssetUniform){
         .vec3[0] = shadelight.f[0], .vec3[1] = shadelight.f[4], .vec3[2] = shadelight.f[8]};
     assets.uniforms[1] = (struct GL_DrawAssetUniform){

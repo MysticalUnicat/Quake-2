@@ -50,7 +50,8 @@
         "gl_thin.h": "c",
         "uv.h": "c",
         "win.h": "c",
-        "warpsin.h": "c"
+        "warpsin.h": "c",
+        "q_shared.h": "c"
     },
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "C_Cpp.errorSquiggles": "Disabled"
