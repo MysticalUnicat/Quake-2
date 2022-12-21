@@ -655,6 +655,12 @@ again:
   goto again;
 }
 
+struct GL_Buffer GL_allocate_temporary_buffer_from(GLenum type, GLsizei size, const void *ptr) {
+  struct GL_Buffer result = GL_allocate_temporary_buffer(type, size);
+  memcpy(result.temporary.mapping, ptr, size);
+  return result;
+}
+
 bool GL_flush_buffer(const struct GL_Buffer *buffer) {
   switch(buffer->kind) {
   case GL_Buffer_Static:
@@ -682,5 +688,17 @@ void GL_free_buffer(const struct GL_Buffer *buffer) {
 void GL_reset_temporary_buffers(void) {
   for(uint32_t i = 0; i < _.num_temporary_buffers; i++) {
     _.temporary_buffers[i].offset = 0;
+  }
+}
+
+void GL_temporary_buffer_stats(GLenum type, uint32_t *total_allocated, uint32_t *used) {
+  *total_allocated = 0;
+  *used = 0;
+
+  for(uint32_t i = 0; i < _.num_temporary_buffers; i++) {
+    if(_.temporary_buffers[i].type == type) {
+      *total_allocated += _.temporary_buffers[i].size;
+      *used += _.temporary_buffers[i].offset;
+    }
   }
 }

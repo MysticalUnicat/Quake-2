@@ -38,19 +38,83 @@ void Draw_InitLocal(void) {
   glTextureParameterf(draw_chars->texnum, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-static struct DrawState draw_state_quad = {.primitive = GL_QUADS,
-                                           .depth_range_min = 0,
-                                           .depth_range_max = 1,
-                                           .blend_enable = true,
-                                           .blend_src_factor = GL_SRC_ALPHA,
-                                           .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_VertexFormat vertex_format = {
+    .attribute[0] = {0, alias_memory_Format_Float32, 2, "xy", 0},
+    .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 8},
+    .attribute[2] = {0, alias_memory_Format_Unorm8, 4, "rgba", 16},
+    .binding[0] = {sizeof(struct DrawVertex)},
+};
 
-static struct DrawState draw_state_triangle = {.primitive = GL_TRIANGLES,
-                                               .depth_range_min = 0,
-                                               .depth_range_max = 1,
-                                               .blend_enable = true,
-                                               .blend_src_factor = GL_SRC_ALPHA,
-                                               .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_ImagesFormat images_format = {
+    .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "img"},
+};
+
+// clang-format off
+static char vertex_shader_source[] =
+  GL_MSTR(
+    layout(location = 0) out vec2 out_st;
+    layout(location = 1) out vec4 out_rgba;
+
+    void main() {
+      gl_Position = gl_ModelViewProjectionMatrix * vec4(in_xy, 0, 1);
+      out_st = in_st;
+      out_rgba = in_rgba;
+    }
+  );
+
+static char fragment_shader_source[] =
+  GL_MSTR(
+    layout(location = 0) in vec2 in_st;
+    layout(location = 1) in vec4 in_rgba;
+
+    layout(location = 0) out vec4 out_color;
+
+    void main() {
+      out_color = texture(u_img, in_st) * in_rgba;
+    }
+  );
+// clang-format on
+
+static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
+                                      .vertex_format = &vertex_format,
+                                      .images_format = &images_format,
+                                      .vertex_shader_source = vertex_shader_source,
+                                      .fragment_shader_source = fragment_shader_source,
+                                      .depth_range_min = 0,
+                                      .depth_range_max = 1,
+                                      .blend_enable = true,
+                                      .blend_src_factor = GL_SRC_ALPHA,
+                                      .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+
+static void draw_triangles_internal(GLuint image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
+                                    const uint32_t *indexes, uint32_t num_indexes) {
+  struct GL_Buffer element_buffer =
+      GL_allocate_temporary_buffer_from(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * num_indexes, indexes);
+  struct GL_Buffer vertex_buffer =
+      GL_allocate_temporary_buffer_from(GL_ARRAY_BUFFER, sizeof(struct DrawVertex) * num_vertexes, vertexes);
+
+  GL_draw_elements(
+      &draw_state,
+      &(struct DrawAssets){.image[0] = image, .element_buffer = &element_buffer, .vertex_buffers[0] = &vertex_buffer},
+      num_indexes, 1, 0, 0);
+}
+
+void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
+                    const uint32_t *indexes, uint32_t num_indexes) {
+  draw_triangles_internal(((image_t *)image)->texnum, vertexes, num_vertexes, indexes, num_indexes);
+}
+
+static void draw_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2, float t2,
+                      float r, float g, float b, float a) {
+  struct DrawVertex vertexes[4] = {
+      {{x1, y1}, {s1, t1}, {r * 255, g * 255, b * 255, a * 255}},
+      {{x1, y2}, {s1, t2}, {r * 255, g * 255, b * 255, a * 255}},
+      {{x2, y2}, {s2, t2}, {r * 255, g * 255, b * 255, a * 255}},
+      {{x2, y1}, {s2, t1}, {r * 255, g * 255, b * 255, a * 255}},
+  };
+  uint32_t indexes[6] = {0, 1, 2, 0, 2, 3};
+  draw_triangles_internal(image, vertexes, 4, indexes, 6);
+}
 
 /*
 ================
@@ -62,6 +126,8 @@ smoothly scrolled off.
 ================
 */
 void Draw_Char(int x, int y, int num) {
+  struct DrawVertex vertexes[4];
+
   int row, col;
   float frow, fcol, size;
 
@@ -80,20 +146,7 @@ void Draw_Char(int x, int y, int num) {
   fcol = col * 0.0625;
   size = 0.0625;
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = draw_chars->texnum});
-
-  glColor4f(1, 1, 1, 1);
-
-  glTexCoord2f(fcol, frow);
-  glVertex2f(x, y);
-  glTexCoord2f(fcol + size, frow);
-  glVertex2f(x + 8, y);
-  glTexCoord2f(fcol + size, frow + size);
-  glVertex2f(x + 8, y + 8);
-  glTexCoord2f(fcol, frow + size);
-  glVertex2f(x, y + 8);
-
-  GL_end_draw();
+  draw_quad(draw_chars->texnum, x, y, x + 8, y + 8, fcol, frow, fcol + size, frow + size, 1, 1, 1, 1);
 }
 
 /*
@@ -145,20 +198,7 @@ void Draw_StretchPic(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = gl->texnum});
-
-  glColor4f(1, 1, 1, 1);
-
-  glTexCoord2f(gl->base.s0, gl->base.t0);
-  glVertex2f(x, y);
-  glTexCoord2f(gl->base.s1, gl->base.t0);
-  glVertex2f(x + w, y);
-  glTexCoord2f(gl->base.s1, gl->base.t1);
-  glVertex2f(x + w, y + h);
-  glTexCoord2f(gl->base.s0, gl->base.t1);
-  glVertex2f(x, y + h);
-
-  GL_end_draw();
+  draw_quad(gl->texnum, x, y, x + w, y + h, gl->base.s0, gl->base.t0, gl->base.s1, gl->base.t1, 1, 1, 1, 1);
 }
 
 /*
@@ -175,20 +215,8 @@ void Draw_Pic(int x, int y, const char *pic) {
     return;
   }
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = gl->texnum});
-
-  glColor4f(1, 1, 1, 1);
-
-  glTexCoord2f(gl->base.s0, gl->base.t0);
-  glVertex2f(x, y);
-  glTexCoord2f(gl->base.s1, gl->base.t0);
-  glVertex2f(x + gl->base.width, y);
-  glTexCoord2f(gl->base.s1, gl->base.t1);
-  glVertex2f(x + gl->base.width, y + gl->base.height);
-  glTexCoord2f(gl->base.s0, gl->base.t1);
-  glVertex2f(x, y + gl->base.height);
-
-  GL_end_draw();
+  draw_quad(gl->texnum, x, y, x + gl->base.width, y + gl->base.height, gl->base.s0, gl->base.t0, gl->base.s1,
+            gl->base.t1, 1, 1, 1, 1);
 }
 
 /*
@@ -208,20 +236,7 @@ void Draw_TileClear(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = image->texnum});
-
-  glColor4f(1, 1, 1, 1);
-
-  glTexCoord2f(x / 64.0, y / 64.0);
-  glVertex2f(x, y);
-  glTexCoord2f((x + w) / 64.0, y / 64.0);
-  glVertex2f(x + w, y);
-  glTexCoord2f((x + w) / 64.0, (y + h) / 64.0);
-  glVertex2f(x + w, y + h);
-  glTexCoord2f(x / 64.0, (y + h) / 64.0);
-  glVertex2f(x, y + h);
-
-  GL_end_draw();
+  draw_quad(image->texnum, x, y, x + w, y + h, x / 64.0, y / 64.0, (x + w) / 64.0, (y + h) / 64.0, 1, 1, 1, 1);
 }
 
 /*
@@ -240,17 +255,10 @@ void Draw_Fill(int x, int y, int w, int h, int c) {
   if((unsigned)c > 255)
     ri.Sys_Error(ERR_FATAL, "Draw_Fill: bad color");
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
-
   color.c = d_8to24table[c];
-  glColor3f(color.v[0] / 255.0, color.v[1] / 255.0, color.v[2] / 255.0);
 
-  glVertex2f(x, y);
-  glVertex2f(x + w, y);
-  glVertex2f(x + w, y + h);
-  glVertex2f(x, y + h);
-
-  GL_end_draw();
+  draw_quad(r_whitepcx->texnum, x, y, x + w, y + h, 0, 0, 1, 1, color.v[0] / 255.0, color.v[1] / 255.0,
+            color.v[2] / 255.0, 1);
 }
 
 //=============================================================================
@@ -261,18 +269,7 @@ Draw_FadeScreen
 
 ================
 */
-void Draw_FadeScreen(void) {
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
-
-  glColor4f(0, 0, 0, 0.8);
-
-  glVertex2f(0, 0);
-  glVertex2f(vid.width, 0);
-  glVertex2f(vid.width, vid.height);
-  glVertex2f(0, vid.height);
-
-  GL_end_draw();
-}
+void Draw_FadeScreen(void) { draw_quad(r_whitepcx->texnum, 0, 0, vid.width, vid.height, 0, 0, 1, 1, 0, 0, 0, 0.8); }
 
 //====================================================================
 
@@ -325,30 +322,5 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  GL_begin_draw(&draw_state_quad, &(struct DrawAssets){.image[0] = 1});
-
-  glTexCoord2f(0, 0);
-  glVertex2f(x, y);
-  glTexCoord2f(1, 0);
-  glVertex2f(x + w, y);
-  glTexCoord2f(1, t);
-  glVertex2f(x + w, y + h);
-  glTexCoord2f(0, t);
-  glVertex2f(x, y + h);
-
-  GL_end_draw();
-}
-
-void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
-                    const uint32_t *indexes, uint32_t num_indexes) {
-  GL_begin_draw(&draw_state_triangle, &(struct DrawAssets){.image[0] = ((image_t *)image)->texnum});
-
-  for(int i = 0; i < num_indexes; i++) {
-    uint32_t index = indexes[i];
-    glTexCoord2fv(vertexes[index].st);
-    glColor4ub(vertexes[index].rgba[0], vertexes[index].rgba[1], vertexes[index].rgba[2], vertexes[index].rgba[3]);
-    glVertex2fv(vertexes[index].xy);
-  }
-
-  GL_end_draw();
+  draw_quad(1, x, y, x + w, y + h, 0, 0, 1, t, 1, 1, 1, 1);
 }

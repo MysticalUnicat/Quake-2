@@ -174,8 +174,12 @@ struct GL_Buffer GL_allocate_static_buffer(GLenum type, GLsizei size, const void
 
 struct GL_Buffer GL_allocate_temporary_buffer(GLenum type, GLsizei size);
 
+struct GL_Buffer GL_allocate_temporary_buffer_from(GLenum type, GLsizei size, const void *data);
+
 bool GL_flush_buffer(const struct GL_Buffer *buffer);
 
 void GL_free_buffer(const struct GL_Buffer *buffer);
 
 void GL_reset_temporary_buffers(void);
+
+void GL_temporary_buffer_stats(GLenum type, uint32_t *total_allocated, uint32_t *used);

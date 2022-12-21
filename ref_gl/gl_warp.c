@@ -273,6 +273,7 @@ void DrawSkyPolygon(int nump, vec3_t vecs) {
   float s, t, dv;
   int axis;
   float *vp;
+  
 
   c_sky++;
 

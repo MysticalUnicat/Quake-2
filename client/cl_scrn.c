@@ -1338,6 +1338,24 @@ void SCR_UpdateScreen(void) {
     UI_End();
   }
 
+  // GL_draw_stats
+  {
+    extern void GL_temporary_buffer_stats(uint32_t type, uint32_t * total_allocated, uint32_t * used);
+
+    UI_Align(0, 1);
+    UI_Vertical();
+
+    uint32_t element_alloc, element_used;
+    GL_temporary_buffer_stats(0x8893, &element_alloc, &element_used);
+    UI_Text("Temp Element Buffer: %i used of %i", element_used, element_alloc);
+
+    uint32_t vertex_alloc, vertex_used;
+    GL_temporary_buffer_stats(0x8892, &vertex_alloc, &vertex_used);
+    UI_Text("Temp Vertex Buffer: %i used of %i", vertex_used, vertex_alloc);
+
+    UI_End();
+  }
+
   UI_Align(1, 1);
   UI_Text("Elysian Break pre-alpha");
 
