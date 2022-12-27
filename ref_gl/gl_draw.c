@@ -104,8 +104,8 @@ void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vert
   draw_triangles_internal(((image_t *)image)->texnum, vertexes, num_vertexes, indexes, num_indexes);
 }
 
-static void draw_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2, float t2,
-                      float r, float g, float b, float a) {
+void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2, float t2,
+                     float r, float g, float b, float a) {
   struct DrawVertex vertexes[4] = {
       {{x1, y1}, {s1, t1}, {r * 255, g * 255, b * 255, a * 255}},
       {{x1, y2}, {s1, t2}, {r * 255, g * 255, b * 255, a * 255}},
@@ -146,7 +146,7 @@ void Draw_Char(int x, int y, int num) {
   fcol = col * 0.0625;
   size = 0.0625;
 
-  draw_quad(draw_chars->texnum, x, y, x + 8, y + 8, fcol, frow, fcol + size, frow + size, 1, 1, 1, 1);
+  GL_draw_2d_quad(draw_chars->texnum, x, y, x + 8, y + 8, fcol, frow, fcol + size, frow + size, 1, 1, 1, 1);
 }
 
 /*
@@ -198,7 +198,7 @@ void Draw_StretchPic(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  draw_quad(gl->texnum, x, y, x + w, y + h, gl->base.s0, gl->base.t0, gl->base.s1, gl->base.t1, 1, 1, 1, 1);
+  GL_draw_2d_quad(gl->texnum, x, y, x + w, y + h, gl->base.s0, gl->base.t0, gl->base.s1, gl->base.t1, 1, 1, 1, 1);
 }
 
 /*
@@ -215,8 +215,8 @@ void Draw_Pic(int x, int y, const char *pic) {
     return;
   }
 
-  draw_quad(gl->texnum, x, y, x + gl->base.width, y + gl->base.height, gl->base.s0, gl->base.t0, gl->base.s1,
-            gl->base.t1, 1, 1, 1, 1);
+  GL_draw_2d_quad(gl->texnum, x, y, x + gl->base.width, y + gl->base.height, gl->base.s0, gl->base.t0, gl->base.s1,
+                  gl->base.t1, 1, 1, 1, 1);
 }
 
 /*
@@ -236,7 +236,7 @@ void Draw_TileClear(int x, int y, int w, int h, const char *pic) {
     return;
   }
 
-  draw_quad(image->texnum, x, y, x + w, y + h, x / 64.0, y / 64.0, (x + w) / 64.0, (y + h) / 64.0, 1, 1, 1, 1);
+  GL_draw_2d_quad(image->texnum, x, y, x + w, y + h, x / 64.0, y / 64.0, (x + w) / 64.0, (y + h) / 64.0, 1, 1, 1, 1);
 }
 
 /*
@@ -257,8 +257,8 @@ void Draw_Fill(int x, int y, int w, int h, int c) {
 
   color.c = d_8to24table[c];
 
-  draw_quad(r_whitepcx->texnum, x, y, x + w, y + h, 0, 0, 1, 1, color.v[0] / 255.0, color.v[1] / 255.0,
-            color.v[2] / 255.0, 1);
+  GL_draw_2d_quad(r_whitepcx->texnum, x, y, x + w, y + h, 0, 0, 1, 1, color.v[0] / 255.0, color.v[1] / 255.0,
+                  color.v[2] / 255.0, 1);
 }
 
 //=============================================================================
@@ -269,7 +269,9 @@ Draw_FadeScreen
 
 ================
 */
-void Draw_FadeScreen(void) { draw_quad(r_whitepcx->texnum, 0, 0, vid.width, vid.height, 0, 0, 1, 1, 0, 0, 0, 0.8); }
+void Draw_FadeScreen(void) {
+  GL_draw_2d_quad(r_whitepcx->texnum, 0, 0, vid.width, vid.height, 0, 0, 1, 1, 0, 0, 0, 0.8);
+}
 
 //====================================================================
 
@@ -322,5 +324,5 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  draw_quad(1, x, y, x + w, y + h, 0, 0, 1, t, 1, 1, 1, 1);
+  GL_draw_2d_quad(1, x, y, x + w, y + h, 0, 0, 1, t, 1, 1, 1, 1);
 }

@@ -259,52 +259,6 @@ model_t *Mod_ForName(int cmodel_index, char *name, bool crash) {
   FS_LoadAsync(mod->name, mod_load_error, mod_load_done, mod);
 
   return mod;
-
-  // //
-  // // load the file
-  // //
-  // modfilelen = ri.FS_LoadFile(mod->name, (void **)&buf);
-  // if(!buf) {
-  //   if(crash)
-  //     ri.Sys_Error(ERR_DROP, "Mod_NumForName: %s not found", mod->name);
-  //   memset(mod->name, 0, sizeof(mod->name));
-  //   return NULL;
-  // }
-
-  // loadmodel = mod;
-
-  // //
-  // // fill it in
-  // //
-
-  // // call the apropriate loader
-
-  // switch(LittleLong(*(unsigned *)buf)) {
-  // case IDALIASHEADER:
-  //   loadmodel->extradata = Hunk_Begin(0x200000);
-  //   Mod_LoadAliasModel(mod, buf);
-  //   break;
-
-  // case IDSPRITEHEADER:
-  //   loadmodel->extradata = Hunk_Begin(0x10000);
-  //   Mod_LoadSpriteModel(mod, buf);
-  //   break;
-
-  // case IDBSPHEADER:
-  //   loadmodel->extradata = Hunk_Begin(0x1000000);
-  //   Mod_LoadBrushModel(mod, buf);
-  //   break;
-
-  // default:
-  //   ri.Sys_Error(ERR_DROP, "Mod_NumForName: unknown fileid for %s", mod->name);
-  //   break;
-  // }
-
-  // loadmodel->extradatasize = Hunk_End();
-
-  // ri.FS_FreeFile(buf);
-
-  // return mod;
 }
 
 /*
@@ -595,11 +549,26 @@ void Mod_LoadFaces(lump_t *l, struct HunkAllocator *hunk) {
 
   GL_BeginBuildingLightmaps(loadmodel);
 
+  uint32_t num_elements = 0;
+  uint32_t num_vertexes = 0;
+
+  for(surfnum = 0; surfnum < count; surfnum++) {
+    uint32_t nverts = LittleShort(in[surfnum].numedges);
+    num_elements += (nverts - 2) * 3;
+    num_vertexes += nverts;
+  }
+
+  uint32_t *element_buffer_data = malloc(sizeof(uint32_t) * num_elements);
+  float *position_buffer_data = malloc(sizeof(*position_buffer_data) * 3 * num_vertexes);
+  float *attribute_buffer_data = malloc(sizeof(*attribute_buffer_data) * 4 * num_vertexes);
+
+  num_elements = 0;
+  num_vertexes = 0;
+
   for(surfnum = 0; surfnum < count; surfnum++, in++, out++) {
     out->firstedge = LittleLong(in->firstedge);
     out->numedges = LittleShort(in->numedges);
     out->flags = 0;
-    out->polys = NULL;
 
     planenum = LittleShort(in->planenum);
     side = LittleShort(in->side);
@@ -626,7 +595,43 @@ void Mod_LoadFaces(lump_t *l, struct HunkAllocator *hunk) {
       out->samples = loadmodel->lightdata + i;
 
     GL_CreateSurfaceLightmap(out);
-    GL_BuildPolygonFromSurface(out, hunk);
+    // GL_BuildPolygonFromSurface(out, hunk);
+
+    medge_t *r_pedge;
+    float *vec;
+
+    for(i = 0; i < out->numedges; i++) {
+      int lindex = currentmodel->surfedges[out->firstedge + i];
+
+      if(lindex > 0) {
+        r_pedge = &currentmodel->edges[lindex];
+        vec = currentmodel->vertexes[r_pedge->v[0]].position;
+      } else {
+        r_pedge = &currentmodel->edges[-lindex];
+        vec = currentmodel->vertexes[r_pedge->v[1]].position;
+      }
+
+      float s = DotProduct(vec, out->texinfo->vecs[0]) + out->texinfo->vecs[0][3];
+      float t = DotProduct(vec, out->texinfo->vecs[1]) + out->texinfo->vecs[1][3];
+
+      position_buffer_data[num_vertexes * 3 + 0] = vec[0];
+      position_buffer_data[num_vertexes * 3 + 1] = vec[1];
+      position_buffer_data[num_vertexes * 3 + 2] = vec[2];
+
+      attribute_buffer_data[num_vertexes * 4 + 0] = s / out->texinfo->wal_width;
+      attribute_buffer_data[num_vertexes * 4 + 1] = t / out->texinfo->wal_height;
+      attribute_buffer_data[num_vertexes * 4 + 2] =
+          (s - out->texturemins[0] + out->light_s * 16 + 8) / (LIGHTMAP_WIDTH * 16);
+      attribute_buffer_data[num_vertexes * 4 + 3] =
+          (t - out->texturemins[1] + out->light_t * 16 + 8) / (LIGHTMAP_HEIGHT * 16);
+
+      if(i >= 2) {
+        element_buffer_data[num_elements++] = num_vertexes - 2;
+        element_buffer_data[num_elements++] = num_vertexes - 1;
+        element_buffer_data[num_elements++] = num_vertexes;
+      }
+      num_vertexes++;
+    }
 
     VectorNormalize2(out->texinfo->vecs[0], out->texture_space_mat3[0]);
     VectorNormalize2(out->texinfo->vecs[1], out->texture_space_mat3[1]);
@@ -643,6 +648,17 @@ void Mod_LoadFaces(lump_t *l, struct HunkAllocator *hunk) {
     if(DotProduct(out->texinfo->vecs[1], out->texture_space_mat3[1]) < 0)
       VectorNegate(out->texture_space_mat3[1], out->texture_space_mat3[1]);
   }
+
+  loadmodel->element_buffer =
+      GL_allocate_static_buffer(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * num_elements, element_buffer_data);
+  loadmodel->position_buffer =
+      GL_allocate_static_buffer(GL_ARRAY_BUFFER, sizeof(float) * 3 * num_vertexes, position_buffer_data);
+  loadmodel->attribute_buffer =
+      GL_allocate_static_buffer(GL_ARRAY_BUFFER, sizeof(float) * 4 * num_vertexes, attribute_buffer_data);
+
+  free(element_buffer_data);
+  free(position_buffer_data);
+  free(attribute_buffer_data);
 
   GL_EndBuildingLightmaps();
 }

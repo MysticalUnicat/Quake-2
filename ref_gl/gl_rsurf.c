@@ -29,9 +29,6 @@ static vec3_t modelorg; // relative to viewpoint
 
 msurface_t *r_alpha_surfaces;
 
-#define LIGHTMAP_WIDTH 1024
-#define LIGHTMAP_HEIGHT 1024
-
 int c_visible_lightmaps;
 int c_visible_textures;
 
@@ -67,46 +64,47 @@ extern void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, by
 =============================================================
 */
 
+static struct GL_VertexFormat vertex_format = {
+    .attribute[0] = {0, alias_memory_Format_Float32, 3, "position"},
+    .attribute[1] = {1, alias_memory_Format_Float32, 2, "main_st"},
+    .attribute[2] = {1, alias_memory_Format_Float32, 2, "lightmap_st"},
+    .binding[0] = {sizeof(float) * 3},
+    .binding[1] = {sizeof(float) * 4},
+};
+
+static struct GL_UniformsFormat uniforms_format = {
+    .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "tangent"},
+    .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "bitangent"},
+    .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "normal"},
+    .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec2, "alpha_time"},
+};
+
+static struct GL_ImagesFormat images_format = {
+    .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "albedo_map"},
+    .image[1] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "normal_map"},
+    .image[3] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_rgb0"},
+    .image[4] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_r1"},
+    .image[5] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_g1"},
+    .image[6] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_b1"},
+};
+
 // clang-format off
 static const char bsp_vertex_shader_source[] =
 GL_MSTR(
   layout(location = 0) out vec2 out_main_st;
   layout(location = 1) out vec2 out_lightmap_st;
-  layout(location = 2) out vec3 out_texture_space_0;
-  layout(location = 3) out vec3 out_texture_space_1;
-  layout(location = 4) out vec3 out_texture_space_2;
-  layout(location = 5) out float out_alpha;
 
   void main() {
-    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
 
-    out_main_st = gl_MultiTexCoord0.st;
-    out_lightmap_st = gl_MultiTexCoord1.st;
-
-    out_texture_space_0 = gl_MultiTexCoord2.xyz;
-    out_texture_space_1 = gl_MultiTexCoord3.xyz;
-    out_texture_space_2 = gl_MultiTexCoord4.xyz;
-
-    out_alpha = gl_Color.a;
+    out_main_st = in_main_st;
+    out_lightmap_st = in_lightmap_st;
   }
 );
 static const char bsp_fragment_shader_source[] =
 GL_MSTR(
-  layout(binding = 0) uniform sampler2D u_albedo_map;
-  layout(binding = 1) uniform sampler2D u_normal_map;
-  //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
-
-  layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
-  layout(binding = 4) uniform sampler2D u_lightmap_r1;
-  layout(binding = 5) uniform sampler2D u_lightmap_g1;
-  layout(binding = 6) uniform sampler2D u_lightmap_b1;
-
   layout(location = 0) in vec2 in_main_st;
   layout(location = 1) in vec2 in_lightmap_st;
-  layout(location = 2) in vec3 in_texture_space_0;
-  layout(location = 3) in vec3 in_texture_space_1;
-  layout(location = 4) in vec3 in_texture_space_2;
-  layout(location = 5) in float in_alpha;
 
   layout(location = 0) out vec4 out_color;
 
@@ -121,7 +119,7 @@ GL_MSTR(
   }
 
   void main() {
-    mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
+    mat3 texture_space = mat3(u_tangent, u_bitangent, u_normal);
 
     vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
     vec3 normal_map = texture(u_normal_map, in_main_st).rgb;
@@ -138,28 +136,14 @@ GL_MSTR(
       do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
     );
 
-    out_color = vec4(albedo_map * lightmap * 2, in_alpha);
+    // out_color = vec4(albedo_map * lightmap * 2, u_alpha_time.x);
+    out_color = vec4(1, 1, 1, 1);
   }
 );
 static const char bsp_turbulent_fragment_shader_source[] =
 GL_MSTR(
-  layout(binding = 0) uniform sampler2D u_albedo_map;
-  layout(binding = 1) uniform sampler2D u_normal_map;
-  //layout(binding = 2) uniform sampler2D u_roughness_metallic_map;
-
-  layout(binding = 3) uniform sampler2D u_lightmap_rgb0;
-  layout(binding = 4) uniform sampler2D u_lightmap_r1;
-  layout(binding = 5) uniform sampler2D u_lightmap_g1;
-  layout(binding = 6) uniform sampler2D u_lightmap_b1;
-
-  layout(location = 0) uniform float u_time;
-
   layout(location = 0) in vec2 in_main_st;
   layout(location = 1) in vec2 in_lightmap_st;
-  layout(location = 2) in vec3 in_texture_space_0;
-  layout(location = 3) in vec3 in_texture_space_1;
-  layout(location = 4) in vec3 in_texture_space_2;
-  layout(location = 5) in float in_alpha;
 
   layout(location = 0) out vec4 out_color;
 
@@ -174,9 +158,9 @@ GL_MSTR(
   }
 
   void main() {
-    mat3 texture_space = mat3(in_texture_space_0, in_texture_space_1, in_texture_space_2);
+    mat3 texture_space = mat3(u_tangent, u_bitangent, u_normal);
 
-    vec2 turbuluent_st = sin(in_main_st.ts * 4 + vec2(u_time, u_time)) * 0.0625;
+    vec2 turbuluent_st = sin(in_main_st.ts * 4 + vec2(u_alpha_time.y, u_alpha_time.y)) * 0.0625;
     vec2 main_st = in_main_st + turbuluent_st;
 
     vec3 albedo_map = texture(u_albedo_map, main_st).rgb;
@@ -194,12 +178,15 @@ GL_MSTR(
       do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
     );
 
-    out_color = vec4(albedo_map * lightmap * 2, in_alpha);
+    out_color = vec4(albedo_map * lightmap * 2, u_alpha_time.x);
   }
 );
 // clang-format on
 
 static struct DrawState draw_state_opaque = {.primitive = GL_POLYGON,
+                                             .vertex_format = &vertex_format,
+                                             .uniforms_format = &uniforms_format,
+                                             .images_format = &images_format,
                                              .vertex_shader_source = bsp_vertex_shader_source,
                                              .fragment_shader_source = bsp_fragment_shader_source,
                                              .depth_range_min = 0,
@@ -208,6 +195,9 @@ static struct DrawState draw_state_opaque = {.primitive = GL_POLYGON,
                                              .depth_mask = true};
 
 static struct DrawState draw_state_transparent = {.primitive = GL_POLYGON,
+                                                  .vertex_format = &vertex_format,
+                                                  .uniforms_format = &uniforms_format,
+                                                  .images_format = &images_format,
                                                   .vertex_shader_source = bsp_vertex_shader_source,
                                                   .fragment_shader_source = bsp_fragment_shader_source,
                                                   .depth_range_min = 0,
@@ -219,6 +209,9 @@ static struct DrawState draw_state_transparent = {.primitive = GL_POLYGON,
                                                   .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 static struct DrawState draw_state_turbulent_opaque = {.primitive = GL_POLYGON,
+                                                       .vertex_format = &vertex_format,
+                                                       .uniforms_format = &uniforms_format,
+                                                       .images_format = &images_format,
                                                        .vertex_shader_source = bsp_vertex_shader_source,
                                                        .fragment_shader_source = bsp_turbulent_fragment_shader_source,
                                                        .depth_range_min = 0,
@@ -227,6 +220,9 @@ static struct DrawState draw_state_turbulent_opaque = {.primitive = GL_POLYGON,
                                                        .depth_mask = true};
 
 static struct DrawState draw_state_turbulent_transparent = {.primitive = GL_POLYGON,
+                                                            .vertex_format = &vertex_format,
+                                                            .uniforms_format = &uniforms_format,
+                                                            .images_format = &images_format,
                                                             .vertex_shader_source = bsp_vertex_shader_source,
                                                             .fragment_shader_source =
                                                                 bsp_turbulent_fragment_shader_source,
@@ -262,8 +258,8 @@ struct ImageSet R_TextureAnimation(mtexinfo_t *tex) {
   return result;
 }
 
-static void GL_RenderLightmappedPoly(msurface_t *surf, bool transparent) {
-  int i, nv = surf->polys->numverts;
+static void GL_RenderLightmappedPoly(msurface_t *surf, float alpha) {
+  int i;
   int map;
   float *v;
   bool is_dynamic = false;
@@ -329,14 +325,28 @@ static void GL_RenderLightmappedPoly(msurface_t *surf, bool transparent) {
                               .image[3] = gl_state.lightmap_textures + lmtex + 0,
                               .image[4] = gl_state.lightmap_textures + lmtex + 1,
                               .image[5] = gl_state.lightmap_textures + lmtex + 2,
-                              .image[6] = gl_state.lightmap_textures + lmtex + 3};
+                              .image[6] = gl_state.lightmap_textures + lmtex + 3,
+                              .element_buffer = &currentmodel->element_buffer,
+                              .element_buffer_offset = surf->elements_offset,
+                              .vertex_buffers[0] = &currentmodel->position_buffer,
+                              .vertex_buffers[1] = &currentmodel->position_buffer,
+                              .uniforms[0] = {.vec3[0] = surf->texture_space_mat3[0][0],
+                                              .vec3[1] = surf->texture_space_mat3[0][1],
+                                              .vec3[2] = surf->texture_space_mat3[0][2]},
+                              .uniforms[1] = {.vec3[0] = surf->texture_space_mat3[1][0],
+                                              .vec3[1] = surf->texture_space_mat3[1][1],
+                                              .vec3[2] = surf->texture_space_mat3[1][2]},
+                              .uniforms[2] = {.vec3[0] = surf->texture_space_mat3[2][0],
+                                              .vec3[1] = surf->texture_space_mat3[2][1],
+                                              .vec3[2] = surf->texture_space_mat3[2][2]},
+                              .uniforms[3] = {.vec2[0] = alpha, .vec2[1] = r_newrefdef.time}};
 
   if(surf->texinfo->flags & SURF_WARP) {
-    draw_state = transparent ? &draw_state_turbulent_transparent : &draw_state_turbulent_opaque;
+    draw_state = alpha < 1 ? &draw_state_turbulent_transparent : &draw_state_turbulent_opaque;
     // assets.uniforms[0].type = DrawUniformType_Float;
     // assets.uniforms[0]._float = r_newrefdef.time;
   } else {
-    draw_state = transparent ? &draw_state_transparent : &draw_state_opaque;
+    draw_state = alpha < 1 ? &draw_state_transparent : &draw_state_opaque;
   }
 
   float scroll =
@@ -345,22 +355,7 @@ static void GL_RenderLightmappedPoly(msurface_t *surf, bool transparent) {
   if(scroll == 0.0)
     scroll = -64.0;
 
-  for(p = surf->polys; p; p = p->chain) {
-    v = p->verts[0];
-
-    GL_begin_draw(draw_state, &assets);
-
-    glMultiTexCoord3fv(GL_TEXTURE2, surf->texture_space_mat3[0]);
-    glMultiTexCoord3fv(GL_TEXTURE3, surf->texture_space_mat3[1]);
-    glMultiTexCoord3fv(GL_TEXTURE4, surf->texture_space_mat3[2]);
-    for(i = 0; i < nv; i++, v += VERTEXSIZE) {
-      glMultiTexCoord2f(GL_TEXTURE0, (v[3] + scroll), v[4]);
-      glMultiTexCoord2f(GL_TEXTURE1, v[5], v[6]);
-      glVertex3fv(v);
-    }
-
-    GL_end_draw();
-  }
+  GL_draw_elements(draw_state, &assets, surf->elements_count, 1, 0, 0);
 }
 
 /*
@@ -383,17 +378,11 @@ void R_DrawAlphaSurfaces(void) {
 
   for(s = r_alpha_surfaces; s; s = s->texturechain) {
     c_brush_polys++;
-    if(s->texinfo->flags & SURF_TRANS33)
-      glColor4f(1, 1, 1, 0.33);
-    else if(s->texinfo->flags & SURF_TRANS66)
-      glColor4f(1, 1, 1, 0.66);
-    else
-      glColor4f(1, 1, 1, 1);
 
-    GL_RenderLightmappedPoly(s, true);
+    float alpha = (s->texinfo->flags & SURF_TRANS33) ? 0.33 : (s->texinfo->flags & SURF_TRANS66) ? 0.66 : 1;
+
+    GL_RenderLightmappedPoly(s, alpha);
   }
-
-  glColor4f(1, 1, 1, 1);
 
   r_alpha_surfaces = NULL;
 }
@@ -420,12 +409,7 @@ void R_DrawInlineBModel(int cmodel_index) {
 
   psurf = &currentmodel->surfaces[currentmodel->firstmodelsurface];
 
-  bool transparent = false;
-
-  if(currententity->flags & RF_TRANSLUCENT) {
-    glColor4f(1, 1, 1, 0.25);
-    transparent = true;
-  }
+  float alpha = (currententity->flags & RF_TRANSLUCENT) ? 0.25 : 1;
 
   //
   // draw texture
@@ -443,7 +427,7 @@ void R_DrawInlineBModel(int cmodel_index) {
         psurf->texturechain = r_alpha_surfaces;
         r_alpha_surfaces = psurf;
       } else {
-        GL_RenderLightmappedPoly(psurf, transparent);
+        GL_RenderLightmappedPoly(psurf, alpha);
       }
     }
   }
@@ -479,7 +463,6 @@ void R_DrawBrushModel(entity_t *e) {
   if(R_CullBox(mins, maxs))
     return;
 
-  glColor3f(1, 1, 1);
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
 
   VectorSubtract(r_newrefdef.vieworg, e->origin, modelorg);
@@ -602,7 +585,7 @@ void R_RecursiveWorldNode(int cmodel_index, mnode_t *node) {
       surf->texturechain = r_alpha_surfaces;
       r_alpha_surfaces = surf;
     } else {
-      GL_RenderLightmappedPoly(surf, false);
+      GL_RenderLightmappedPoly(surf, 1);
     }
   }
 
@@ -636,7 +619,6 @@ void R_DrawWorld(int cmodel_index) {
   ent.frame = (int)(r_newrefdef.time * 2);
   currententity = &ent;
 
-  glColor3f(1, 1, 1);
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
 
   R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
@@ -822,78 +804,6 @@ static bool LM_AllocBlock(int w, int h, int *x, int *y) {
     gl_lms.allocated[*x + i] = best + h;
 
   return true;
-}
-
-/*
-================
-GL_BuildPolygonFromSurface
-================
-*/
-void GL_BuildPolygonFromSurface(msurface_t *fa, struct HunkAllocator *hunk) {
-  int i, lindex, lnumverts;
-  medge_t *pedges, *r_pedge;
-  int vertpage;
-  float *vec;
-  float s, t;
-  glpoly_t *poly;
-  vec3_t total;
-
-  // reconstruct the polygon
-  pedges = currentmodel->edges;
-  lnumverts = fa->numedges;
-  vertpage = 0;
-
-  VectorClear(total);
-  //
-  // draw texture
-  //
-  poly = HunkAllocator_Alloc(hunk, sizeof(glpoly_t) + (lnumverts - 4) * VERTEXSIZE * sizeof(float));
-  poly->next = fa->polys;
-  poly->flags = fa->flags;
-  fa->polys = poly;
-  poly->numverts = lnumverts;
-
-  for(i = 0; i < lnumverts; i++) {
-    lindex = currentmodel->surfedges[fa->firstedge + i];
-
-    if(lindex > 0) {
-      r_pedge = &pedges[lindex];
-      vec = currentmodel->vertexes[r_pedge->v[0]].position;
-    } else {
-      r_pedge = &pedges[-lindex];
-      vec = currentmodel->vertexes[r_pedge->v[1]].position;
-    }
-    s = DotProduct(vec, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3];
-    s /= fa->texinfo->wal_width;
-
-    t = DotProduct(vec, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3];
-    t /= fa->texinfo->wal_height;
-
-    VectorAdd(total, vec, total);
-    VectorCopy(vec, poly->verts[i]);
-    poly->verts[i][3] = s;
-    poly->verts[i][4] = t;
-
-    //
-    // lightmap texture coordinates
-    //
-    s = DotProduct(vec, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3];
-    s -= fa->texturemins[0];
-    s += fa->light_s * 16;
-    s += 8;
-    s /= LIGHTMAP_WIDTH * 16; // fa->texinfo->texture->width;
-
-    t = DotProduct(vec, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3];
-    t -= fa->texturemins[1];
-    t += fa->light_t * 16;
-    t += 8;
-    t /= LIGHTMAP_HEIGHT * 16; // fa->texinfo->texture->height;
-
-    poly->verts[i][5] = s;
-    poly->verts[i][6] = t;
-  }
-
-  poly->numverts = lnumverts;
 }
 
 /*

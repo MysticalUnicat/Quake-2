@@ -26,7 +26,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "../client/keys.h"
 
+extern void GL_draw_model_not_found(void);
+extern void GL_draw_beam(entity_t *e);
+extern void GL_draw_sprite(entity_t *e);
+extern void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2,
+                            float t2, float r, float g, float b, float a);
+
 // -------------------------------------------------
+
+struct GL_Uniform u_model_matrix = {.type = GL_UniformType_Mat4, .name = "model_matrix"};
+struct GL_Uniform u_view_matrix = {.type = GL_UniformType_Mat4, .name = "view_matrix"};
+struct GL_Uniform u_model_view_matrix = {.type = GL_UniformType_Mat4, .name = "model_view_matrix"};
+struct GL_Uniform u_projection_matrix = {.type = GL_UniformType_Mat4, .name = "projection_matrix"};
+struct GL_Uniform u_model_view_projection_matrix = {.type = GL_UniformType_Mat4,
+                                                    .name = "model_view_projection_matrix"};
 
 void R_Clear(void);
 
@@ -163,140 +176,13 @@ bool R_CullBox(vec3_t mins, vec3_t maxs) {
 }
 
 void GL_TransformForEntity(entity_t *e) {
-  glTranslatef(e->origin[0], e->origin[1], e->origin[2]);
-
-  glRotatef(e->angles[1], 0, 0, 1);
-  glRotatef(-e->angles[0], 0, 1, 0);
-  glRotatef(-e->angles[2], 1, 0, 0);
-}
-
-/*
-=============================================================
-
-  SPRITE MODELS
-
-=============================================================
-*/
-
-static struct DrawState sprite_draw_state = {.primitive = GL_QUADS,
-                                             .depth_test_enable = true,
-                                             .depth_range_min = 0,
-                                             .depth_range_max = 1,
-                                             .depth_mask = false,
-                                             .blend_enable = true,
-                                             .blend_src_factor = GL_SRC_ALPHA,
-                                             .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
-
-/*
-=================
-R_DrawSpriteModel
-
-=================
-*/
-void R_DrawSpriteModel(entity_t *e) {
-  float alpha = 1.0F;
-  vec3_t point;
-  dsprframe_t *frame;
-  float *up, *right;
-  dsprite_t *psprite;
-
-  // don't even bother culling, because it's just a single
-  // polygon without a surface cache
-
-  psprite = (dsprite_t *)currentmodel->extradata;
-
-  e->frame %= psprite->numframes;
-
-  frame = &psprite->frames[e->frame];
-
-  up = vup;
-  right = vright;
-
-  if(e->flags & RF_TRANSLUCENT)
-    alpha = e->alpha;
-
-  GL_begin_draw(&sprite_draw_state, &(struct DrawAssets){.image[0] = currentmodel->skins[e->frame]->texnum});
-
-  glTexCoord2f(0, 1);
-  VectorMA(e->origin, -frame->origin_y, up, point);
-  VectorMA(point, -frame->origin_x, right, point);
-  glVertex3fv(point);
-
-  glTexCoord2f(0, 0);
-  VectorMA(e->origin, frame->height - frame->origin_y, up, point);
-  VectorMA(point, -frame->origin_x, right, point);
-  glVertex3fv(point);
-
-  glTexCoord2f(1, 0);
-  VectorMA(e->origin, frame->height - frame->origin_y, up, point);
-  VectorMA(point, frame->width - frame->origin_x, right, point);
-  glVertex3fv(point);
-
-  glTexCoord2f(1, 1);
-  VectorMA(e->origin, -frame->origin_y, up, point);
-  VectorMA(point, frame->width - frame->origin_x, right, point);
-  glVertex3fv(point);
-
-  GL_end_draw();
-
-  glColor4f(1, 1, 1, 1);
+  GL_translate(u_model_matrix.mat4, e->origin[0], e->origin[1], e->origin[2]);
+  GL_rotate(u_model_matrix.mat4, e->angles[1], 0, 0, 1);
+  GL_rotate(u_model_matrix.mat4, -e->angles[0], 0, 1, 0);
+  GL_rotate(u_model_matrix.mat4, -e->angles[2], 1, 0, 0);
 }
 
 //==================================================================================
-
-/*
-=============
-R_DrawNullModel
-=============
-*/
-static struct DrawState null_draw_state_opaque = {.primitive = GL_TRIANGLES,
-                                                  .depth_mask = true,
-                                                  .depth_test_enable = true,
-                                                  .depth_range_min = 0,
-                                                  .depth_range_max = 1};
-static struct DrawState null_draw_state_transparent = {.primitive = GL_TRIANGLES,
-                                                       .depth_mask = false,
-                                                       .depth_test_enable = true,
-                                                       .depth_range_min = 0,
-                                                       .depth_range_max = 1,
-                                                       .blend_enable = true,
-                                                       .blend_src_factor = GL_SRC_ALPHA,
-                                                       .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
-
-void R_DrawNullModel(void) {
-  struct SH1 shadelight;
-  int i;
-
-  if(currententity->flags & RF_FULLBRIGHT) {
-    shadelight = SH1_FromDirectionalLight(vec3_origin, (float[]){1, 1, 1});
-  } else
-    shadelight = R_LightPoint(r_newrefdef.cmodel_index, currententity->origin);
-
-  glPushMatrix();
-  GL_TransformForEntity(currententity);
-
-  GL_begin_draw((currententity->flags & RF_TRANSLUCENT) ? &null_draw_state_transparent : &null_draw_state_opaque, NULL);
-
-  glColor4f(shadelight.f[0], shadelight.f[4], shadelight.f[8],
-            (currententity->flags & RF_TRANSLUCENT) ? currententity->alpha : 1);
-
-  for(i = 1; i <= 4; i++) {
-    glVertex3f(0, 0, -16);
-    glVertex3f(16 * cos((i - 1) * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
-    glVertex3f(16 * cos(i * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
-  }
-
-  for(i = 4; i >= 1; i--) {
-    glVertex3f(0, 0, 16);
-    glVertex3f(16 * cos((i - 1) * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
-    glVertex3f(16 * cos(i * M_PI / 2), 16 * sin(i * M_PI / 2), 0);
-  }
-
-  GL_end_draw();
-
-  glColor4f(1, 1, 1, 1);
-  glPopMatrix();
-}
 
 /*
 =============
@@ -316,11 +202,11 @@ void R_DrawEntitiesOnList(void) {
       continue; // solid
 
     if(currententity->flags & RF_BEAM) {
-      R_DrawBeam(currententity);
+      GL_draw_beam(currententity);
     } else {
       currentmodel = currententity->model;
       if(!currentmodel) {
-        R_DrawNullModel();
+        GL_draw_model_not_found();
         continue;
       }
       switch(currentmodel->type) {
@@ -331,10 +217,10 @@ void R_DrawEntitiesOnList(void) {
         R_DrawBrushModel(currententity);
         break;
       case mod_sprite:
-        R_DrawSpriteModel(currententity);
+        GL_draw_sprite(currententity);
         break;
       default:
-        R_DrawNullModel();
+        GL_draw_model_not_found();
         // ri.Sys_Error(ERR_DROP, "Bad modeltype");
         break;
       }
@@ -349,12 +235,12 @@ void R_DrawEntitiesOnList(void) {
       continue; // solid
 
     if(currententity->flags & RF_BEAM) {
-      R_DrawBeam(currententity);
+      GL_draw_beam(currententity);
     } else {
       currentmodel = currententity->model;
 
       if(!currentmodel) {
-        R_DrawNullModel();
+        GL_draw_model_not_found();
         continue;
       }
       switch(currentmodel->type) {
@@ -365,55 +251,15 @@ void R_DrawEntitiesOnList(void) {
         R_DrawBrushModel(currententity);
         break;
       case mod_sprite:
-        R_DrawSpriteModel(currententity);
+        GL_draw_sprite(currententity);
         break;
       default:
-        R_DrawNullModel();
+        GL_draw_model_not_found();
         // ri.Sys_Error(ERR_DROP, "Bad modeltype");
         break;
       }
     }
   }
-}
-
-/*
-============
-R_PolyBlend
-============
-*/
-static struct DrawState polyblend_draw_state = {.primitive = GL_QUADS,
-                                                .depth_test_enable = false,
-                                                .depth_range_min = 0,
-                                                .depth_range_max = 1,
-                                                .depth_mask = false,
-                                                .blend_enable = true,
-                                                .blend_src_factor = GL_SRC_ALPHA,
-                                                .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
-
-void R_PolyBlend(void) {
-  if(!gl_polyblend->value)
-    return;
-  if(!v_blend[3])
-    return;
-
-  glLoadIdentity();
-
-  // FIXME: get rid of these
-  glRotatef(-90, 1, 0, 0); // put Z going up
-  glRotatef(90, 0, 0, 1);  // put Z going up
-
-  glColor4fv(v_blend);
-
-  GL_begin_draw(&polyblend_draw_state, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
-
-  glVertex3f(10, 100, 100);
-  glVertex3f(10, -100, 100);
-  glVertex3f(10, -100, -100);
-  glVertex3f(10, 100, -100);
-
-  GL_end_draw();
-
-  glColor4f(1, 1, 1, 1);
 }
 
 //=======================================================================
@@ -524,7 +370,7 @@ void MYgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble z
   xmin += -(2 * gl_state.camera_separation) / zNear;
   xmax += -(2 * gl_state.camera_separation) / zNear;
 
-  glFrustum(xmin, xmax, ymin, ymax, zNear, zFar);
+  GL_matrix_frustum(xmin, xmax, ymin, ymax, zNear, zFar, u_projection_matrix.mat4);
 }
 
 /*
@@ -555,26 +401,17 @@ void R_SetupGL(void) {
   //
   screenaspect = (float)r_newrefdef.width / r_newrefdef.height;
   //	yfov = 2*atan((float)r_newrefdef.height/r_newrefdef.width)*180/M_PI;
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
   MYgluPerspective(r_newrefdef.fov_y, screenaspect, 4, 4096);
 
   glCullFace(GL_FRONT);
 
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-
-  glRotatef(-90, 1, 0, 0); // put Z going up
-  glRotatef(90, 0, 0, 1);  // put Z going up
-  glRotatef(-r_newrefdef.viewangles[2], 1, 0, 0);
-  glRotatef(-r_newrefdef.viewangles[0], 0, 1, 0);
-  glRotatef(-r_newrefdef.viewangles[1], 0, 0, 1);
-  glTranslatef(-r_newrefdef.vieworg[0], -r_newrefdef.vieworg[1], -r_newrefdef.vieworg[2]);
-
-  //	if ( gl_state.camera_separation != 0 && gl_state.stereo_enabled )
-  //		glTranslatef ( gl_state.camera_separation, 0, 0 );
-
-  glGetFloatv(GL_MODELVIEW_MATRIX, r_world_matrix);
+  GL_matrix_identity(u_view_matrix.mat4);
+  GL_rotate(u_view_matrix.mat4, -90, 1, 0, 0);
+  GL_rotate(u_view_matrix.mat4, 90, 0, 0, 1);
+  GL_rotate(u_view_matrix.mat4, -r_newrefdef.viewangles[2], 1, 0, 0);
+  GL_rotate(u_view_matrix.mat4, -r_newrefdef.viewangles[0], 0, 1, 0);
+  GL_rotate(u_view_matrix.mat4, -r_newrefdef.viewangles[1], 0, 0, 1);
+  GL_translate(u_view_matrix.mat4, -r_newrefdef.vieworg[0], -r_newrefdef.vieworg[1], -r_newrefdef.vieworg[2]);
 
   //
   // set drawing parms
@@ -606,7 +443,10 @@ void R_Clear(void) {
   glDepthMask(old_mask);
 }
 
-void R_Flash(void) { R_PolyBlend(); }
+void R_Flash(void) {
+  GL_draw_2d_quad(r_whitepcx->texnum, 0, 0, vid.width, vid.height, 0, 0, 1, 1, r_newrefdef.blend[0],
+                  r_newrefdef.blend[1], r_newrefdef.blend[2], r_newrefdef.blend[3]);
+}
 
 /*
 ================
@@ -650,8 +490,6 @@ void R_RenderView(refdef_t *fd) {
 
   R_DrawAlphaSurfaces();
 
-  R_Flash();
-
   if(r_speeds->value) {
     ri.Con_Printf(PRINT_ALL, "%4i wpoly %4i epoly %i tex %i lmaps\n", c_brush_polys, c_alias_polys, c_visible_textures,
                   c_visible_lightmaps);
@@ -659,15 +497,11 @@ void R_RenderView(refdef_t *fd) {
 }
 
 void R_SetGL2D(void) {
-  // set 2D virtual screen size
-  glViewport(0, 0, vid.width, vid.height);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(0, vid.width, vid.height, 0, -99999, 99999);
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
+  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.mat4);
+  GL_matrix_identity(u_view_matrix.mat4);
+
+  // TODO remove
   glDisable(GL_CULL_FACE);
-  glColor4f(1, 1, 1, 1);
 }
 
 /*
@@ -701,6 +535,7 @@ void R_RenderFrame(refdef_t *fd) {
   R_RenderView(fd);
   R_SetLightLevel();
   R_SetGL2D();
+  R_Flash();
 }
 
 void R_Register(void) {
@@ -1029,13 +864,11 @@ void R_BeginFrame(float camera_separation) {
   ** go into 2D mode
   */
   glViewport(0, 0, vid.width, vid.height);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(0, vid.width, vid.height, 0, -99999, 99999);
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
+  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.mat4);
+  GL_matrix_identity(u_view_matrix.mat4);
+
+  // TODO
   glDisable(GL_CULL_FACE);
-  glColor4f(1, 1, 1, 1);
 
   /*
   ** draw buffer stuff
@@ -1109,75 +942,6 @@ void R_SetPalette(const unsigned char *palette) {
   glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT);
   glClearColor(1, 0, 0.5, 0.5);
-}
-
-/*
-** R_DrawBeam
-*/
-static struct DrawState beam_draw_state = {.primitive = GL_TRIANGLE_STRIP,
-                                           .depth_test_enable = true,
-                                           .depth_range_min = 0,
-                                           .depth_range_max = 1,
-                                           .depth_mask = false,
-                                           .blend_enable = true,
-                                           .blend_src_factor = GL_SRC_ALPHA,
-                                           .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
-
-void R_DrawBeam(entity_t *e) {
-#define NUM_BEAM_SEGS 6
-
-  int i;
-  float r, g, b;
-
-  vec3_t perpvec;
-  vec3_t direction, normalized_direction;
-  vec3_t start_points[NUM_BEAM_SEGS], end_points[NUM_BEAM_SEGS];
-  vec3_t oldorigin, origin;
-
-  oldorigin[0] = e->oldorigin[0];
-  oldorigin[1] = e->oldorigin[1];
-  oldorigin[2] = e->oldorigin[2];
-
-  origin[0] = e->origin[0];
-  origin[1] = e->origin[1];
-  origin[2] = e->origin[2];
-
-  normalized_direction[0] = direction[0] = oldorigin[0] - origin[0];
-  normalized_direction[1] = direction[1] = oldorigin[1] - origin[1];
-  normalized_direction[2] = direction[2] = oldorigin[2] - origin[2];
-
-  if(VectorNormalize(normalized_direction) == 0)
-    return;
-
-  PerpendicularVector(perpvec, normalized_direction);
-  VectorScale(perpvec, e->frame / 2, perpvec);
-
-  for(i = 0; i < 6; i++) {
-    RotatePointAroundVector(start_points[i], normalized_direction, perpvec, (360.0 / NUM_BEAM_SEGS) * i);
-    VectorAdd(start_points[i], origin, start_points[i]);
-    VectorAdd(start_points[i], direction, end_points[i]);
-  }
-
-  r = (d_8to24table[e->skinnum & 0xFF]) & 0xFF;
-  g = (d_8to24table[e->skinnum & 0xFF] >> 8) & 0xFF;
-  b = (d_8to24table[e->skinnum & 0xFF] >> 16) & 0xFF;
-
-  r *= 1 / 255.0F;
-  g *= 1 / 255.0F;
-  b *= 1 / 255.0F;
-
-  glColor4f(r, g, b, e->alpha);
-
-  GL_begin_draw(&beam_draw_state, &(struct DrawAssets){.image[0] = r_whitepcx->texnum});
-
-  for(i = 0; i < NUM_BEAM_SEGS; i++) {
-    glVertex3fv(start_points[i]);
-    glVertex3fv(end_points[i]);
-    glVertex3fv(start_points[(i + 1) % NUM_BEAM_SEGS]);
-    glVertex3fv(end_points[(i + 1) % NUM_BEAM_SEGS]);
-  }
-
-  GL_end_draw();
 }
 
 //===================================================================

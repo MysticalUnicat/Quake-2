@@ -436,14 +436,14 @@ void R_DrawAliasModel(entity_t *e) {
     // shadelight = SH1_RotateX(SH1_RotateZ(shadelight, -currententity->angles[1]), currententity->angles[0]);
 
     assets.image[0] = skin->texnum;
-    assets.uniforms[0] = (struct GL_DrawAssetUniform){
-        .vec3[0] = shadelight.f[0], .vec3[1] = shadelight.f[4], .vec3[2] = shadelight.f[8]};
-    assets.uniforms[1] = (struct GL_DrawAssetUniform){
-        .vec3[0] = shadelight.f[1], .vec3[1] = shadelight.f[2], .vec3[2] = shadelight.f[3]};
-    assets.uniforms[2] = (struct GL_DrawAssetUniform){
-        .vec3[0] = shadelight.f[5], .vec3[1] = shadelight.f[6], .vec3[2] = shadelight.f[7]};
-    assets.uniforms[3] = (struct GL_DrawAssetUniform){
-        .vec3[0] = shadelight.f[9], .vec3[1] = shadelight.f[10], .vec3[2] = shadelight.f[11]};
+    assets.uniforms[0] =
+        (struct GL_UniformData){.vec3[0] = shadelight.f[0], .vec3[1] = shadelight.f[4], .vec3[2] = shadelight.f[8]};
+    assets.uniforms[1] =
+        (struct GL_UniformData){.vec3[0] = shadelight.f[1], .vec3[1] = shadelight.f[2], .vec3[2] = shadelight.f[3]};
+    assets.uniforms[2] =
+        (struct GL_UniformData){.vec3[0] = shadelight.f[5], .vec3[1] = shadelight.f[6], .vec3[2] = shadelight.f[7]};
+    assets.uniforms[3] =
+        (struct GL_UniformData){.vec3[0] = shadelight.f[9], .vec3[1] = shadelight.f[10], .vec3[2] = shadelight.f[11]};
     assets.element_buffer = &element_vbo;
     assets.vertex_buffers[0] = &position_vbo;
     assets.vertex_buffers[1] = &attribute_vbo;
@@ -459,8 +459,6 @@ void R_DrawAliasModel(entity_t *e) {
     glMatrixMode(GL_MODELVIEW);
     glCullFace(GL_FRONT);
   }
-
-  glColor4f(1, 1, 1, 1);
 }
 
 void GL_MD2_Load(model_t *mod, struct HunkAllocator *hunk, const void *buffer) {

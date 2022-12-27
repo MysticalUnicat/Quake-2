@@ -192,8 +192,6 @@ void GL_SetDefaultState(void) {
 
   glDisable(GL_CULL_FACE);
 
-  glColor4f(1, 1, 1, 1);
-
   GL_TextureMode(gl_texturemode->string);
   GL_TextureAlphaMode(gl_texturealphamode->string);
   GL_TextureSolidMode(gl_texturesolidmode->string);

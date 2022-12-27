@@ -122,6 +122,7 @@ add_library(server STATIC
 target_link_libraries(server common)
 
 add_library(refresh STATIC
+    ref_gl/gl_beam.c
     ref_gl/gl_draw.c
     ref_gl/gl_light.c
     ref_gl/gl_model.c
@@ -130,9 +131,11 @@ add_library(refresh STATIC
     ref_gl/gl_warp.c
     ref_gl/gl_image.c
     ref_gl/gl_mesh.c
+    ref_gl/gl_model_not_found.c
     ref_gl/gl_rmain.c
     ref_gl/gl_rsurf.c
     ref_gl/gl_sky.c
+    ref_gl/gl_sprite.c
     ref_gl/gl_thin.c
     ref_gl/glimp_glfw.c
     ref_gl/qgl_glfw.c

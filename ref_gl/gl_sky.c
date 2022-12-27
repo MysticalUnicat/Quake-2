@@ -59,10 +59,9 @@ struct Sky {
 } sky[CMODEL_COUNT];
 
 void GL_draw_sky(uint32_t cmodel_index) {
-  glPushMatrix();
-  glTranslatef(r_origin[0], r_origin[1], r_origin[2]);
-  glRotatef(r_newrefdef.time * sky[cmodel_index].rotate, sky[cmodel_index].axis[0], sky[cmodel_index].axis[1],
-            sky[cmodel_index].axis[2]);
+  GL_matrix_translation(r_origin[0], r_origin[1], r_origin[2], u_model_matrix.mat4);
+  GL_rotate(u_model_matrix.mat4, r_newrefdef.time * sky[cmodel_index].rotate, sky[cmodel_index].axis[0],
+            sky[cmodel_index].axis[1], sky[cmodel_index].axis[2]);
 
   for(uint32_t i = 0; i < 6; i++) {
     // if(i == 3)
@@ -73,8 +72,6 @@ void GL_draw_sky(uint32_t cmodel_index) {
                                           .image[0] = sky[cmodel_index].image[i]->texnum},
                      6, 1, 4 * i, 0);
   }
-
-  glPopMatrix();
 }
 
 void GL_set_sky(uint32_t cmodel_index, const char *name, float rotate, vec3_t axis) {

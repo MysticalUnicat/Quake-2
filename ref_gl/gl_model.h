@@ -18,6 +18,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#ifndef __GL_MODEL_H__
+#define __GL_MODEL_H__
+
+#include "gl_thin.h"
+
 /*
 
 d*_t structures are on-disk representations
@@ -104,7 +109,7 @@ typedef struct msurface_s {
   int light_s, light_t;   // gl lightmap coordinates
   int dlight_s, dlight_t; // gl lightmap coordinates for dynamic lightmaps
 
-  glpoly_t *polys; // multiple if warped
+  // glpoly_t *polys; // multiple if warped
   struct msurface_s *texturechain;
   struct msurface_s *lightmapchain;
 
@@ -118,6 +123,9 @@ typedef struct msurface_s {
   byte styles[MAXLIGHTMAPS];
   float cached_light[MAXLIGHTMAPS]; // values currently used in lightmap
   byte *samples;                    // [numstyles*surfsize]
+
+  uint32_t elements_offset;
+  uint32_t elements_count;
 } msurface_t;
 
 typedef struct mnode_s {
@@ -231,6 +239,10 @@ typedef struct model_s {
 
   int extradatasize;
   void *extradata;
+
+  struct GL_Buffer element_buffer;   // triangles
+  struct GL_Buffer position_buffer;  // position float[3]
+  struct GL_Buffer attribute_buffer; // st unorm16[2] / 2, lightmap_st unorm16[2], quat snorm16[4]
 } model_t;
 
 //============================================================================
@@ -245,3 +257,5 @@ void Mod_Modellist_f(void);
 
 void Mod_FreeAll(void);
 void Mod_Free(model_t *mod);
+
+#endif

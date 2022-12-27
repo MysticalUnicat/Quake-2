@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdio.h>
 #include <math.h>
 
-#include "glad.h"
+#include "gl_thin.h"
 
 bool QGL_Init(void);
 void QGL_Shutdown(void);
@@ -51,6 +51,12 @@ typedef struct {
 } viddef_t;
 
 extern viddef_t vid;
+
+extern struct GL_Uniform u_model_matrix;
+extern struct GL_Uniform u_view_matrix;
+extern struct GL_Uniform u_model_view_matrix;
+extern struct GL_Uniform u_projection_matrix;
+extern struct GL_Uniform u_model_view_projection_matrix;
 
 struct SH1 {
   float f[12];
@@ -266,6 +272,9 @@ void gl_linkProgram(GLuint program);
 void glProgram_init(struct glProgram *prog, const char *vsource, const char *fsource);
 
 #define MAX_LIGHTMAPS 128
+
+#define LIGHTMAP_WIDTH 1024
+#define LIGHTMAP_HEIGHT 1024
 
 #define TEXNUM_LIGHTMAPS 1024
 #define TEXNUM_SCRAPS (TEXNUM_LIGHTMAPS + 4 + MAX_LIGHTMAPS * CMODEL_COUNT)

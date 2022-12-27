@@ -140,8 +140,6 @@ static void script_builder_add_images_format(const struct GL_ImagesFormat *image
   if(images_format == NULL)
     return;
   for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
-    if(images_format->image[i].type == 0)
-      break;
     if(!(images_format->image[i].stage_bits & stage_bit))
       continue;
     script_builder_add("layout(binding=%i) uniform %s u_%s;\n", i, image_type_info[images_format->image[i].type].name,
@@ -606,7 +604,8 @@ void GL_draw_elements(const struct DrawState *state, const struct DrawAssets *as
 
   glDrawElementsInstancedBaseVertexBaseInstance(
       state->primitive, count, GL_UNSIGNED_INT,
-      (void *)(assets->element_buffer->kind == GL_Buffer_Temporary ? assets->element_buffer->temporary.offset : 0),
+      (void *)(assets->element_buffer->kind == GL_Buffer_Temporary ? assets->element_buffer->temporary.offset : 0) +
+          sizeof(uint32_t) * assets->element_buffer_offset,
       instancecount, basevertex, baseinstance);
 }
 
