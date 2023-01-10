@@ -56,6 +56,7 @@ extern struct GL_Uniform u_model_matrix;
 extern struct GL_Uniform u_view_matrix;
 extern struct GL_Uniform u_model_view_matrix;
 extern struct GL_Uniform u_projection_matrix;
+extern struct GL_Uniform u_view_projection_matrix;
 extern struct GL_Uniform u_model_view_projection_matrix;
 
 struct SH1 {
@@ -276,10 +277,6 @@ void glProgram_init(struct glProgram *prog, const char *vsource, const char *fso
 #define LIGHTMAP_WIDTH 1024
 #define LIGHTMAP_HEIGHT 1024
 
-#define TEXNUM_LIGHTMAPS 1024
-#define TEXNUM_SCRAPS (TEXNUM_LIGHTMAPS + 4 + MAX_LIGHTMAPS * CMODEL_COUNT)
-#define TEXNUM_IMAGES (TEXNUM_SCRAPS + 1)
-
 #define MAX_GLTEXTURES 1024
 
 //===================================================================
@@ -401,8 +398,6 @@ extern cvar_t *gl_3dlabs_broken;
 extern cvar_t *gl_driver;
 extern cvar_t *gl_swapinterval;
 extern cvar_t *gl_texturemode;
-extern cvar_t *gl_texturealphamode;
-extern cvar_t *gl_texturesolidmode;
 extern cvar_t *gl_saturatelighting;
 extern cvar_t *gl_lockpvs;
 
@@ -410,12 +405,6 @@ extern cvar_t *vid_fullscreen;
 extern cvar_t *vid_gamma;
 
 extern cvar_t *intensity;
-
-extern int gl_lightmap_format;
-extern int gl_solid_format;
-extern int gl_alpha_format;
-extern int gl_tex_solid_format;
-extern int gl_tex_alpha_format;
 
 extern int c_visible_lightmaps;
 extern int c_visible_textures;
@@ -500,9 +489,6 @@ void GL_ShutdownImages(void);
 
 void GL_FreeUnusedImages(void);
 
-void GL_TextureAlphaMode(char *string);
-void GL_TextureSolidMode(char *string);
-
 /*
 ** GL extension emulation functions
 */
@@ -569,7 +555,10 @@ typedef struct {
 
   unsigned char *d_16to8table;
 
-  int lightmap_textures;
+  GLuint dynmaic_lightmap_rgb0;
+  GLuint dynmaic_lightmap_r1;
+  GLuint dynmaic_lightmap_g1;
+  GLuint dynmaic_lightmap_b1;
 
   int currenttmu;
 

@@ -3,22 +3,12 @@
 #include "gl_thin.h"
 
 // clang-format off
-static struct GL_VertexFormat vertex_format = {
-  .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
-  .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
-  .binding[0] = {sizeof(float) * 3 + sizeof(float) * 2, 0},
-};
-
-static struct GL_ImagesFormat images_format = {
-  .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "sky_map"},
-};
-
 static char vertex_shader_source[] =
 GL_MSTR(
   layout(location = 0) out vec2 out_st;
 
   void main() {
-    gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
+    gl_Position = u_model_view_projection_matrix * vec4(in_position, 1);
     out_st = in_st;
   }
 );
@@ -35,9 +25,16 @@ GL_MSTR(
 );
 // clang-format on
 
+#define VERTEX_FORMAT
+
+#define IMAGES_FORMAT
+
 static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
-                                      .vertex_format = &vertex_format,
-                                      .images_format = &images_format,
+                                      .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
+                                      .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
+                                      .binding[0] = {sizeof(float) * 3 + sizeof(float) * 2, 0},
+                                      .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "sky_map"},
+                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_model_view_projection_matrix},
                                       .vertex_shader_source = vertex_shader_source,
                                       .fragment_shader_source = fragment_shader_source,
                                       .depth_mask = false,
@@ -59,8 +56,8 @@ struct Sky {
 } sky[CMODEL_COUNT];
 
 void GL_draw_sky(uint32_t cmodel_index) {
-  GL_matrix_translation(r_origin[0], r_origin[1], r_origin[2], u_model_matrix.mat4);
-  GL_rotate(u_model_matrix.mat4, r_newrefdef.time * sky[cmodel_index].rotate, sky[cmodel_index].axis[0],
+  GL_matrix_translation(r_origin[0], r_origin[1], r_origin[2], u_model_matrix.data.mat);
+  GL_rotate(u_model_matrix.data.mat, r_newrefdef.time * sky[cmodel_index].rotate, sky[cmodel_index].axis[0],
             sky[cmodel_index].axis[1], sky[cmodel_index].axis[2]);
 
   for(uint32_t i = 0; i < 6; i++) {

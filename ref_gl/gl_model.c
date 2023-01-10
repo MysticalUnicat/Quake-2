@@ -600,6 +600,11 @@ void Mod_LoadFaces(lump_t *l, struct HunkAllocator *hunk) {
     medge_t *r_pedge;
     float *vec;
 
+    out->elements_offset = num_elements;
+    out->elements_count = (out->numedges - 2) * 3;
+
+    uint32_t first_vertex = num_vertexes;
+
     for(i = 0; i < out->numedges; i++) {
       int lindex = currentmodel->surfedges[out->firstedge + i];
 
@@ -626,7 +631,7 @@ void Mod_LoadFaces(lump_t *l, struct HunkAllocator *hunk) {
           (t - out->texturemins[1] + out->light_t * 16 + 8) / (LIGHTMAP_HEIGHT * 16);
 
       if(i >= 2) {
-        element_buffer_data[num_elements++] = num_vertexes - 2;
+        element_buffer_data[num_elements++] = first_vertex;
         element_buffer_data[num_elements++] = num_vertexes - 1;
         element_buffer_data[num_elements++] = num_vertexes;
       }

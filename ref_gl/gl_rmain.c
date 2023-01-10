@@ -34,12 +34,30 @@ extern void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2
 
 // -------------------------------------------------
 
+// projection * view * model * vertex
+static inline void prepare_model_view(void) {
+  GL_matrix_multiply(u_view_matrix.data.mat, u_model_matrix.data.mat, u_model_view_matrix.data.mat);
+}
+
+static inline void prepare_view_projection(void) {
+  GL_matrix_multiply(u_projection_matrix.data.mat, u_view_matrix.data.mat, u_view_projection_matrix.data.mat);
+}
+
+static inline void prepare_model_view_projection(void) {
+  GL_Uniform_prepare(&u_view_projection_matrix);
+  GL_matrix_multiply(u_view_projection_matrix.data.mat, u_model_matrix.data.mat,
+                     u_model_view_projection_matrix.data.mat);
+}
+
 struct GL_Uniform u_model_matrix = {.type = GL_UniformType_Mat4, .name = "model_matrix"};
 struct GL_Uniform u_view_matrix = {.type = GL_UniformType_Mat4, .name = "view_matrix"};
-struct GL_Uniform u_model_view_matrix = {.type = GL_UniformType_Mat4, .name = "model_view_matrix"};
+struct GL_Uniform u_model_view_matrix = {
+    .type = GL_UniformType_Mat4, .name = "model_view_matrix", .prepare = prepare_model_view};
 struct GL_Uniform u_projection_matrix = {.type = GL_UniformType_Mat4, .name = "projection_matrix"};
-struct GL_Uniform u_model_view_projection_matrix = {.type = GL_UniformType_Mat4,
-                                                    .name = "model_view_projection_matrix"};
+struct GL_Uniform u_view_projection_matrix = {
+    .type = GL_UniformType_Mat4, .name = "view_projection_matrix", .prepare = prepare_view_projection};
+struct GL_Uniform u_model_view_projection_matrix = {
+    .type = GL_UniformType_Mat4, .name = "model_view_projection_matrix", .prepare = prepare_model_view_projection};
 
 void R_Clear(void);
 
@@ -146,8 +164,6 @@ cvar_t *gl_playermip;
 cvar_t *gl_saturatelighting;
 cvar_t *gl_swapinterval;
 cvar_t *gl_texturemode;
-cvar_t *gl_texturealphamode;
-cvar_t *gl_texturesolidmode;
 cvar_t *gl_lockpvs;
 
 cvar_t *gl_3dlabs_broken;
@@ -176,10 +192,10 @@ bool R_CullBox(vec3_t mins, vec3_t maxs) {
 }
 
 void GL_TransformForEntity(entity_t *e) {
-  GL_translate(u_model_matrix.mat4, e->origin[0], e->origin[1], e->origin[2]);
-  GL_rotate(u_model_matrix.mat4, e->angles[1], 0, 0, 1);
-  GL_rotate(u_model_matrix.mat4, -e->angles[0], 0, 1, 0);
-  GL_rotate(u_model_matrix.mat4, -e->angles[2], 1, 0, 0);
+  GL_translate(u_model_matrix.data.mat, e->origin[0], e->origin[1], e->origin[2]);
+  GL_rotate_z(u_model_matrix.data.mat, e->angles[1]);
+  GL_rotate_y(u_model_matrix.data.mat, -e->angles[0]);
+  GL_rotate_x(u_model_matrix.data.mat, -e->angles[2]);
 }
 
 //==================================================================================
@@ -370,7 +386,7 @@ void MYgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble z
   xmin += -(2 * gl_state.camera_separation) / zNear;
   xmax += -(2 * gl_state.camera_separation) / zNear;
 
-  GL_matrix_frustum(xmin, xmax, ymin, ymax, zNear, zFar, u_projection_matrix.mat4);
+  GL_matrix_frustum(xmin, xmax, ymin, ymax, zNear, zFar, u_projection_matrix.data.mat);
 }
 
 /*
@@ -405,13 +421,14 @@ void R_SetupGL(void) {
 
   glCullFace(GL_FRONT);
 
-  GL_matrix_identity(u_view_matrix.mat4);
-  GL_rotate(u_view_matrix.mat4, -90, 1, 0, 0);
-  GL_rotate(u_view_matrix.mat4, 90, 0, 0, 1);
-  GL_rotate(u_view_matrix.mat4, -r_newrefdef.viewangles[2], 1, 0, 0);
-  GL_rotate(u_view_matrix.mat4, -r_newrefdef.viewangles[0], 0, 1, 0);
-  GL_rotate(u_view_matrix.mat4, -r_newrefdef.viewangles[1], 0, 0, 1);
-  GL_translate(u_view_matrix.mat4, -r_newrefdef.vieworg[0], -r_newrefdef.vieworg[1], -r_newrefdef.vieworg[2]);
+  // GL_matrix_rotation_x(-90, u_view_matrix.data.mat);
+  GL_matrix_identity(u_view_matrix.data.mat);
+  GL_rotate_x(u_view_matrix.data.mat, -90);
+  GL_rotate_z(u_view_matrix.data.mat, 90);
+  GL_rotate_x(u_view_matrix.data.mat, -r_newrefdef.viewangles[2]);
+  GL_rotate_y(u_view_matrix.data.mat, -r_newrefdef.viewangles[0]);
+  GL_rotate_z(u_view_matrix.data.mat, -r_newrefdef.viewangles[1]);
+  GL_translate(u_view_matrix.data.mat, -r_newrefdef.vieworg[0], -r_newrefdef.vieworg[1], -r_newrefdef.vieworg[2]);
 
   //
   // set drawing parms
@@ -497,8 +514,8 @@ void R_RenderView(refdef_t *fd) {
 }
 
 void R_SetGL2D(void) {
-  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.mat4);
-  GL_matrix_identity(u_view_matrix.mat4);
+  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.data.mat);
+  GL_matrix_identity(u_view_matrix.data.mat);
 
   // TODO remove
   glDisable(GL_CULL_FACE);
@@ -583,8 +600,6 @@ void R_Register(void) {
   gl_monolightmap = ri.Cvar_Get("gl_monolightmap", "0", 0);
   gl_driver = ri.Cvar_Get("gl_driver", "opengl32", CVAR_ARCHIVE);
   gl_texturemode = ri.Cvar_Get("gl_texturemode", "GL_LINEAR_MIPMAP_NEAREST", CVAR_ARCHIVE);
-  gl_texturealphamode = ri.Cvar_Get("gl_texturealphamode", "default", CVAR_ARCHIVE);
-  gl_texturesolidmode = ri.Cvar_Get("gl_texturesolidmode", "default", CVAR_ARCHIVE);
   gl_lockpvs = ri.Cvar_Get("gl_lockpvs", "0", 0);
 
   gl_vertex_arrays = ri.Cvar_Get("gl_vertex_arrays", "0", CVAR_ARCHIVE);
@@ -864,8 +879,8 @@ void R_BeginFrame(float camera_separation) {
   ** go into 2D mode
   */
   glViewport(0, 0, vid.width, vid.height);
-  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.mat4);
-  GL_matrix_identity(u_view_matrix.mat4);
+  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.data.mat);
+  GL_matrix_identity(u_view_matrix.data.mat);
 
   // TODO
   glDisable(GL_CULL_FACE);
@@ -890,16 +905,6 @@ void R_BeginFrame(float camera_separation) {
   if(gl_texturemode->modified) {
     GL_TextureMode(gl_texturemode->string);
     gl_texturemode->modified = false;
-  }
-
-  if(gl_texturealphamode->modified) {
-    GL_TextureAlphaMode(gl_texturealphamode->string);
-    gl_texturealphamode->modified = false;
-  }
-
-  if(gl_texturesolidmode->modified) {
-    GL_TextureSolidMode(gl_texturesolidmode->string);
-    gl_texturesolidmode->modified = false;
   }
 
   //

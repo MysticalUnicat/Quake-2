@@ -38,17 +38,6 @@ void Draw_InitLocal(void) {
   glTextureParameterf(draw_chars->texnum, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-static struct GL_VertexFormat vertex_format = {
-    .attribute[0] = {0, alias_memory_Format_Float32, 2, "xy", 0},
-    .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 8},
-    .attribute[2] = {0, alias_memory_Format_Unorm8, 4, "rgba", 16},
-    .binding[0] = {sizeof(struct DrawVertex)},
-};
-
-static struct GL_ImagesFormat images_format = {
-    .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "img"},
-};
-
 // clang-format off
 static char vertex_shader_source[] =
   GL_MSTR(
@@ -56,7 +45,7 @@ static char vertex_shader_source[] =
     layout(location = 1) out vec4 out_rgba;
 
     void main() {
-      gl_Position = gl_ModelViewProjectionMatrix * vec4(in_xy, 0, 1);
+      gl_Position = u_view_projection_matrix * vec4(in_xy, 0, 1);
       out_st = in_st;
       out_rgba = in_rgba;
     }
@@ -76,8 +65,12 @@ static char fragment_shader_source[] =
 // clang-format on
 
 static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
-                                      .vertex_format = &vertex_format,
-                                      .images_format = &images_format,
+                                      .attribute[0] = {0, alias_memory_Format_Float32, 2, "xy", 0},
+                                      .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 8},
+                                      .attribute[2] = {0, alias_memory_Format_Unorm8, 4, "rgba", 16},
+                                      .binding[0] = {sizeof(struct DrawVertex)},
+                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
+                                      .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "img"},
                                       .vertex_shader_source = vertex_shader_source,
                                       .fragment_shader_source = fragment_shader_source,
                                       .depth_range_min = 0,
@@ -319,7 +312,7 @@ void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
     }
   }
 
-  glTexImage2D(GL_TEXTURE_2D, 0, gl_tex_solid_format, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, image32);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, image32);
 
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

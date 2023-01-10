@@ -2,25 +2,13 @@
 
 #include "gl_thin.h"
 
-static struct GL_VertexFormat vertex_format = {
-    .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
-    .binding[0] = {sizeof(float) * 3, 0},
-};
-
-static struct GL_UniformsFormat uniforms_format = {
-    .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_rgb0"},
-    .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_r1"},
-    .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_g1"},
-    .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_b1"},
-};
-
 // clang-format off
 static const char vertex_shader_source[] =
   GL_MSTR(
     layout(location = 0) out vec3 out_normal;
 
     void main() {
-      gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
+      gl_Position = u_model_view_projection_matrix * vec4(in_position, 1);
       out_normal = normalize(in_position);
     }
   );
@@ -53,9 +41,19 @@ static const char fragment_shader_source[] =
   );
 // clang-format on
 
+#define VERTEX_FORMAT                                                                                                  \
+  .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0}, .binding[0] = {sizeof(float) * 3, 0}
+
+#define UNIFORMS_FORMAT                                                                                                \
+  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_rgb0"},                                             \
+  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_r1"},                                               \
+  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_g1"},                                               \
+  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_b1"},                                               \
+  .global[0] = {THIN_GL_VERTEX_BIT, &u_model_view_projection_matrix}
+
 static struct DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
-                                             .vertex_format = &vertex_format,
-                                             .uniforms_format = &uniforms_format,
+                                             VERTEX_FORMAT,
+                                             UNIFORMS_FORMAT,
                                              .vertex_shader_source = vertex_shader_source,
                                              .fragment_shader_source = fragment_shader_source,
                                              .depth_mask = true,
@@ -63,8 +61,8 @@ static struct DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
                                              .depth_range_min = 0,
                                              .depth_range_max = 1};
 static struct DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
-                                                  .vertex_format = &vertex_format,
-                                                  .uniforms_format = &uniforms_format,
+                                                  VERTEX_FORMAT,
+                                                  UNIFORMS_FORMAT,
                                                   .vertex_shader_source = vertex_shader_source,
                                                   .fragment_shader_source = fragment_shader_source,
                                                   .depth_mask = false,
@@ -100,27 +98,23 @@ void GL_draw_model_not_found(void) {
   } else
     shadelight = R_LightPoint(r_newrefdef.cmodel_index, currententity->origin);
 
-  glPushMatrix();
+  GL_matrix_identity(u_model_matrix.data.mat);
   GL_TransformForEntity(currententity);
 
-  GL_draw_elements((currententity->flags & RF_TRANSLUCENT) ? &draw_state_transparent : &draw_state_opaque,
-                   &(struct DrawAssets){
-                       .element_buffer = &element_buffer,
-                       .vertex_buffers[0] = &vertex_buffer,
-                       .uniforms[0] = (struct GL_UniformData){.vec3[0] = shadelight.f[0],
-                                                              .vec3[1] = shadelight.f[4],
-                                                              .vec3[2] = shadelight.f[8]},
-                       .uniforms[1] = (struct GL_UniformData){.vec3[0] = shadelight.f[1],
-                                                              .vec3[1] = shadelight.f[2],
-                                                              .vec3[2] = shadelight.f[3]},
-                       .uniforms[2] = (struct GL_UniformData){.vec3[0] = shadelight.f[5],
-                                                              .vec3[1] = shadelight.f[6],
-                                                              .vec3[2] = shadelight.f[7]},
-                       .uniforms[3] = (struct GL_UniformData){.vec3[0] = shadelight.f[9],
-                                                              .vec3[1] = shadelight.f[10],
-                                                              .vec3[2] = shadelight.f[11]},
-                   },
-                   24, 1, 0, 0);
-
-  glPopMatrix();
+  GL_draw_elements(
+      (currententity->flags & RF_TRANSLUCENT) ? &draw_state_transparent : &draw_state_opaque,
+      &(struct DrawAssets){
+          .element_buffer = &element_buffer,
+          .vertex_buffers[0] = &vertex_buffer,
+          .uniforms[0] =
+              (struct GL_UniformData){.vec[0] = shadelight.f[0], .vec[1] = shadelight.f[4], .vec[2] = shadelight.f[8]},
+          .uniforms[1] =
+              (struct GL_UniformData){.vec[0] = shadelight.f[1], .vec[1] = shadelight.f[2], .vec[2] = shadelight.f[3]},
+          .uniforms[2] =
+              (struct GL_UniformData){.vec[0] = shadelight.f[5], .vec[1] = shadelight.f[6], .vec[2] = shadelight.f[7]},
+          .uniforms[3] = (struct GL_UniformData){.vec[0] = shadelight.f[9],
+                                                 .vec[1] = shadelight.f[10],
+                                                 .vec[2] = shadelight.f[11]},
+      },
+      24, 1, 0, 0);
 }

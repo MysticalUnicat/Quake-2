@@ -366,12 +366,6 @@ unsigned d_8to24table[256];
 bool GL_Upload8(byte *data, int width, int height, bool mipmap, bool is_sky);
 bool GL_Upload32(unsigned *data, int width, int height, bool mipmap, int channels);
 
-int gl_solid_format = 3;
-int gl_alpha_format = 4;
-
-int gl_tex_solid_format = 3;
-int gl_tex_alpha_format = 4;
-
 int gl_filter_min = GL_LINEAR_MIPMAP_NEAREST;
 int gl_filter_max = GL_LINEAR;
 
@@ -451,48 +445,6 @@ void GL_TextureMode(char *string) {
       glTextureParameterf(glt->texnum, GL_TEXTURE_MAG_FILTER, gl_filter_max);
     }
   }
-}
-
-/*
-===============
-GL_TextureAlphaMode
-===============
-*/
-void GL_TextureAlphaMode(char *string) {
-  int i;
-
-  for(i = 0; i < NUM_GL_ALPHA_MODES; i++) {
-    if(!Q_stricmp(gl_alpha_modes[i].name, string))
-      break;
-  }
-
-  if(i == NUM_GL_ALPHA_MODES) {
-    ri.Con_Printf(PRINT_ALL, "bad alpha texture mode name\n");
-    return;
-  }
-
-  gl_tex_alpha_format = gl_alpha_modes[i].mode;
-}
-
-/*
-===============
-GL_TextureSolidMode
-===============
-*/
-void GL_TextureSolidMode(char *string) {
-  int i;
-
-  for(i = 0; i < NUM_GL_SOLID_MODES; i++) {
-    if(!Q_stricmp(gl_solid_modes[i].name, string))
-      break;
-  }
-
-  if(i == NUM_GL_SOLID_MODES) {
-    ri.Con_Printf(PRINT_ALL, "bad solid texture mode name\n");
-    return;
-  }
-
-  gl_tex_solid_format = gl_solid_modes[i].mode;
 }
 
 /*
@@ -1030,13 +982,13 @@ bool GL_Upload32(unsigned *data, int width, int height, bool mipmap, int channel
     ri.Sys_Error(ERR_FATAL, "wierd channel count");
 
   // scan the texture for any non-255 alpha
-  comp = gl_tex_solid_format;
+  comp = GL_RGB8;
   if(channels == 4) {
     c = width * height;
     scan = ((byte *)data) + 3;
     for(i = 0; i < c; i++, scan += 4) {
       if(*scan != 255) {
-        comp = gl_tex_alpha_format;
+        comp = GL_RGBA8;
         break;
       }
     }
@@ -1046,7 +998,10 @@ bool GL_Upload32(unsigned *data, int width, int height, bool mipmap, int channel
   upload_height = height;
   uploaded_paletted = false;
 
-  glTexImage2D(GL_TEXTURE_2D, 0, comp, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+  uint32_t levels = 1 + alias_max(log2f(width), log2f(height));
+
+  glTexStorage2D(GL_TEXTURE_2D, levels, comp, width, height);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, format, GL_UNSIGNED_BYTE, data);
 
   if(mipmap) {
     glGenerateMipmap(GL_TEXTURE_2D);
@@ -1057,7 +1012,7 @@ bool GL_Upload32(unsigned *data, int width, int height, bool mipmap, int channel
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
   }
 
-  return (comp == gl_tex_alpha_format);
+  return (comp == GL_RGBA8);
 }
 
 /*
@@ -1121,7 +1076,7 @@ image_t *GL_LoadPic(const char *name, byte *pic, int width, int height, imagetyp
   }
 
   image->scrap = false;
-  image->texnum = TEXNUM_IMAGES + (image - gltextures);
+  glGenTextures(1, &image->texnum);
   glBindTexture(GL_TEXTURE_2D, image->texnum);
   image->has_alpha =
       GL_Upload32((unsigned *)pic, width, height, (image->type != it_pic && image->type != it_sky), channels);

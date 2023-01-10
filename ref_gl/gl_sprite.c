@@ -7,27 +7,13 @@ struct SpriteVertex {
   float st[2];
 };
 
-static struct GL_VertexFormat vertex_format = {
-    .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
-    .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
-    .binding[0] = {sizeof(struct SpriteVertex)},
-};
-
-static struct GL_UniformsFormat uniforms_format = {
-    .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Float, "alpha"},
-};
-
-static struct GL_ImagesFormat images_format = {
-    .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "img"},
-};
-
 // clang-format off
 static char vertex_shader_source[] =
   GL_MSTR(
     layout(location = 0) out vec2 out_st;
 
     void main() {
-      gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
+      gl_Position = u_view_projection_matrix * vec4(in_position, 1);
       out_st = in_st;
     }
   );
@@ -45,9 +31,12 @@ static char fragment_shader_source[] =
 // clang-format on
 
 static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
-                                      .vertex_format = &vertex_format,
-                                      .uniforms_format = &uniforms_format,
-                                      .images_format = &images_format,
+                                      .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
+                                      .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
+                                      .binding[0] = {sizeof(struct SpriteVertex)},
+                                      .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Float, "alpha"},
+                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
+                                      .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "img"},
                                       .vertex_shader_source = vertex_shader_source,
                                       .fragment_shader_source = fragment_shader_source,
                                       .depth_test_enable = true,

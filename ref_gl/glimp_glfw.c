@@ -181,7 +181,7 @@ rserr_t GLimp_SetMode(int *pwidth, int *pheight, int mode, bool fullscreen) {
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   // glfwWindowHint(GLFW_CONTEXT_NO_ERROR, GLFW_TRUE);
 
   glfw_window = glfwCreateWindow(width, height, "Quake 2", monitor, NULL);

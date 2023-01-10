@@ -51,7 +51,8 @@
         "uv.h": "c",
         "win.h": "c",
         "warpsin.h": "c",
-        "q_shared.h": "c"
+        "q_shared.h": "c",
+        "cmath": "cpp"
     },
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "C_Cpp.errorSquiggles": "Disabled"

@@ -4,6 +4,7 @@
 #include "glad.h"
 
 #include <alias/memory.h>
+#include <alias/math.h>
 #include <stdbool.h>
 
 #define THIN_GL_MAX_ATTRIBUTES 8
@@ -16,6 +17,8 @@
 #define THIN_GL_TESSC_BIT 0x04
 #define THIN_GL_TESSE_BIT 0x08
 #define THIN_GL_FRAGMENT_BIT 0x10
+
+typedef void (*GL_VoidFn)(void);
 
 enum GL_UniformType {
   GL_UniformType_Unused,
@@ -47,17 +50,16 @@ struct GL_UniformData {
   GLboolean transpose;
   union {
     float _float;
-    float vec2[2];
-    float vec3[3];
-    float vec4[4];
+    float vec[4];
+    float mat[16];
+
     GLint _int;
-    GLint ivec2[2];
-    GLint ivec3[3];
-    GLint ivec4[4];
+    GLint ivec[4];
+    GLint imat[16];
+
     GLuint uint;
-    GLuint uvec2[2];
-    GLuint uvec3[3];
-    GLuint uvec4[4];
+    GLuint uvec[4];
+    GLuint umat[16];
   };
 };
 
@@ -65,12 +67,9 @@ struct GL_Uniform {
   enum GL_UniformType type;
   const char *name;
   GLsizei count;
-  GLboolean transpose;
-  union {
-    float mat4[16];
-    GLint imat4[16];
-    GLuint umat4[16];
-  };
+  struct GL_UniformData data;
+  GL_VoidFn prepare;
+  uint32_t prepare_draw_index;
 };
 
 // NOTE: up to sampler 2D (that was needed at the time)
@@ -112,6 +111,7 @@ struct DrawState {
   struct {
     GLbitfield stage_bits;
     struct GL_Uniform *uniform;
+    GLuint location;
   } global[THIN_GL_MAX_UNIFORMS];
 
   struct {
@@ -168,9 +168,6 @@ void GL_initialize_draw_state(const struct DrawState *state);
 void GL_apply_draw_state(const struct DrawState *state);
 void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets *assets);
 
-void GL_begin_draw(const struct DrawState *state, const struct DrawAssets *assets);
-void GL_end_draw(void);
-
 void GL_draw_arrays(const struct DrawState *state, const struct DrawAssets *assets, GLint first, GLsizei count,
                     GLsizei instancecount, GLuint baseinstance);
 
@@ -191,124 +188,219 @@ void GL_reset_temporary_buffers(void);
 
 void GL_temporary_buffer_stats(GLenum type, uint32_t *total_allocated, uint32_t *used);
 
+void GL_Uniform_prepare(const struct GL_Uniform *uniform);
+
 // mimic OpenGL's matrix
+static inline void GL_matrix_construct(float xx, float yx, float zx, float wx, float xy, float yy, float zy, float wy,
+                                       float xz, float yz, float zz, float wz, float xw, float yw, float zw, float ww,
+                                       float result[16]) {
+  result[0] = xx;
+  result[1] = xy;
+  result[2] = xz;
+  result[3] = xw;
+  result[4] = yx;
+  result[5] = yy;
+  result[6] = yz;
+  result[7] = yw;
+  result[8] = zx;
+  result[9] = zy;
+  result[10] = zz;
+  result[11] = zw;
+  result[12] = wx;
+  result[13] = wy;
+  result[14] = wz;
+  result[15] = ww;
+}
+
 static inline void GL_matrix_identity(float result[16]) {
   // clang-format off
-  memcpy(result, (float[16]){
+  GL_matrix_construct(
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, 1,
-  }, sizeof(float) * 16);
+    result
+  );
   // clang-format on
 }
 
 static inline void GL_matrix_translation(float x, float y, float z, float result[16]) {
   // clang-format off
-  memcpy(result, (float[16]){
-      1, 0, 0, x,
-      0, 1, 0, y,
-      0, 0, 1, z,
-      0, 0, 0, 1,
-  }, sizeof(float) * 16);
+  GL_matrix_construct(
+    1, 0, 0, x,
+    0, 1, 0, y,
+    0, 0, 1, z,
+    0, 0, 0, 1,
+    result
+  );
   // clang-format on
 }
 
 static inline void GL_matrix_rotation(float angle, float x, float y, float z, float result[16]) {
-  float c = cos(angle * 0.0174533);
-  float s = sin(angle * 0.0174533);
-  float xyz = 1.0 / sqrt(x * x + y * y + z * z);
-  x *= xyz;
-  y *= xyz;
-  z *= xyz;
-  float xx = x * x;
-  float yy = y * y;
-  float zz = z * z;
-  float xy = x * y;
-  float xz = x * z;
-  float yz = y * z;
+  double magnitude = sqrt(x * x + y * y + z * z);
+  if(magnitude < alias_R_MIN) {
+    GL_matrix_identity(result);
+    return;
+  }
+  double one_over_magnitude = 1.0 / magnitude;
+  double a = angle * 0.01745329251;
+  x *= one_over_magnitude;
+  y *= one_over_magnitude;
+  z *= one_over_magnitude;
+  double s = sin(a);
+  double c = cos(a);
+  double one_minus_c = 1.0 - c;
+  double xs = x * s;
+  double ys = y * s;
+  double zs = z * s;
+  double xc = x * one_minus_c;
+  double yc = y * one_minus_c;
+  double zc = z * one_minus_c;
+  double m_xx = (xc * x) + c;
+  double m_xy = (xc * y) + zs;
+  double m_xz = (xc * z) - ys;
+  double m_yx = (yc * x) - zs;
+  double m_yy = (yc * y) + c;
+  double m_yz = (yc * z) + xs;
+  double m_zx = (zc * x) + ys;
+  double m_zy = (zc * y) - xs;
+  double m_zz = (zc * z) + c;
   // clang-format off
-  memcpy(result, (float[16]){
-    xx - c +   c, xy - c - z*c, xz - c + y*s, 0,
-    xy - c + z*s, yy - c +   c, yz - c - x*s, 0,
-    xz - c + y*s, yz - c + x*s, zz - c +   c, 0,
-               0,            0,            0, 1,
-  }, sizeof(float) * 16);
+  GL_matrix_construct(
+    m_xx, m_yx, m_zx, 0,
+    m_xy, m_yy, m_zy, 0,
+    m_xz, m_yz, m_zz, 0,
+       0,   0,     0, 1,
+    result
+  );
+  // clang-format on
+}
+
+static inline void GL_matrix_rotation_x(float angle, float result[16]) {
+  float a = angle * 0.01745329251;
+  float s = sin(a);
+  float c = cos(a);
+  // clang-format off
+  GL_matrix_construct(
+    1, 0,  0, 0,
+    0, c, -s, 0,
+    0, s,  c, 0,
+    0, 0,  0, 1,
+    result
+  );
+  // clang-format on
+}
+
+static inline void GL_matrix_rotation_y(float angle, float result[16]) {
+  float a = angle * 0.01745329251;
+  float s = sin(a);
+  float c = cos(a);
+  // clang-format off
+  GL_matrix_construct(
+     c, 0, s, 0,
+     0, 1, 0, 0,
+    -s, 0, c, 0,
+     0, 0, 0, 1,
+    result
+  );
+  // clang-format on
+}
+
+static inline void GL_matrix_rotation_z(float angle, float result[16]) {
+  float a = angle * 0.01745329251;
+  float s = sin(a);
+  float c = cos(a);
+  // clang-format off
+  GL_matrix_construct(
+    c, -s, 0, 0,
+    s,  c, 0, 0,
+    0,  0, 1, 0,
+    0,  0, 0, 1,
+    result
+  );
   // clang-format on
 }
 
 static inline void GL_matrix_frustum(float left, float right, float bottom, float top, float near, float far,
                                      float result[16]) {
-  float xx = (2 * near) / (right - left);
-  float yy = (2 * near) / (top - bottom);
+  float x = (2 * near) / (right - left);
+  float y = (2 * near) / (top - bottom);
   float a = (right + left) / (right - left);
   float b = (top + bottom) / (top - bottom);
   float c = -(far + near) / (far - near);
   float d = -(2 * far * near) / (far - near);
   // clang-format off
-  memcpy(result, (float[16]){
-      xx,  0,  a, 0,
-       0, yy,  b, 0,
-       0,  0,  c, d,
-       0,  0, -1, 0,
-  }, sizeof(float) * 16);
+  GL_matrix_construct(
+      x, 0,  a,  0,
+      0, y,  b,  0,
+      0, 0,  c,  d,
+      0, 0, -1,  0,
+    result
+  );
   // clang-format on
 }
 
 static inline void GL_matrix_ortho(float left, float right, float bottom, float top, float near, float far,
                                    float result[16]) {
-  float xx = 2 / (right - left);
-  float yy = 2 / (top - bottom);
-  float zz = -2 / (far - near);
-  float x = -(right + left) / (right - left);
-  float y = -(top + bottom) / (top - bottom);
-  float z = -(far + near) / (far - near);
+  float x = 2 / (right - left);
+  float y = 2 / (top - bottom);
+  float z = -2 / (far - near);
+  float a = -(right + left) / (right - left);
+  float b = -(top + bottom) / (top - bottom);
+  float c = -(far + near) / (far - near);
   // clang-format off
-  memcpy(result, (float[16]){
-      xx,  0,  0, x,
-       0, yy,  0, y,
-       0,  0, zz, z,
-       0,  0,  0, 1,
-  }, sizeof(float) * 16);
+  GL_matrix_construct(
+      x, 0, 0, a,
+      0, y, 0, b,
+      0, 0, x, c,
+      0, 0, 0, 1,
+    result
+  );
   // clang-format on
 }
 
-static inline void GL_matrix_mulitply(const float a[16], const float b[16], float result[16]) {
-  // clang-format off
-  memcpy(result, (float[16]){
-    a[0 + 0*4] * b[0 + 0*4] + a[0 + 1*4] * b[1 + 0*4] + a[0 + 2*4] * b[2 + 0*4] + a[0 + 3*4] * b[3 + 0*4],
-    a[0 + 0*4] * b[0 + 1*4] + a[0 + 1*4] * b[1 + 1*4] + a[0 + 2*4] * b[2 + 1*4] + a[0 + 3*4] * b[3 + 1*4],
-    a[0 + 0*4] * b[0 + 2*4] + a[0 + 1*4] * b[1 + 2*4] + a[0 + 2*4] * b[2 + 2*4] + a[0 + 3*4] * b[3 + 2*4],
-    a[0 + 0*4] * b[0 + 3*4] + a[0 + 1*4] * b[1 + 3*4] + a[0 + 2*4] * b[2 + 3*4] + a[0 + 3*4] * b[3 + 3*4],
-
-    a[1 + 0*4] * b[0 + 0*4] + a[1 + 1*4] * b[1 + 0*4] + a[1 + 2*4] * b[2 + 0*4] + a[1 + 3*4] * b[3 + 0*4],
-    a[1 + 0*4] * b[0 + 1*4] + a[1 + 1*4] * b[1 + 1*4] + a[1 + 2*4] * b[2 + 1*4] + a[1 + 3*4] * b[3 + 1*4],
-    a[1 + 0*4] * b[0 + 2*4] + a[1 + 1*4] * b[1 + 2*4] + a[1 + 2*4] * b[2 + 2*4] + a[1 + 3*4] * b[3 + 2*4],
-    a[1 + 0*4] * b[0 + 3*4] + a[1 + 1*4] * b[1 + 3*4] + a[1 + 2*4] * b[2 + 3*4] + a[1 + 3*4] * b[3 + 3*4],
-
-    a[2 + 0*4] * b[0 + 0*4] + a[2 + 1*4] * b[1 + 0*4] + a[2 + 2*4] * b[2 + 0*4] + a[2 + 3*4] * b[3 + 0*4],
-    a[2 + 0*4] * b[0 + 1*4] + a[2 + 1*4] * b[1 + 1*4] + a[2 + 2*4] * b[2 + 1*4] + a[2 + 3*4] * b[3 + 1*4],
-    a[2 + 0*4] * b[0 + 2*4] + a[2 + 1*4] * b[1 + 2*4] + a[2 + 2*4] * b[2 + 2*4] + a[2 + 3*4] * b[3 + 2*4],
-    a[2 + 0*4] * b[0 + 3*4] + a[2 + 1*4] * b[1 + 3*4] + a[2 + 2*4] * b[2 + 3*4] + a[2 + 3*4] * b[3 + 3*4],
-
-    a[3 + 0*4] * b[0 + 0*4] + a[3 + 1*4] * b[1 + 0*4] + a[3 + 2*4] * b[2 + 0*4] + a[3 + 3*4] * b[3 + 0*4],
-    a[3 + 0*4] * b[0 + 1*4] + a[3 + 1*4] * b[1 + 1*4] + a[3 + 2*4] * b[2 + 1*4] + a[3 + 3*4] * b[3 + 1*4],
-    a[3 + 0*4] * b[0 + 2*4] + a[3 + 1*4] * b[1 + 2*4] + a[3 + 2*4] * b[2 + 2*4] + a[3 + 3*4] * b[3 + 2*4],
-    a[3 + 0*4] * b[0 + 3*4] + a[3 + 1*4] * b[1 + 3*4] + a[3 + 2*4] * b[2 + 3*4] + a[3 + 3*4] * b[3 + 3*4],
-  }, sizeof(float) * 16);
-  // clang-format on
+static inline void GL_matrix_multiply(const float a[16], const float b[16], float result[16]) {
+  float m[16];
+  for(uint32_t i = 0; i < 4; i++) {
+    float row[4] = {a[0 + i], a[4 + i], a[8 + i], a[12 + i]};
+    // clang-format off
+    m[ 0 + i] = row[0] * b[ 0 + 0] + row[1] * b[ 0 + 1] + row[2] * b[ 0 + 2] + row[3] * b[ 0 + 3];
+    m[ 4 + i] = row[0] * b[ 4 + 0] + row[1] * b[ 4 + 1] + row[2] * b[ 4 + 2] + row[3] * b[ 4 + 3];
+    m[ 8 + i] = row[0] * b[ 8 + 0] + row[1] * b[ 8 + 1] + row[2] * b[ 8 + 2] + row[3] * b[ 8 + 3];
+    m[12 + i] = row[0] * b[12 + 0] + row[1] * b[12 + 1] + row[2] * b[12 + 2] + row[3] * b[12 + 3];
+    // clang-format on
+  }
+  alias_memory_copy(result, sizeof(float) * 16, m, sizeof(float) * 16);
 }
 
 static inline void GL_translate(float matrix[16], float x, float y, float z) {
   float temp[16];
   GL_matrix_translation(x, y, z, temp);
-  GL_matrix_mulitply(matrix, temp, matrix);
+  GL_matrix_multiply(matrix, temp, matrix);
 }
 
 static inline void GL_rotate(float matrix[16], float angle, float x, float y, float z) {
   float temp[16];
   GL_matrix_rotation(angle, x, y, z, temp);
-  GL_matrix_mulitply(matrix, temp, matrix);
+  GL_matrix_multiply(matrix, temp, matrix);
+}
+
+static inline void GL_rotate_x(float matrix[16], float angle) {
+  float temp[16];
+  GL_matrix_rotation_x(angle, temp);
+  GL_matrix_multiply(matrix, temp, matrix);
+}
+
+static inline void GL_rotate_y(float matrix[16], float angle) {
+  float temp[16];
+  GL_matrix_rotation_y(angle, temp);
+  GL_matrix_multiply(matrix, temp, matrix);
+}
+
+static inline void GL_rotate_z(float matrix[16], float angle) {
+  float temp[16];
+  GL_matrix_rotation_z(angle, temp);
+  GL_matrix_multiply(matrix, temp, matrix);
 }
 
 #endif

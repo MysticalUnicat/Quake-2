@@ -36,25 +36,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 struct SH1 shadelight;
 
 // clang-format off
-static struct GL_VertexFormat vertex_format = {
-  .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
-  .attribute[1] = {1, alias_memory_Format_Unorm16, 2, "st", 0},
-  .attribute[2] = {1, alias_memory_Format_Snorm16, 4, "quaternion", 4},
-  .binding[0] = {sizeof(float) * 3, 0},
-  .binding[1] = {sizeof(uint16_t) * 2 + sizeof(int16_t) * 4, 0}
-};
-
-static struct GL_UniformsFormat uniforms_format = {
-  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_rgb0"},
-  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_r1"},
-  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_g1"},
-  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_b1"},
-};
-
-static struct GL_ImagesFormat images_format = {
-  .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "albedo_map"},
-};
-
 static const char vertex_shader_source[] =
   GL_MSTR(
     layout(location = 0) out vec2 out_st;
@@ -83,7 +64,7 @@ static const char vertex_shader_source[] =
     }
 
     void main() {
-      gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
+      gl_Position = u_projection_matrix * u_view_matrix * u_model_matrix * vec4(in_position, 1);
 
       out_st = in_st;
 
@@ -95,17 +76,11 @@ static const char vertex_shader_source[] =
 
 // static const char vertex_shader_shell_source[] =
 //   GL_MSTR(
-//     layout(location = 0) in vec3 in_position;
-//     layout(location = 1) in vec2 in_st;
-//     layout(location = 2) in vec3 in_tangent;
-//     layout(location = 3) in vec3 in_bitangent;
-//     layout(location = 4) in vec3 in_normal;
-
 //     layout(location = 0) out vec2 out_st;
 //     layout(location = 2) out vec3 out_tbn;
 
 //     void main() {
-//       gl_Position = gl_ModelViewProjectionMatrix * in_position + in_normal * 5;
+//       gl_Position = u_model_view_projection_matrix * in_position + in_normal * 5;
 
 //       out_st = in_st;
 
@@ -146,9 +121,25 @@ static const char fragment_shader_source[] =
   );
 // clang-format on
 
+#define VERTEX_FORMAT                                                                                                  \
+  .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},                                                  \
+  .attribute[1] = {1, alias_memory_Format_Unorm16, 2, "st", 0},                                                        \
+  .attribute[2] = {1, alias_memory_Format_Snorm16, 4, "quaternion", 4}, .binding[0] = {sizeof(float) * 3, 0},          \
+  .binding[1] = {sizeof(uint16_t) * 2 + sizeof(int16_t) * 4, 0}
+
+#define UNIFORMS_FORMAT                                                                                                \
+  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_rgb0"},                                             \
+  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_r1"},                                               \
+  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_g1"},                                               \
+  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_b1"},                                               \
+  .global[0] = {THIN_GL_VERTEX_BIT, &u_model_matrix}, .global[1] = {THIN_GL_VERTEX_BIT, &u_view_matrix},               \
+  .global[2] = {THIN_GL_VERTEX_BIT, &u_projection_matrix}
+
+#define IMAGES_FORMAT .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "albedo_map"}
+
 #define DRAW_STATE                                                                                                     \
-  .primitive = GL_TRIANGLES, .vertex_format = &vertex_format, .uniforms_format = &uniforms_format,                     \
-  .images_format = &images_format, .fragment_shader_source = fragment_shader_source
+  .primitive = GL_TRIANGLES, VERTEX_FORMAT, UNIFORMS_FORMAT, IMAGES_FORMAT,                                            \
+  .fragment_shader_source = fragment_shader_source
 
 #define NO_SHELL .vertex_shader_source = vertex_shader_source
 
@@ -317,23 +308,22 @@ void R_DrawAliasModel(entity_t *e) {
   // draw all the triangles
   //
   if((currententity->flags & RF_WEAPONMODEL) && (r_lefthand->value == 1.0F)) {
-    extern void MYgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);
+    // extern void MYgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);
 
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glScalef(-1, 1, 1);
-    MYgluPerspective(r_newrefdef.fov_y, (float)r_newrefdef.width / r_newrefdef.height, 4, 4096);
-    glMatrixMode(GL_MODELVIEW);
+    // glMatrixMode(GL_PROJECTION);
+    // glPushMatrix();
+    // glLoadIdentity();
+    // glScalef(-1, 1, 1);
+    // MYgluPerspective(r_newrefdef.fov_y, (float)r_newrefdef.width / r_newrefdef.height, 4, 4096);
+    // glMatrixMode(GL_MODELVIEW);
 
-    glCullFace(GL_BACK);
+    // glCullFace(GL_BACK);
   }
 
-  glPushMatrix();
-
-  glTranslatef((currententity->oldorigin[0] - currententity->origin[0]) * currententity->backlerp,
-               (currententity->oldorigin[1] - currententity->origin[1]) * currententity->backlerp,
-               (currententity->oldorigin[2] - currententity->origin[2]) * currententity->backlerp);
+  GL_matrix_translation((currententity->oldorigin[0] - currententity->origin[0]) * currententity->backlerp,
+                        (currententity->oldorigin[1] - currententity->origin[1]) * currententity->backlerp,
+                        (currententity->oldorigin[2] - currententity->origin[2]) * currententity->backlerp,
+                        u_model_matrix.data.mat);
 
   e->angles[PITCH] = -e->angles[PITCH]; // sigh.
   GL_TransformForEntity(e);
@@ -437,13 +427,13 @@ void R_DrawAliasModel(entity_t *e) {
 
     assets.image[0] = skin->texnum;
     assets.uniforms[0] =
-        (struct GL_UniformData){.vec3[0] = shadelight.f[0], .vec3[1] = shadelight.f[4], .vec3[2] = shadelight.f[8]};
+        (struct GL_UniformData){.vec[0] = shadelight.f[0], .vec[1] = shadelight.f[4], .vec[2] = shadelight.f[8]};
     assets.uniforms[1] =
-        (struct GL_UniformData){.vec3[0] = shadelight.f[1], .vec3[1] = shadelight.f[2], .vec3[2] = shadelight.f[3]};
+        (struct GL_UniformData){.vec[0] = shadelight.f[1], .vec[1] = shadelight.f[2], .vec[2] = shadelight.f[3]};
     assets.uniforms[2] =
-        (struct GL_UniformData){.vec3[0] = shadelight.f[5], .vec3[1] = shadelight.f[6], .vec3[2] = shadelight.f[7]};
+        (struct GL_UniformData){.vec[0] = shadelight.f[5], .vec[1] = shadelight.f[6], .vec[2] = shadelight.f[7]};
     assets.uniforms[3] =
-        (struct GL_UniformData){.vec3[0] = shadelight.f[9], .vec3[1] = shadelight.f[10], .vec3[2] = shadelight.f[11]};
+        (struct GL_UniformData){.vec[0] = shadelight.f[9], .vec[1] = shadelight.f[10], .vec[2] = shadelight.f[11]};
     assets.element_buffer = &element_vbo;
     assets.vertex_buffers[0] = &position_vbo;
     assets.vertex_buffers[1] = &attribute_vbo;
@@ -451,13 +441,11 @@ void R_DrawAliasModel(entity_t *e) {
     GL_draw_elements(draw_state, &assets, render_mesh->num_indexes, 1, 0, 0);
   }
 
-  glPopMatrix();
-
   if((currententity->flags & RF_WEAPONMODEL) && (r_lefthand->value == 1.0F)) {
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glCullFace(GL_FRONT);
+    // glMatrixMode(GL_PROJECTION);
+    // glPopMatrix();
+    // glMatrixMode(GL_MODELVIEW);
+    // glCullFace(GL_FRONT);
   }
 }
 

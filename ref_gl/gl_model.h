@@ -243,6 +243,11 @@ typedef struct model_s {
   struct GL_Buffer element_buffer;   // triangles
   struct GL_Buffer position_buffer;  // position float[3]
   struct GL_Buffer attribute_buffer; // st unorm16[2] / 2, lightmap_st unorm16[2], quat snorm16[4]
+
+  GLuint lightmap_rgb0;
+  GLuint lightmap_r1;
+  GLuint lightmap_g1;
+  GLuint lightmap_b1;
 } model_t;
 
 //============================================================================

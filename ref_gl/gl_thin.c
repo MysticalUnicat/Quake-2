@@ -47,6 +47,8 @@ static struct {
   char *script_builder_ptr;
   uint32_t script_builder_cap;
   uint32_t script_builder_len;
+
+  uint32_t draw_index;
 } _ = {0, 0, 0, 0};
 
 void script_builder_init(void) { _.script_builder_len = 0; }
@@ -68,82 +70,88 @@ void script_builder_add(const char *format, ...) {
   va_end(ap);
 }
 
-static void script_builder_add_vertex_format(const struct GL_VertexFormat *vertex_format) {
-  if(vertex_format != NULL) {
-    for(int i = 0; i < THIN_GL_MAX_ATTRIBUTES; i++) {
-      if(vertex_format->attribute[i].format == 0)
-        break;
+static void script_builder_add_vertex_format(const struct DrawState *draw_state) {
+  for(int i = 0; i < THIN_GL_MAX_ATTRIBUTES; i++) {
+    if(draw_state->attribute[i].format == 0)
+      break;
 
-      script_builder_add("layout(location=%i) in ", i);
-      const char *type_name, *vec_name;
-      switch(vertex_format->attribute[i].format) {
-      case alias_memory_Format_Uint8:
-      case alias_memory_Format_Uint16:
-      case alias_memory_Format_Uint32:
-      case alias_memory_Format_Uint64:
-        type_name = "uint";
-        vec_name = "uvec";
-        break;
-      case alias_memory_Format_Sint8:
-      case alias_memory_Format_Sint16:
-      case alias_memory_Format_Sint32:
-      case alias_memory_Format_Sint64:
-        type_name = "int";
-        vec_name = "ivec";
-        break;
-      case alias_memory_Format_Unorm8:
-      case alias_memory_Format_Unorm16:
-      case alias_memory_Format_Snorm8:
-      case alias_memory_Format_Snorm16:
-      case alias_memory_Format_Uscaled8:
-      case alias_memory_Format_Uscaled16:
-      case alias_memory_Format_Sscaled8:
-      case alias_memory_Format_Sscaled16:
-      case alias_memory_Format_Urgb8:
-      case alias_memory_Format_Float32:
-        type_name = "float";
-        vec_name = "vec";
-        break;
-      case alias_memory_Format_Float16:
-        type_name = "half_float";
-        vec_name = "hvec";
-        break;
-      case alias_memory_Format_Float64:
-        type_name = "double";
-        vec_name = "dvec";
-        break;
-      }
-      if(vertex_format->attribute[i].size > 1) {
-        script_builder_add("%s%i in_%s;\n", vec_name, vertex_format->attribute[i].size,
-                           vertex_format->attribute[i].name);
-      } else {
-        script_builder_add("%s in_%s;\n", type_name, vertex_format->attribute[i].name);
-      }
+    script_builder_add("layout(location=%i) in ", i);
+    const char *type_name, *vec_name;
+    switch(draw_state->attribute[i].format) {
+    case alias_memory_Format_Uint8:
+    case alias_memory_Format_Uint16:
+    case alias_memory_Format_Uint32:
+    case alias_memory_Format_Uint64:
+      type_name = "uint";
+      vec_name = "uvec";
+      break;
+    case alias_memory_Format_Sint8:
+    case alias_memory_Format_Sint16:
+    case alias_memory_Format_Sint32:
+    case alias_memory_Format_Sint64:
+      type_name = "int";
+      vec_name = "ivec";
+      break;
+    case alias_memory_Format_Unorm8:
+    case alias_memory_Format_Unorm16:
+    case alias_memory_Format_Snorm8:
+    case alias_memory_Format_Snorm16:
+    case alias_memory_Format_Uscaled8:
+    case alias_memory_Format_Uscaled16:
+    case alias_memory_Format_Sscaled8:
+    case alias_memory_Format_Sscaled16:
+    case alias_memory_Format_Urgb8:
+    case alias_memory_Format_Float32:
+      type_name = "float";
+      vec_name = "vec";
+      break;
+    case alias_memory_Format_Float16:
+      type_name = "half_float";
+      vec_name = "hvec";
+      break;
+    case alias_memory_Format_Float64:
+      type_name = "double";
+      vec_name = "dvec";
+      break;
+    }
+    if(draw_state->attribute[i].size > 1) {
+      script_builder_add("%s%i in_%s;\n", vec_name, draw_state->attribute[i].size, draw_state->attribute[i].name);
+    } else {
+      script_builder_add("%s in_%s;\n", type_name, draw_state->attribute[i].name);
     }
   }
 }
 
-static void script_builder_add_uniform_format(const struct GL_UniformsFormat *uniform_format, GLbitfield stage_bit) {
-  if(uniform_format == NULL)
-    return;
+static void script_builder_add_uniform_format(const struct DrawState *draw_state, GLbitfield stage_bit) {
+  GLuint location = 0;
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
-    if(uniform_format->uniform[i].type == 0)
-      break;
-    if(!(uniform_format->uniform[i].stage_bits & stage_bit))
+    if(!draw_state->uniform[i].stage_bits)
       continue;
-    script_builder_add("layout(location=%i) uniform %s u_%s;\n", i,
-                       uniform_type_info[uniform_format->uniform[i].type].name, uniform_format->uniform[i].name);
+    location = i + 1;
+    if(!(draw_state->uniform[i].stage_bits & stage_bit))
+      continue;
+    script_builder_add("layout(location=%i) uniform %s u_%s;\n", i, uniform_type_info[draw_state->uniform[i].type].name,
+                       draw_state->uniform[i].name);
+  }
+
+  for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
+    if(!draw_state->global[i].stage_bits)
+      continue;
+    GLuint loc = *(GLuint *)(&draw_state->global[i].location) = location++;
+    if(!(draw_state->global[i].stage_bits & stage_bit))
+      continue;
+    script_builder_add("layout(location=%i) uniform %s u_%s;\n", loc,
+                       uniform_type_info[draw_state->global[i].uniform->type].name,
+                       draw_state->global[i].uniform->name);
   }
 }
 
-static void script_builder_add_images_format(const struct GL_ImagesFormat *images_format, GLbitfield stage_bit) {
-  if(images_format == NULL)
-    return;
+static void script_builder_add_images_format(const struct DrawState *draw_state, GLbitfield stage_bit) {
   for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
-    if(!(images_format->image[i].stage_bits & stage_bit))
+    if(!(draw_state->image[i].stage_bits & stage_bit))
       continue;
-    script_builder_add("layout(binding=%i) uniform %s u_%s;\n", i, image_type_info[images_format->image[i].type].name,
-                       images_format->image[i].name);
+    script_builder_add("layout(binding=%i) uniform %s u_%s;\n", i, image_type_info[draw_state->image[i].type].name,
+                       draw_state->image[i].name);
   }
 }
 
@@ -205,10 +213,10 @@ void glProgram_init(struct glProgram *prog, const char *vsource, const char *fso
 void GL_initialize_draw_state(const struct DrawState *state) {
   if(state->vertex_shader_source != NULL && state->vertex_shader_object == 0) {
     script_builder_init();
-    script_builder_add("#version 460 compatibility\n");
-    script_builder_add_vertex_format(state->vertex_format);
-    script_builder_add_uniform_format(state->uniforms_format, THIN_GL_VERTEX_BIT);
-    script_builder_add_images_format(state->images_format, THIN_GL_VERTEX_BIT);
+    script_builder_add("#version 460 core\n");
+    script_builder_add_vertex_format(state);
+    script_builder_add_uniform_format(state, THIN_GL_VERTEX_BIT);
+    script_builder_add_images_format(state, THIN_GL_VERTEX_BIT);
 
     GLuint shader = glCreateShader(GL_VERTEX_SHADER);
     const char *sources[2] = {_.script_builder_ptr, state->vertex_shader_source};
@@ -220,9 +228,9 @@ void GL_initialize_draw_state(const struct DrawState *state) {
 
   if(state->fragment_shader_source != NULL && state->fragment_shader_object == 0) {
     script_builder_init();
-    script_builder_add("#version 460 compatibility\n");
-    script_builder_add_uniform_format(state->uniforms_format, THIN_GL_FRAGMENT_BIT);
-    script_builder_add_images_format(state->images_format, THIN_GL_FRAGMENT_BIT);
+    script_builder_add("#version 460 core\n");
+    script_builder_add_uniform_format(state, THIN_GL_FRAGMENT_BIT);
+    script_builder_add_images_format(state, THIN_GL_FRAGMENT_BIT);
 
     GLuint shader = glCreateShader(GL_FRAGMENT_SHADER);
     const char *sources[2] = {_.script_builder_ptr, state->fragment_shader_source};
@@ -240,94 +248,81 @@ void GL_initialize_draw_state(const struct DrawState *state) {
     *(GLuint *)(&state->program_object) = program;
   }
 
-  if(state->vertex_format != NULL && state->vertex_format->attribute[0].format != 0 &&
-     state->vertex_array_object == 0) {
+  if(state->attribute[0].format != 0 && state->vertex_array_object == 0) {
     GLuint vao;
     glGenVertexArrays(1, &vao);
     for(int i = 0; i < THIN_GL_MAX_ATTRIBUTES; i++) {
-      if(state->vertex_format->attribute[i].format == 0)
+      if(state->attribute[i].format == 0)
         break;
       glEnableVertexArrayAttrib(vao, i);
-      switch(state->vertex_format->attribute[i].format) {
+      switch(state->attribute[i].format) {
       case alias_memory_Format_Uint8:
-        glVertexArrayAttribIFormat(vao, i, state->vertex_format->attribute[i].size, GL_UNSIGNED_BYTE,
-                                   state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribIFormat(vao, i, state->attribute[i].size, GL_UNSIGNED_BYTE, state->attribute[i].offset);
         break;
       case alias_memory_Format_Uint16:
-        glVertexArrayAttribIFormat(vao, i, state->vertex_format->attribute[i].size, GL_UNSIGNED_SHORT,
-                                   state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribIFormat(vao, i, state->attribute[i].size, GL_UNSIGNED_SHORT, state->attribute[i].offset);
         break;
       case alias_memory_Format_Uint32:
-        glVertexArrayAttribIFormat(vao, i, state->vertex_format->attribute[i].size, GL_UNSIGNED_INT,
-                                   state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribIFormat(vao, i, state->attribute[i].size, GL_UNSIGNED_INT, state->attribute[i].offset);
         break;
       case alias_memory_Format_Uint64:
         //
         break;
       case alias_memory_Format_Sint8:
-        glVertexArrayAttribIFormat(vao, i, state->vertex_format->attribute[i].size, GL_BYTE,
-                                   state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribIFormat(vao, i, state->attribute[i].size, GL_BYTE, state->attribute[i].offset);
         break;
       case alias_memory_Format_Sint16:
-        glVertexArrayAttribIFormat(vao, i, state->vertex_format->attribute[i].size, GL_SHORT,
-                                   state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribIFormat(vao, i, state->attribute[i].size, GL_SHORT, state->attribute[i].offset);
         break;
       case alias_memory_Format_Sint32:
-        glVertexArrayAttribIFormat(vao, i, state->vertex_format->attribute[i].size, GL_INT,
-                                   state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribIFormat(vao, i, state->attribute[i].size, GL_INT, state->attribute[i].offset);
         break;
       case alias_memory_Format_Sint64:
         //
         break;
       case alias_memory_Format_Unorm8:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_UNSIGNED_BYTE, GL_TRUE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_UNSIGNED_BYTE, GL_TRUE,
+                                  state->attribute[i].offset);
         break;
       case alias_memory_Format_Unorm16:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_UNSIGNED_SHORT, GL_TRUE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_UNSIGNED_SHORT, GL_TRUE,
+                                  state->attribute[i].offset);
         break;
       case alias_memory_Format_Snorm8:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_BYTE, GL_TRUE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_BYTE, GL_TRUE, state->attribute[i].offset);
         break;
       case alias_memory_Format_Snorm16:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_SHORT, GL_TRUE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_SHORT, GL_TRUE, state->attribute[i].offset);
         break;
       case alias_memory_Format_Uscaled8:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_UNSIGNED_BYTE, GL_FALSE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_UNSIGNED_BYTE, GL_FALSE,
+                                  state->attribute[i].offset);
         break;
       case alias_memory_Format_Uscaled16:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_UNSIGNED_SHORT, GL_FALSE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_UNSIGNED_SHORT, GL_FALSE,
+                                  state->attribute[i].offset);
         break;
       case alias_memory_Format_Sscaled8:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_BYTE, GL_FALSE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_BYTE, GL_FALSE, state->attribute[i].offset);
         break;
       case alias_memory_Format_Sscaled16:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_SHORT, GL_FALSE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_SHORT, GL_FALSE, state->attribute[i].offset);
         break;
       case alias_memory_Format_Urgb8:
         //
         break;
       case alias_memory_Format_Float16:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_HALF_FLOAT, GL_FALSE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_HALF_FLOAT, GL_FALSE,
+                                  state->attribute[i].offset);
         break;
       case alias_memory_Format_Float32:
-        glVertexArrayAttribFormat(vao, i, state->vertex_format->attribute[i].size, GL_FLOAT, GL_FALSE,
-                                  state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribFormat(vao, i, state->attribute[i].size, GL_FLOAT, GL_FALSE, state->attribute[i].offset);
         break;
       case alias_memory_Format_Float64:
-        glVertexArrayAttribLFormat(vao, i, state->vertex_format->attribute[i].size, GL_DOUBLE,
-                                   state->vertex_format->attribute[i].offset);
+        glVertexArrayAttribLFormat(vao, i, state->attribute[i].size, GL_DOUBLE, state->attribute[i].offset);
         break;
       }
-      glVertexArrayAttribBinding(vao, i, state->vertex_format->attribute[i].binding);
+      glVertexArrayAttribBinding(vao, i, state->attribute[i].binding);
     }
     *(GLuint *)(&state->vertex_array_object) = vao;
   }
@@ -388,6 +383,148 @@ void GL_apply_draw_state(const struct DrawState *state) {
   }
 }
 
+static inline void GL_apply_uniform(GLuint location, enum GL_UniformType type, GLsizei count,
+                                    const struct GL_UniformData *data) {
+  count = count || 1;
+  if(data->pointer) {
+    switch(type) {
+    case GL_UniformType_Unused:
+      break;
+    case GL_UniformType_Float:
+      glUniform1fv(location, count, data->pointer);
+      break;
+    case GL_UniformType_Vec2:
+      glUniform2fv(location, count, data->pointer);
+      break;
+    case GL_UniformType_Vec3:
+      glUniform3fv(location, count, data->pointer);
+      break;
+    case GL_UniformType_Vec4:
+      glUniform4fv(location, count, data->pointer);
+      break;
+    case GL_UniformType_Int:
+      glUniform1iv(location, count, data->pointer);
+      break;
+    case GL_UniformType_IVec2:
+      glUniform2iv(location, count, data->pointer);
+      break;
+    case GL_UniformType_IVec3:
+      glUniform3iv(location, count, data->pointer);
+      break;
+    case GL_UniformType_IVec4:
+      glUniform4iv(location, count, data->pointer);
+      break;
+    case GL_UniformType_Uint:
+      glUniform1uiv(location, count, data->pointer);
+      break;
+    case GL_UniformType_UVec2:
+      glUniform2uiv(location, count, data->pointer);
+      break;
+    case GL_UniformType_UVec3:
+      glUniform3uiv(location, count, data->pointer);
+      break;
+    case GL_UniformType_UVec4:
+      glUniform4uiv(location, count, data->pointer);
+      break;
+    case GL_UniformType_Mat2:
+      glUniformMatrix2fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat3:
+      glUniformMatrix3fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat4:
+      glUniformMatrix4fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat2x3:
+      glUniformMatrix2x3fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat3x2:
+      glUniformMatrix3x2fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat2x4:
+      glUniformMatrix2x4fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat4x2:
+      glUniformMatrix4x2fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat3x4:
+      glUniformMatrix3x4fv(location, count, data->transpose, data->pointer);
+      break;
+    case GL_UniformType_Mat4x3:
+      glUniformMatrix4x3fv(location, count, data->transpose, data->pointer);
+      break;
+    }
+  } else {
+    switch(type) {
+    case GL_UniformType_Unused:
+      break;
+    case GL_UniformType_Float:
+      glUniform1f(location, data->_float);
+      break;
+    case GL_UniformType_Vec2:
+      glUniform2f(location, data->vec[0], data->vec[1]);
+      break;
+    case GL_UniformType_Vec3:
+      glUniform3f(location, data->vec[0], data->vec[1], data->vec[2]);
+      break;
+    case GL_UniformType_Vec4:
+      glUniform4f(location, data->vec[0], data->vec[1], data->vec[2], data->vec[3]);
+      break;
+    case GL_UniformType_Int:
+      glUniform1i(location, data->_int);
+      break;
+    case GL_UniformType_IVec2:
+      glUniform2i(location, data->ivec[0], data->ivec[1]);
+      break;
+    case GL_UniformType_IVec3:
+      glUniform3i(location, data->ivec[0], data->ivec[1], data->ivec[2]);
+      break;
+    case GL_UniformType_IVec4:
+      glUniform4i(location, data->ivec[0], data->ivec[1], data->ivec[2], data->ivec[3]);
+      break;
+    case GL_UniformType_Uint:
+      glUniform1ui(location, data->uint);
+      break;
+    case GL_UniformType_UVec2:
+      glUniform2ui(location, data->uvec[0], data->uvec[1]);
+      break;
+    case GL_UniformType_UVec3:
+      glUniform3ui(location, data->uvec[0], data->uvec[1], data->uvec[2]);
+      break;
+    case GL_UniformType_UVec4:
+      glUniform4ui(location, data->uvec[0], data->uvec[1], data->uvec[2], data->uvec[3]);
+      break;
+    case GL_UniformType_Mat2:
+      glUniformMatrix2fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat3:
+      glUniformMatrix3fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat4:
+      glUniformMatrix4fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat2x3:
+      glUniformMatrix2x3fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat3x2:
+      glUniformMatrix3x2fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat2x4:
+      glUniformMatrix2x4fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat4x2:
+      glUniformMatrix4x2fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat3x4:
+      glUniformMatrix3x4fv(location, count, data->transpose, data->mat);
+      break;
+    case GL_UniformType_Mat4x3:
+      glUniformMatrix4x3fv(location, count, data->transpose, data->mat);
+      break;
+    }
+  }
+}
+
 void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets *assets) {
   static struct DrawAssets current_draw_assets;
 
@@ -397,156 +534,28 @@ void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets
   for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
     if(assets->image[i]) {
       if(current_draw_assets.image[i] != assets->image[i]) {
-        if(state->images_format != NULL) {
-          if(image_type_info[state->images_format->image[i].type].target == GL_SAMPLER) {
-            glBindSampler(i, assets->image[i]);
-          } else {
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(image_type_info[state->images_format->image[i].type].target, assets->image[i]);
-          }
+        if(image_type_info[state->image[i].type].target == GL_SAMPLER) {
+          glBindSampler(i, assets->image[i]);
         } else {
           glActiveTexture(GL_TEXTURE0 + i);
-          glBindTexture(GL_TEXTURE_2D, assets->image[i]);
+          glBindTexture(image_type_info[state->image[i].type].target, assets->image[i]);
         }
-        current_draw_assets.image[i] = assets->image[i];
+      } else {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, assets->image[i]);
       }
+      current_draw_assets.image[i] = assets->image[i];
     }
   }
 
-  for(uint32_t i = 0; i < 8; i++) {
-    if(state->uniforms_format == NULL || state->uniforms_format->uniform[i].type == 0)
-      break;
-    if(assets->uniforms[i].pointer) {
-      switch(state->uniforms_format->uniform[i].type) {
-      case GL_UniformType_Unused:
-        break;
-      case GL_UniformType_Float:
-        glUniform1fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Vec2:
-        glUniform2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Vec3:
-        glUniform3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Vec4:
-        glUniform4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Int:
-        glUniform1iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_IVec2:
-        glUniform2iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_IVec3:
-        glUniform3iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_IVec4:
-        glUniform4iv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Uint:
-        glUniform1uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_UVec2:
-        glUniform2uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_UVec3:
-        glUniform3uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_UVec4:
-        glUniform4uiv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat2:
-        glUniformMatrix2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                           assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat3:
-        glUniformMatrix3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                           assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat4:
-        glUniformMatrix4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                           assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat2x3:
-        glUniformMatrix2x3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                             assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat3x2:
-        glUniformMatrix3x2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                             assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat2x4:
-        glUniformMatrix2x4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                             assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat4x2:
-        glUniformMatrix4x2fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                             assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat3x4:
-        glUniformMatrix3x4fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                             assets->uniforms[i].pointer);
-        break;
-      case GL_UniformType_Mat4x3:
-        glUniformMatrix4x3fv(i, state->uniforms_format->uniform[i].count, assets->uniforms[i].transpose,
-                             assets->uniforms[i].pointer);
-        break;
-      }
-    } else {
-      switch(state->uniforms_format->uniform[i].type) {
-      case GL_UniformType_Unused:
-        break;
-      case GL_UniformType_Float:
-        glUniform1f(i, assets->uniforms[i]._float);
-        break;
-      case GL_UniformType_Vec2:
-        glUniform2f(i, assets->uniforms[i].vec2[0], assets->uniforms[i].vec2[1]);
-        break;
-      case GL_UniformType_Vec3:
-        glUniform3f(i, assets->uniforms[i].vec3[0], assets->uniforms[i].vec3[1], assets->uniforms[i].vec3[2]);
-        break;
-      case GL_UniformType_Vec4:
-        glUniform4f(i, assets->uniforms[i].vec4[0], assets->uniforms[i].vec4[1], assets->uniforms[i].vec4[2],
-                    assets->uniforms[i].vec4[3]);
-        break;
-      case GL_UniformType_Int:
-        glUniform1i(i, assets->uniforms[i]._int);
-        break;
-      case GL_UniformType_IVec2:
-        glUniform2i(i, assets->uniforms[i].ivec2[0], assets->uniforms[i].ivec2[1]);
-        break;
-      case GL_UniformType_IVec3:
-        glUniform3i(i, assets->uniforms[i].ivec3[0], assets->uniforms[i].ivec3[1], assets->uniforms[i].ivec3[2]);
-        break;
-      case GL_UniformType_IVec4:
-        glUniform4i(i, assets->uniforms[i].ivec4[0], assets->uniforms[i].ivec4[1], assets->uniforms[i].ivec4[2],
-                    assets->uniforms[i].ivec4[3]);
-        break;
-      case GL_UniformType_Uint:
-        glUniform1ui(i, assets->uniforms[i].uint);
-        break;
-      case GL_UniformType_UVec2:
-        glUniform2ui(i, assets->uniforms[i].uvec2[0], assets->uniforms[i].uvec2[1]);
-        break;
-      case GL_UniformType_UVec3:
-        glUniform3ui(i, assets->uniforms[i].uvec3[0], assets->uniforms[i].uvec3[1], assets->uniforms[i].uvec3[2]);
-        break;
-      case GL_UniformType_UVec4:
-        glUniform4ui(i, assets->uniforms[i].uvec4[0], assets->uniforms[i].uvec4[1], assets->uniforms[i].uvec4[2],
-                     assets->uniforms[i].uvec4[3]);
-        break;
-      case GL_UniformType_Mat2:
-      case GL_UniformType_Mat3:
-      case GL_UniformType_Mat4:
-      case GL_UniformType_Mat2x3:
-      case GL_UniformType_Mat3x2:
-      case GL_UniformType_Mat2x4:
-      case GL_UniformType_Mat4x2:
-      case GL_UniformType_Mat3x4:
-      case GL_UniformType_Mat4x3:
-        break;
-      }
+  for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
+    if(state->uniform[i].type != 0) {
+      GL_apply_uniform(i, state->uniform[i].type, state->uniform[i].count, &assets->uniforms[i]);
+    }
+    if(state->global[i].stage_bits && state->global[i].uniform != NULL) {
+      GL_Uniform_prepare(state->global[i].uniform);
+      GL_apply_uniform(state->global[i].location, state->global[i].uniform->type, state->global[i].uniform->count,
+                       &state->global[i].uniform->data);
     }
   }
 
@@ -563,11 +572,11 @@ void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets
     // barriers |= GL_flush_buffer(assets->vertex_buffers[i]) ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
     switch(assets->vertex_buffers[i]->kind) {
     case GL_Buffer_Static:
-      glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->vertex_format->binding[i].stride);
+      glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->binding[i].stride);
       break;
     case GL_Buffer_Temporary:
       glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, assets->vertex_buffers[i]->temporary.offset,
-                         state->vertex_format->binding[i].stride);
+                         state->binding[i].stride);
       break;
     }
   }
@@ -577,16 +586,6 @@ void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets
   }
 }
 
-void GL_begin_draw(const struct DrawState *state, const struct DrawAssets *assets) {
-  GL_initialize_draw_state(state);
-  GL_apply_draw_state(state);
-  GL_apply_draw_assets(state, assets);
-
-  glad_glBegin(state->primitive);
-}
-
-void GL_end_draw(void) { glad_glEnd(); }
-
 void GL_draw_arrays(const struct DrawState *state, const struct DrawAssets *assets, GLint first, GLsizei count,
                     GLsizei instancecount, GLuint baseinstance) {
   GL_initialize_draw_state(state);
@@ -594,6 +593,8 @@ void GL_draw_arrays(const struct DrawState *state, const struct DrawAssets *asse
   GL_apply_draw_assets(state, assets);
 
   glDrawArraysInstancedBaseInstance(state->primitive, first, count, instancecount, baseinstance);
+
+  _.draw_index++;
 }
 
 void GL_draw_elements(const struct DrawState *state, const struct DrawAssets *assets, GLsizei count,
@@ -607,6 +608,8 @@ void GL_draw_elements(const struct DrawState *state, const struct DrawAssets *as
       (void *)(assets->element_buffer->kind == GL_Buffer_Temporary ? assets->element_buffer->temporary.offset : 0) +
           sizeof(uint32_t) * assets->element_buffer_offset,
       instancecount, basevertex, baseinstance);
+
+  _.draw_index++;
 }
 
 struct GL_Buffer GL_allocate_static_buffer(GLenum type, GLsizei size, const void *data) {
@@ -698,6 +701,15 @@ void GL_temporary_buffer_stats(GLenum type, uint32_t *total_allocated, uint32_t 
     if(_.temporary_buffers[i].type == type) {
       *total_allocated += _.temporary_buffers[i].size;
       *used += _.temporary_buffers[i].offset;
+    }
+  }
+}
+
+void GL_Uniform_prepare(const struct GL_Uniform *uniform) {
+  if(uniform->prepare_draw_index != _.draw_index) {
+    *(uint32_t *)&uniform->prepare_draw_index = _.draw_index;
+    if(uniform->prepare != NULL) {
+      uniform->prepare();
     }
   }
 }

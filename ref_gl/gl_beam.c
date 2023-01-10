@@ -1,22 +1,12 @@
 #include "gl_local.h"
-#include "gl_thin.h"
 
 #define NUM_BEAM_SEGS 6
-
-static struct GL_VertexFormat vertex_format = {
-    .attribute[0] = {0, alias_memory_Format_Float32, 3, "position"},
-    .binding[0] = {sizeof(float) * 3},
-};
-
-static struct GL_UniformsFormat uniforms_format = {
-    .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec4, "color"},
-};
 
 // clang-format off
 static const char vertex_shader_source[] =
   GL_MSTR(
     void main() {
-      gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
+      gl_Position = u_view_projection_matrix * vec4(in_position, 1);
     }
   );
 
@@ -30,8 +20,10 @@ static const char fragment_shader_source[] =
 // clang-format on
 
 static struct DrawState draw_state = {.primitive = GL_TRIANGLE_STRIP,
-                                      .vertex_format = &vertex_format,
-                                      .uniforms_format = &uniforms_format,
+                                      .attribute[0] = {0, alias_memory_Format_Float32, 3, "position"},
+                                      .binding[0] = {sizeof(float) * 3},
+                                      .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec4, "color"},
+                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
                                       .vertex_shader_source = vertex_shader_source,
                                       .fragment_shader_source = fragment_shader_source,
                                       .depth_test_enable = true,
@@ -94,10 +86,11 @@ void GL_draw_beam(entity_t *e) {
     xyz += 3;
   }
 
+  GL_matrix_identity(u_model_matrix.data.mat);
   GL_draw_arrays(
       &draw_state,
       &(struct DrawAssets){
-          .uniforms[0] = {.vec4[0] = r / 255.0f, .vec4[1] = g / 255.0f, .vec4[2] = b / 255.0f, .vec4[3] = e->alpha},
+          .uniforms[0] = {.vec[0] = r / 255.0f, .vec[1] = g / 255.0f, .vec[2] = b / 255.0f, .vec[3] = e->alpha},
           .vertex_buffers[0] = &vertex_buffer,
       },
       0, 4 * NUM_BEAM_SEGS, 1, 0);

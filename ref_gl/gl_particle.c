@@ -3,30 +3,19 @@
 #include "gl_thin.h"
 
 // clang-format off
-static struct GL_VertexFormat vertex_format = {
-  .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
-  .attribute[1] = {0, alias_memory_Format_Unorm8, 4, "color", 12},
-  .binding[0] = {sizeof(float) * 3 + sizeof(uint8_t) * 4, 0},
-};
-
-static struct GL_UniformsFormat uniforms_format = {
-  .uniform[0] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "point_size_sizemin_sizemax"},
-  .uniform[1] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "point_a_b_c"},
-};
-
 static char vertex_shader_source[] =
 GL_MSTR(
   layout(location = 0) out vec4 out_color;
 
   void main() {
-    gl_Position = gl_ModelViewProjectionMatrix * vec4(in_position, 1);
+    gl_Position = u_view_projection_matrix * vec4(in_position, 1);
     float size = u_point_size_sizemin_sizemax.x;
     float size_min = u_point_size_sizemin_sizemax.y;
     float size_max = u_point_size_sizemin_sizemax.z;
     float a = u_point_a_b_c.x;
     float b = u_point_a_b_c.y;
     float c = u_point_a_b_c.z;
-    float d = length((gl_ModelViewMatrix * vec4(in_position, 1)).xyz);
+    float d = length((u_view_matrix * vec4(in_position, 1)).xyz);
     float dist_atten = 1 / (a + b * d + c * d * d);
     gl_PointSize = clamp(size * dist_atten, size_min, size_max);
     out_color = in_color;
@@ -52,18 +41,24 @@ GL_MSTR(
 );
 // clang-format on
 
-static struct DrawState particle_draw_state = {.primitive = GL_POINTS,
-                                               .vertex_format = &vertex_format,
-                                               .uniforms_format = &uniforms_format,
-                                               .vertex_shader_source = vertex_shader_source,
-                                               .fragment_shader_source = fragment_shader_source,
-                                               .depth_test_enable = true,
-                                               .depth_range_min = 0,
-                                               .depth_range_max = 1,
-                                               .depth_mask = false,
-                                               .blend_enable = true,
-                                               .blend_src_factor = GL_SRC_ALPHA,
-                                               .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct DrawState particle_draw_state = {
+    .primitive = GL_POINTS,
+    .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
+    .attribute[1] = {0, alias_memory_Format_Unorm8, 4, "color", 12},
+    .binding[0] = {sizeof(float) * 3 + sizeof(uint8_t) * 4, 0},
+    .uniform[0] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "point_size_sizemin_sizemax"},
+    .uniform[1] = {THIN_GL_VERTEX_BIT, GL_UniformType_Vec3, "point_a_b_c"},
+    .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
+    .global[1] = {THIN_GL_VERTEX_BIT, &u_view_matrix},
+    .vertex_shader_source = vertex_shader_source,
+    .fragment_shader_source = fragment_shader_source,
+    .depth_test_enable = true,
+    .depth_range_min = 0,
+    .depth_range_max = 1,
+    .depth_mask = false,
+    .blend_enable = true,
+    .blend_src_factor = GL_SRC_ALPHA,
+    .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 void GL_draw_particles(void) {
   int i;
@@ -91,12 +86,12 @@ void GL_draw_particles(void) {
     output[i].color[3] = p->alpha * 255;
   }
 
-  struct DrawAssets assets = {.uniforms[0] = {.vec3[0] = gl_particle_size->value,
-                                              .vec3[1] = gl_particle_min_size->value,
-                                              .vec3[2] = gl_particle_max_size->value},
-                              .uniforms[1] = {.vec3[0] = gl_particle_att_a->value,
-                                              .vec3[1] = gl_particle_att_b->value,
-                                              .vec3[2] = gl_particle_att_c->value},
+  struct DrawAssets assets = {.uniforms[0] = {.vec[0] = gl_particle_size->value,
+                                              .vec[1] = gl_particle_min_size->value,
+                                              .vec[2] = gl_particle_max_size->value},
+                              .uniforms[1] = {.vec[0] = gl_particle_att_a->value,
+                                              .vec[1] = gl_particle_att_b->value,
+                                              .vec[2] = gl_particle_att_c->value},
                               .vertex_buffers[0] = &buffer};
 
   GL_draw_arrays(&particle_draw_state, &assets, 0, r_newrefdef.num_particles, 1, 0);

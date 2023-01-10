@@ -193,8 +193,6 @@ void GL_SetDefaultState(void) {
   glDisable(GL_CULL_FACE);
 
   GL_TextureMode(gl_texturemode->string);
-  GL_TextureAlphaMode(gl_texturealphamode->string);
-  GL_TextureSolidMode(gl_texturesolidmode->string);
 
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
