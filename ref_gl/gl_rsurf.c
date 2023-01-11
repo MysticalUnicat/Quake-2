@@ -47,6 +47,20 @@ typedef struct {
   byte lightmap_buffer_b1[LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT * 3];
 } gllightmapstate_t;
 
+static void update_lightmap(uint32_t index, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
+                            const void *pixels) {
+  if(gl_state.lightmap_textures[index] == 0) {
+    glGenTextures(1, &gl_state.lightmap_textures[index]);
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures[index]);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures[index]);
+  }
+  glTexSubImage2D(GL_TEXTURE_2D, 0, xoffset, yoffset, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+}
+
 static gllightmapstate_t gl_lms;
 
 static void LM_InitBlock(void);
@@ -112,8 +126,7 @@ GL_MSTR(
       do_sh1(lightmap_rgb0.b, lightmap_b1 * 2 - 1, normal)
     );
 
-    // out_color = vec4(albedo_map * lightmap * 2, u_alpha_time.x);
-    out_color = vec4(1, 1, 1, 1);
+    out_color = vec4(albedo_map * lightmap * 2, u_alpha_time.x);
   }
 );
 static const char bsp_turbulent_fragment_shader_source[] =
@@ -162,8 +175,8 @@ GL_MSTR(
 #define VERTEX_FORMAT                                                                                                  \
   .attribute[0] = {0, alias_memory_Format_Float32, 3, "position"},                                                     \
   .attribute[1] = {1, alias_memory_Format_Float32, 2, "main_st"},                                                      \
-  .attribute[2] = {1, alias_memory_Format_Float32, 2, "lightmap_st"}, .binding[0] = {sizeof(float) * 3},               \
-  .binding[1] = {sizeof(float) * 4}
+  .attribute[2] = {1, alias_memory_Format_Float32, 2, "lightmap_st", sizeof(float) * 2},                               \
+  .binding[0] = {sizeof(float) * 3}, .binding[1] = {sizeof(float) * 4}
 
 #define UNIFORMS_FORMAT                                                                                                \
   .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "tangent"},                                                \
@@ -303,14 +316,10 @@ static void GL_RenderLightmappedPoly(msurface_t *surf, float alpha) {
       R_SetCacheState(surf);
     }
 
-    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 0, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                        GL_UNSIGNED_BYTE, temp_rgb0);
-    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 1, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                        GL_UNSIGNED_BYTE, temp_r1);
-    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 2, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                        GL_UNSIGNED_BYTE, temp_g1);
-    glTextureSubImage2D(gl_state.lightmap_textures + lmtex + 3, 0, surf->light_s, surf->light_t, smax, tmax, GL_RGB,
-                        GL_UNSIGNED_BYTE, temp_b1);
+    update_lightmap(lmtex + 0, surf->light_s, surf->light_t, smax, tmax, temp_rgb0);
+    update_lightmap(lmtex + 1, surf->light_s, surf->light_t, smax, tmax, temp_r1);
+    update_lightmap(lmtex + 2, surf->light_s, surf->light_t, smax, tmax, temp_g1);
+    update_lightmap(lmtex + 3, surf->light_s, surf->light_t, smax, tmax, temp_b1);
   }
 
   c_brush_polys++;
@@ -319,14 +328,14 @@ static void GL_RenderLightmappedPoly(msurface_t *surf, float alpha) {
 
   struct DrawAssets assets = {.image[0] = image_set.albedo->texnum,
                               .image[1] = image_set.normal->texnum,
-                              .image[3] = gl_state.lightmap_textures + lmtex + 0,
-                              .image[4] = gl_state.lightmap_textures + lmtex + 1,
-                              .image[5] = gl_state.lightmap_textures + lmtex + 2,
-                              .image[6] = gl_state.lightmap_textures + lmtex + 3,
+                              .image[3] = gl_state.lightmap_textures[lmtex + 0],
+                              .image[4] = gl_state.lightmap_textures[lmtex + 1],
+                              .image[5] = gl_state.lightmap_textures[lmtex + 2],
+                              .image[6] = gl_state.lightmap_textures[lmtex + 3],
                               .element_buffer = &currentmodel->element_buffer,
                               .element_buffer_offset = surf->elements_offset,
                               .vertex_buffers[0] = &currentmodel->position_buffer,
-                              .vertex_buffers[1] = &currentmodel->position_buffer,
+                              .vertex_buffers[1] = &currentmodel->attribute_buffer,
                               .uniforms[0] = {.vec[0] = surf->texture_space_mat3[0][0],
                                               .vec[1] = surf->texture_space_mat3[0][1],
                                               .vec[2] = surf->texture_space_mat3[0][2]},
@@ -714,53 +723,15 @@ static void LM_UploadBlock(bool dynamic) {
         height = gl_lms.allocated[i];
     }
 
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 0);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
-                    gl_lms.lightmap_buffer_rgb0);
-
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 1);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
-                    gl_lms.lightmap_buffer_r1);
-
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 2);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
-                    gl_lms.lightmap_buffer_g1);
-
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 3);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, LIGHTMAP_WIDTH, height, GL_RGB, GL_UNSIGNED_BYTE,
-                    gl_lms.lightmap_buffer_b1);
+    update_lightmap(texture + 0, 0, 0, LIGHTMAP_WIDTH, height, gl_lms.lightmap_buffer_rgb0);
+    update_lightmap(texture + 1, 0, 0, LIGHTMAP_WIDTH, height, gl_lms.lightmap_buffer_r1);
+    update_lightmap(texture + 2, 0, 0, LIGHTMAP_WIDTH, height, gl_lms.lightmap_buffer_g1);
+    update_lightmap(texture + 3, 0, 0, LIGHTMAP_WIDTH, height, gl_lms.lightmap_buffer_b1);
   } else {
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 0);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-                 gl_lms.lightmap_buffer_rgb0);
-
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 1);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-                 gl_lms.lightmap_buffer_r1);
-
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 2);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-                 gl_lms.lightmap_buffer_g1);
-
-    glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + texture + 3);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-                 gl_lms.lightmap_buffer_b1);
+    update_lightmap(texture + 0, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_rgb0);
+    update_lightmap(texture + 1, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_r1);
+    update_lightmap(texture + 2, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_g1);
+    update_lightmap(texture + 3, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_b1);
 
     if((gl_lms.current_lightmap_texture += 4) >= MAX_LIGHTMAPS * CMODEL_COUNT)
       ri.Sys_Error(ERR_DROP, "LM_UploadBlock() - MAX_LIGHTMAPS exceeded\n");
@@ -865,38 +836,12 @@ void GL_BeginBuildingLightmaps(model_t *m) {
   }
   r_newrefdef.lightstyles = lightstyles;
 
-  if(gl_state.lightmap_textures[0] == 0) {
-    glGenTextures(MAX_LIGHTMAPS * CMODEL_COUNT, gl_state.lightmap_textures);
-  }
-
   gl_lms.current_lightmap_texture = 4 + m->cmodel_index * MAX_LIGHTMAPS;
 
-  /*
-  ** initialize the dynamic lightmap texture
-  */
-  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures[0]);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-               gl_lms.lightmap_buffer_rgb0);
-
-  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + 1);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-               gl_lms.lightmap_buffer_r1);
-
-  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + 2);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-               gl_lms.lightmap_buffer_g1);
-
-  glBindTexture(GL_TEXTURE_2D, gl_state.lightmap_textures + 3);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8_SNORM, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE,
-               gl_lms.lightmap_buffer_b1);
+  update_lightmap(0, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_rgb0);
+  update_lightmap(1, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_r1);
+  update_lightmap(2, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_g1);
+  update_lightmap(3, 0, 0, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, gl_lms.lightmap_buffer_b1);
 }
 
 /*

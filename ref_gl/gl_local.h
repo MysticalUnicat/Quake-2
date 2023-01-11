@@ -555,10 +555,7 @@ typedef struct {
 
   unsigned char *d_16to8table;
 
-  GLuint dynmaic_lightmap_rgb0;
-  GLuint dynmaic_lightmap_r1;
-  GLuint dynmaic_lightmap_g1;
-  GLuint dynmaic_lightmap_b1;
+  GLuint lightmap_textures[MAX_LIGHTMAPS * CMODEL_COUNT];
 
   int currenttmu;
 
