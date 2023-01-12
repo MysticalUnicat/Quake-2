@@ -251,6 +251,7 @@ void GL_initialize_draw_state(const struct DrawState *state) {
   if(state->attribute[0].format != 0 && state->vertex_array_object == 0) {
     GLuint vao;
     glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
     for(int i = 0; i < THIN_GL_MAX_ATTRIBUTES; i++) {
       if(state->attribute[i].format == 0)
         break;
@@ -562,14 +563,14 @@ void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets
   GLbitfield barriers = 0;
 
   if(assets->element_buffer != NULL) {
-    // barriers |= GL_flush_buffer(assets->element_buffer) ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
+    barriers |= GL_flush_buffer(assets->element_buffer) ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, assets->element_buffer->buffer);
   }
 
   for(int i = 0; i < THIN_GL_MAX_BINDINGS; i++) {
     if(assets->vertex_buffers[i] == NULL)
       break;
-    // barriers |= GL_flush_buffer(assets->vertex_buffers[i]) ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
+    barriers |= GL_flush_buffer(assets->vertex_buffers[i]) ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
     switch(assets->vertex_buffers[i]->kind) {
     case GL_Buffer_Static:
       glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->binding[i].stride);
@@ -645,13 +646,13 @@ again:
   _.temporary_buffers = realloc(_.temporary_buffers, sizeof(*_.temporary_buffers) * (_.num_temporary_buffers + 1));
   glCreateBuffers(1, &_.temporary_buffers[_.num_temporary_buffers].buffer);
   glNamedBufferStorage(_.temporary_buffers[_.num_temporary_buffers].buffer, allocation_size, NULL,
-                       GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT);
+                       GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT);
   _.temporary_buffers[_.num_temporary_buffers].type = type;
   _.temporary_buffers[_.num_temporary_buffers].size = allocation_size;
   _.temporary_buffers[_.num_temporary_buffers].offset = 0;
   _.temporary_buffers[_.num_temporary_buffers].mapped_memory =
       glMapNamedBufferRange(_.temporary_buffers[_.num_temporary_buffers].buffer, 0, allocation_size,
-                            GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+                            GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
   _.num_temporary_buffers++;
 
   goto again;

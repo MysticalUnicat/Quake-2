@@ -141,7 +141,6 @@ cvar_t *gl_ext_compiled_vertex_array;
 
 cvar_t *gl_log;
 cvar_t *gl_bitdepth;
-cvar_t *gl_drawbuffer;
 cvar_t *gl_driver;
 cvar_t *gl_lightmap;
 cvar_t *gl_shadows;
@@ -450,7 +449,7 @@ void R_Clear(void) {
 
   glDepthMask(GL_TRUE);
 
-  if(gl_clear->value)
+  if(gl_clear->value || true)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   else
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -610,7 +609,6 @@ void R_Register(void) {
   gl_ext_pointparameters = ri.Cvar_Get("gl_ext_pointparameters", "1", CVAR_ARCHIVE);
   gl_ext_compiled_vertex_array = ri.Cvar_Get("gl_ext_compiled_vertex_array", "1", CVAR_ARCHIVE);
 
-  gl_drawbuffer = ri.Cvar_Get("gl_drawbuffer", "GL_BACK", 0);
   gl_swapinterval = ri.Cvar_Get("gl_swapinterval", "1", CVAR_ARCHIVE);
 
   gl_saturatelighting = ri.Cvar_Get("gl_saturatelighting", "0", 0);
@@ -671,6 +669,23 @@ bool R_SetMode(void) {
   return true;
 }
 
+static inline void debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                                  const GLchar *message, const void *userParam) {
+  if(type == GL_DEBUG_TYPE_ERROR || type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR ||
+     type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR || type == GL_DEBUG_TYPE_PORTABILITY) {
+    ri.Con_Printf(PRINT_ALL, "OPENGL debug error - %s\n", message); // 0x7ffde58c97d0 "GL_INVALID_OPERATION error generated. <vaobj> does not refer to an existing vertex array object."
+  }
+  if(type == GL_DEBUG_TYPE_PERFORMANCE) {
+    ri.Con_Printf(PRINT_ALL, "OPENGL performance note - %s\n", message);
+  }
+  if(type == GL_DEBUG_TYPE_OTHER) {
+    ri.Con_Printf(PRINT_ALL, "OPENGL other note - %s\n", message);
+  }
+  if(type == GL_DEBUG_TYPE_MARKER) {
+    ri.Con_Printf(PRINT_ALL, "OPENGL marker - %s\n", message);
+  }
+}
+
 /*
 ===============
 R_Init
@@ -708,6 +723,10 @@ bool R_Init(void *hinstance, void *hWnd) {
     return -1;
   }
 
+  if(glDebugMessageCallback != NULL) {
+    glDebugMessageCallback(debug_callback, NULL);
+  }
+
   ri.Vid_MenuInit();
 
   /*
@@ -719,74 +738,20 @@ bool R_Init(void *hinstance, void *hWnd) {
   ri.Con_Printf(PRINT_ALL, "GL_RENDERER: %s\n", gl_config.renderer_string);
   gl_config.version_string = glGetString(GL_VERSION);
   ri.Con_Printf(PRINT_ALL, "GL_VERSION: %s\n", gl_config.version_string);
-  gl_config.extensions_string = glGetString(GL_EXTENSIONS);
-  ri.Con_Printf(PRINT_ALL, "GL_EXTENSIONS: %s\n", gl_config.extensions_string);
+
+  ri.Con_Printf(PRINT_ALL, "GL_EXTENSIONS:");
+  GLint num_extensions;
+  glGetIntegerv(GL_NUM_EXTENSIONS, &num_extensions);
+  for(GLint i = 0; i < num_extensions; i++) {
+    const char *name = glGetStringi(GL_EXTENSIONS, i);
+    ri.Con_Printf(PRINT_ALL, " %s", name);
+  }
 
   strcpy(renderer_buffer, gl_config.renderer_string);
   strlwr(renderer_buffer);
 
   strcpy(vendor_buffer, gl_config.vendor_string);
   strlwr(vendor_buffer);
-
-  if(strstr(renderer_buffer, "voodoo")) {
-    if(!strstr(renderer_buffer, "rush"))
-      gl_config.renderer = GL_RENDERER_VOODOO;
-    else
-      gl_config.renderer = GL_RENDERER_VOODOO_RUSH;
-  } else if(strstr(vendor_buffer, "sgi"))
-    gl_config.renderer = GL_RENDERER_SGI;
-  else if(strstr(renderer_buffer, "permedia"))
-    gl_config.renderer = GL_RENDERER_PERMEDIA2;
-  else if(strstr(renderer_buffer, "glint"))
-    gl_config.renderer = GL_RENDERER_GLINT_MX;
-  else if(strstr(renderer_buffer, "glzicd"))
-    gl_config.renderer = GL_RENDERER_REALIZM;
-  else if(strstr(renderer_buffer, "gdi"))
-    gl_config.renderer = GL_RENDERER_MCD;
-  else if(strstr(renderer_buffer, "pcx2"))
-    gl_config.renderer = GL_RENDERER_PCX2;
-  else if(strstr(renderer_buffer, "verite"))
-    gl_config.renderer = GL_RENDERER_RENDITION;
-  else
-    gl_config.renderer = GL_RENDERER_OTHER;
-
-  if(toupper(gl_monolightmap->string[1]) != 'F') {
-    if(gl_config.renderer == GL_RENDERER_PERMEDIA2) {
-      ri.Cvar_Set("gl_monolightmap", "A");
-      ri.Con_Printf(PRINT_ALL, "...using gl_monolightmap 'a'\n");
-    } else if(gl_config.renderer & GL_RENDERER_POWERVR) {
-      ri.Cvar_Set("gl_monolightmap", "0");
-    } else {
-      ri.Cvar_Set("gl_monolightmap", "0");
-    }
-  }
-
-  // power vr can't have anything stay in the framebuffer, so
-  // the screen needs to redraw the tiled background every frame
-  if(gl_config.renderer & GL_RENDERER_POWERVR) {
-    ri.Cvar_Set("scr_drawall", "1");
-  } else {
-    ri.Cvar_Set("scr_drawall", "0");
-  }
-
-  // MCD has buffering issues
-  if(gl_config.renderer == GL_RENDERER_MCD) {
-    ri.Cvar_SetValue("gl_finish", 1);
-  }
-
-  if(gl_config.renderer & GL_RENDERER_3DLABS) {
-    if(gl_3dlabs_broken->value)
-      gl_config.allow_cds = false;
-    else
-      gl_config.allow_cds = true;
-  } else {
-    gl_config.allow_cds = true;
-  }
-
-  if(gl_config.allow_cds)
-    ri.Con_Printf(PRINT_ALL, "...allowing CDS\n");
-  else
-    ri.Con_Printf(PRINT_ALL, "...disabling CDS\n");
 
   GL_SetDefaultState();
 
@@ -884,20 +849,6 @@ void R_BeginFrame(float camera_separation) {
 
   // TODO
   glDisable(GL_CULL_FACE);
-
-  /*
-  ** draw buffer stuff
-  */
-  if(gl_drawbuffer->modified) {
-    gl_drawbuffer->modified = false;
-
-    if(gl_state.camera_separation == 0 || !gl_state.stereo_enabled) {
-      if(Q_stricmp(gl_drawbuffer->string, "GL_FRONT") == 0)
-        glDrawBuffer(GL_FRONT);
-      else
-        glDrawBuffer(GL_BACK);
-    }
-  }
 
   /*
   ** texturemode stuff

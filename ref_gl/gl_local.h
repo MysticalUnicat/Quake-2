@@ -542,7 +542,7 @@ typedef struct {
   const char *renderer_string;
   const char *vendor_string;
   const char *version_string;
-  const char *extensions_string;
+  // const char *extensions_string;
 
   bool allow_cds;
 } glconfig_t;

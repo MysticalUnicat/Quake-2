@@ -179,7 +179,7 @@ void GL_Strings_f(void) {
   ri.Con_Printf(PRINT_ALL, "GL_VENDOR: %s\n", gl_config.vendor_string);
   ri.Con_Printf(PRINT_ALL, "GL_RENDERER: %s\n", gl_config.renderer_string);
   ri.Con_Printf(PRINT_ALL, "GL_VERSION: %s\n", gl_config.version_string);
-  ri.Con_Printf(PRINT_ALL, "GL_EXTENSIONS: %s\n", gl_config.extensions_string);
+  // ri.Con_Printf(PRINT_ALL, "GL_EXTENSIONS: %s\n", gl_config.extensions_string);
 }
 
 /*
@@ -188,17 +188,13 @@ void GL_Strings_f(void) {
 void GL_SetDefaultState(void) {
   glClearColor(1, 0, 0.5, 0.5);
   glCullFace(GL_FRONT);
-  glEnable(GL_TEXTURE_2D);
 
   glDisable(GL_CULL_FACE);
 
   GL_TextureMode(gl_texturemode->string);
 
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
-
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
   glEnable(GL_PROGRAM_POINT_SIZE);
+
+  // glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  // glDrawBuffer(GL_BACK);
 }
