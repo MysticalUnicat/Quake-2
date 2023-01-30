@@ -367,10 +367,12 @@ typedef struct particle_s {
   vec3_t org;
   vec3_t vel;
   vec3_t accel;
-  float color;
-  float colorvel;
+  int albedo;
+  int emit;
   float alpha;
   float alphavel;
+  float incandescence;
+  float incandescencevel;
 } cparticle_t;
 
 #define PARTICLE_GRAVITY 40
@@ -524,7 +526,7 @@ extern struct model_s *gun_model;
 void V_Init(void);
 void V_RenderView(float stereo_separation);
 void V_AddEntity(entity_t *ent);
-void V_AddParticle(vec3_t org, int color, float alpha);
+void V_AddParticle(vec3_t org, int albedo, int emit, float alpha, float incandescence);
 void V_AddLight(vec3_t org, float intensity, float r, float g, float b);
 void V_AddLightStyle(int style, float r, float g, float b);
 

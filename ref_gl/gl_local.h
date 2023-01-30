@@ -52,6 +52,7 @@ typedef struct {
 
 extern viddef_t vid;
 
+extern struct GL_Uniform u_time;
 extern struct GL_Uniform u_model_matrix;
 extern struct GL_Uniform u_view_matrix;
 extern struct GL_Uniform u_model_view_matrix;

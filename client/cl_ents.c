@@ -607,8 +607,8 @@ void CL_FireEntityEvents(frame_t *frame) {
       CL_EntityEvent(s1);
 
     // EF_TELEPORTER acts like an event, but is not cleared each frame
-    if(s1->effects & EF_TELEPORTER)
-      CL_TeleporterParticles(s1);
+    // if(s1->effects & EF_TELEPORTER)
+    //   CL_TeleporterParticles(s1);
   }
 }
 
@@ -1043,6 +1043,9 @@ void CL_AddPacketEntities(frame_t *frame) {
       ent.alpha = 0.30;
       V_AddEntity(&ent);
     }
+
+    if(s1->effects & EF_TELEPORTER)
+      CL_TeleporterParticles(s1);
 
     // add automatic particle trails
     if((effects & ~EF_ROTATE)) {

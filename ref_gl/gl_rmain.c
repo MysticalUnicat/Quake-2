@@ -49,6 +49,7 @@ static inline void prepare_model_view_projection(void) {
                      u_model_view_projection_matrix.data.mat);
 }
 
+struct GL_Uniform u_time = {.type = GL_UniformType_Float, .name = "time"};
 struct GL_Uniform u_model_matrix = {.type = GL_UniformType_Mat4, .name = "model_matrix"};
 struct GL_Uniform u_view_matrix = {.type = GL_UniformType_Mat4, .name = "view_matrix"};
 struct GL_Uniform u_model_view_matrix = {
@@ -323,6 +324,8 @@ void R_SetupFrame(void) {
   mleaf_t *leaf;
 
   r_framecount++;
+
+  u_time.data._float = r_newrefdef.time;
 
   // build the transformation matrix for the given view angles
   VectorCopy(r_newrefdef.vieworg, r_origin);
@@ -673,7 +676,9 @@ static inline void debug_callback(GLenum source, GLenum type, GLuint id, GLenum 
                                   const GLchar *message, const void *userParam) {
   if(type == GL_DEBUG_TYPE_ERROR || type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR ||
      type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR || type == GL_DEBUG_TYPE_PORTABILITY) {
-    ri.Con_Printf(PRINT_ALL, "OPENGL debug error - %s\n", message); // 0x7ffde58c97d0 "GL_INVALID_OPERATION error generated. <vaobj> does not refer to an existing vertex array object."
+    ri.Con_Printf(PRINT_ALL, "OPENGL debug error - %s\n",
+                  message); // 0x7ffde58c97d0 "GL_INVALID_OPERATION error generated. <vaobj> does not refer to an
+                            // existing vertex array object."
   }
   if(type == GL_DEBUG_TYPE_PERFORMANCE) {
     ri.Con_Printf(PRINT_ALL, "OPENGL performance note - %s\n", message);

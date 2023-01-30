@@ -7,7 +7,7 @@
 #include <alias/math.h>
 #include <stdbool.h>
 
-#define THIN_GL_MAX_ATTRIBUTES 8
+#define THIN_GL_MAX_ATTRIBUTES 16
 #define THIN_GL_MAX_BINDINGS 2
 #define THIN_GL_MAX_UNIFORMS 16
 #define THIN_GL_MAX_IMAGES 16

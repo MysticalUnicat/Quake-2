@@ -25,10 +25,6 @@ GL_MSTR(
 );
 // clang-format on
 
-#define VERTEX_FORMAT
-
-#define IMAGES_FORMAT
-
 static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
                                       .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
                                       .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},

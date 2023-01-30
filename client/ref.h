@@ -94,8 +94,12 @@ typedef struct {
 
 typedef struct {
   vec3_t origin;
-  int color;
+
+  int albedo;
+  int emit;
+
   float alpha;
+  float incandescence;
 } particle_t;
 
 typedef struct {

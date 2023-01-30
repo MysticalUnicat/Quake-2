@@ -83,15 +83,17 @@ V_AddParticle
 
 =====================
 */
-void V_AddParticle(vec3_t org, int color, float alpha) {
+void V_AddParticle(vec3_t org, int albedo, int emit, float alpha, float incandescence) {
   particle_t *p;
 
   if(r_numparticles >= MAX_PARTICLES)
     return;
   p = &r_particles[r_numparticles++];
   VectorCopy(org, p->origin);
-  p->color = color;
+  p->albedo = albedo;
+  p->emit = emit;
   p->alpha = alpha;
+  p->incandescence = incandescence;
 }
 
 /*
@@ -154,8 +156,10 @@ void V_TestParticles(void) {
     for(j = 0; j < 3; j++)
       p->origin[j] = cl.refdef.vieworg[j] + cl.v_forward[j] * d + cl.v_right[j] * r + cl.v_up[j] * u;
 
-    p->color = 8;
+    p->albedo = 8;
+    p->emit = rand() & 255;
     p->alpha = cl_testparticles->value;
+    p->incandescence = frand();
   }
 }
 
