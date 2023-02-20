@@ -179,70 +179,71 @@ GL_MSTR(
   .binding[0] = {sizeof(float) * 3}, .binding[1] = {sizeof(float) * 4}
 
 #define UNIFORMS_FORMAT                                                                                                \
-  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "tangent"},                                                \
-  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "bitangent"},                                              \
-  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "normal"},                                                 \
-  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec2, "alpha_time"},                                             \
+  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "tangent"},                                                     \
+  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "bitangent"},                                                   \
+  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "normal"},                                                      \
+  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float2, "alpha_time"},                                                  \
   .global[0] = {THIN_GL_VERTEX_BIT, &u_model_view_projection_matrix}
 
 #define IMAGES_FORMAT                                                                                                  \
-  .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "albedo_map"},                                            \
-  .image[1] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "normal_map"},                                            \
-  .image[3] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_rgb0"},                                         \
-  .image[4] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_r1"},                                           \
-  .image[5] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_g1"},                                           \
-  .image[6] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "lightmap_b1"}
+  .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "albedo_map"},                                                 \
+  .image[1] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "normal_map"},                                                 \
+  .image[3] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "lightmap_rgb0"},                                              \
+  .image[4] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "lightmap_r1"},                                                \
+  .image[5] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "lightmap_g1"},                                                \
+  .image[6] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "lightmap_b1"}
 
-static struct DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
-                                             VERTEX_FORMAT,
-                                             UNIFORMS_FORMAT,
-                                             IMAGES_FORMAT,
-                                             .vertex_shader_source = bsp_vertex_shader_source,
-                                             .fragment_shader_source = bsp_fragment_shader_source,
-                                             .depth_range_min = 0,
-                                             .depth_range_max = 1,
-                                             .depth_test_enable = true,
-                                             .depth_mask = true};
+static struct GL_DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
+                                                VERTEX_FORMAT,
+                                                UNIFORMS_FORMAT,
+                                                IMAGES_FORMAT,
+                                                .vertex_shader.source = bsp_vertex_shader_source,
+                                                .fragment_shader.source = bsp_fragment_shader_source,
+                                                .depth_range_min = 0,
+                                                .depth_range_max = 1,
+                                                .depth_test_enable = true,
+                                                .depth_mask = true};
 
-static struct DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
-                                                  VERTEX_FORMAT,
-                                                  UNIFORMS_FORMAT,
-                                                  IMAGES_FORMAT,
-                                                  .vertex_shader_source = bsp_vertex_shader_source,
-                                                  .fragment_shader_source = bsp_fragment_shader_source,
-                                                  .depth_range_min = 0,
-                                                  .depth_range_max = 1,
-                                                  .depth_test_enable = true,
-                                                  .depth_mask = false,
-                                                  .blend_enable = true,
-                                                  .blend_src_factor = GL_SRC_ALPHA,
-                                                  .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
+                                                     VERTEX_FORMAT,
+                                                     UNIFORMS_FORMAT,
+                                                     IMAGES_FORMAT,
+                                                     .vertex_shader.source = bsp_vertex_shader_source,
+                                                     .fragment_shader.source = bsp_fragment_shader_source,
+                                                     .depth_range_min = 0,
+                                                     .depth_range_max = 1,
+                                                     .depth_test_enable = true,
+                                                     .depth_mask = false,
+                                                     .blend_enable = true,
+                                                     .blend_src_factor = GL_SRC_ALPHA,
+                                                     .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
-static struct DrawState draw_state_turbulent_opaque = {.primitive = GL_TRIANGLES,
-                                                       VERTEX_FORMAT,
-                                                       UNIFORMS_FORMAT,
-                                                       IMAGES_FORMAT,
-                                                       .vertex_shader_source = bsp_vertex_shader_source,
-                                                       .fragment_shader_source = bsp_turbulent_fragment_shader_source,
-                                                       .depth_range_min = 0,
-                                                       .depth_range_max = 1,
-                                                       .depth_test_enable = true,
-                                                       .depth_mask = true};
+static struct GL_DrawState draw_state_turbulent_opaque = {.primitive = GL_TRIANGLES,
+                                                          VERTEX_FORMAT,
+                                                          UNIFORMS_FORMAT,
+                                                          IMAGES_FORMAT,
+                                                          .vertex_shader.source = bsp_vertex_shader_source,
+                                                          .fragment_shader.source =
+                                                              bsp_turbulent_fragment_shader_source,
+                                                          .depth_range_min = 0,
+                                                          .depth_range_max = 1,
+                                                          .depth_test_enable = true,
+                                                          .depth_mask = true};
 
-static struct DrawState draw_state_turbulent_transparent = {.primitive = GL_TRIANGLES,
-                                                            VERTEX_FORMAT,
-                                                            UNIFORMS_FORMAT,
-                                                            IMAGES_FORMAT,
-                                                            .vertex_shader_source = bsp_vertex_shader_source,
-                                                            .fragment_shader_source =
-                                                                bsp_turbulent_fragment_shader_source,
-                                                            .depth_range_min = 0,
-                                                            .depth_range_max = 1,
-                                                            .depth_test_enable = true,
-                                                            .depth_mask = false,
-                                                            .blend_enable = true,
-                                                            .blend_src_factor = GL_SRC_ALPHA,
-                                                            .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_DrawState draw_state_turbulent_transparent = {.primitive = GL_TRIANGLES,
+                                                               VERTEX_FORMAT,
+                                                               UNIFORMS_FORMAT,
+                                                               IMAGES_FORMAT,
+                                                               .vertex_shader.source = bsp_vertex_shader_source,
+                                                               .fragment_shader.source =
+                                                                   bsp_turbulent_fragment_shader_source,
+                                                               .depth_range_min = 0,
+                                                               .depth_range_max = 1,
+                                                               .depth_test_enable = true,
+                                                               .depth_mask = false,
+                                                               .blend_enable = true,
+                                                               .blend_src_factor = GL_SRC_ALPHA,
+                                                               .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 /*
 ===============
@@ -324,28 +325,28 @@ static void GL_RenderLightmappedPoly(msurface_t *surf, float alpha) {
 
   c_brush_polys++;
 
-  struct DrawState *draw_state;
+  struct GL_DrawState *draw_state;
 
-  struct DrawAssets assets = {.image[0] = image_set.albedo->texnum,
-                              .image[1] = image_set.normal->texnum,
-                              .image[3] = gl_state.lightmap_textures[lmtex + 0],
-                              .image[4] = gl_state.lightmap_textures[lmtex + 1],
-                              .image[5] = gl_state.lightmap_textures[lmtex + 2],
-                              .image[6] = gl_state.lightmap_textures[lmtex + 3],
-                              .element_buffer = &currentmodel->element_buffer,
-                              .element_buffer_offset = surf->elements_offset,
-                              .vertex_buffers[0] = &currentmodel->position_buffer,
-                              .vertex_buffers[1] = &currentmodel->attribute_buffer,
-                              .uniforms[0] = {.vec[0] = surf->texture_space_mat3[0][0],
-                                              .vec[1] = surf->texture_space_mat3[0][1],
-                                              .vec[2] = surf->texture_space_mat3[0][2]},
-                              .uniforms[1] = {.vec[0] = surf->texture_space_mat3[1][0],
-                                              .vec[1] = surf->texture_space_mat3[1][1],
-                                              .vec[2] = surf->texture_space_mat3[1][2]},
-                              .uniforms[2] = {.vec[0] = surf->texture_space_mat3[2][0],
-                                              .vec[1] = surf->texture_space_mat3[2][1],
-                                              .vec[2] = surf->texture_space_mat3[2][2]},
-                              .uniforms[3] = {.vec[0] = alpha, .vec[1] = r_newrefdef.time}};
+  struct GL_DrawAssets assets = {.image[0] = image_set.albedo->texnum,
+                                 .image[1] = image_set.normal->texnum,
+                                 .image[3] = gl_state.lightmap_textures[lmtex + 0],
+                                 .image[4] = gl_state.lightmap_textures[lmtex + 1],
+                                 .image[5] = gl_state.lightmap_textures[lmtex + 2],
+                                 .image[6] = gl_state.lightmap_textures[lmtex + 3],
+                                 .element_buffer = &currentmodel->element_buffer,
+                                 .element_buffer_offset = surf->elements_offset,
+                                 .vertex_buffers[0] = &currentmodel->position_buffer,
+                                 .vertex_buffers[1] = &currentmodel->attribute_buffer,
+                                 .uniforms[0] = {.vec[0] = surf->texture_space_mat3[0][0],
+                                                 .vec[1] = surf->texture_space_mat3[0][1],
+                                                 .vec[2] = surf->texture_space_mat3[0][2]},
+                                 .uniforms[1] = {.vec[0] = surf->texture_space_mat3[1][0],
+                                                 .vec[1] = surf->texture_space_mat3[1][1],
+                                                 .vec[2] = surf->texture_space_mat3[1][2]},
+                                 .uniforms[2] = {.vec[0] = surf->texture_space_mat3[2][0],
+                                                 .vec[1] = surf->texture_space_mat3[2][1],
+                                                 .vec[2] = surf->texture_space_mat3[2][2]},
+                                 .uniforms[3] = {.vec[0] = alpha, .vec[1] = r_newrefdef.time}};
 
   if(surf->texinfo->flags & SURF_WARP) {
     draw_state = alpha < 1 ? &draw_state_turbulent_transparent : &draw_state_turbulent_opaque;
@@ -478,7 +479,7 @@ void R_DrawBrushModel(entity_t *e) {
     modelorg[2] = DotProduct(temp, up);
   }
 
-  GL_matrix_identity(u_model_matrix.data.mat);
+  GL_matrix_identity(u_model_matrix.uniform.data.mat);
   e->angles[0] = -e->angles[0]; // stupid quake bug
   e->angles[2] = -e->angles[2]; // stupid quake bug
   GL_TransformForEntity(e);
@@ -620,7 +621,7 @@ void R_DrawWorld(int cmodel_index) {
 
   memset(gl_lms.lightmap_surfaces, 0, sizeof(gl_lms.lightmap_surfaces));
 
-  GL_matrix_identity(u_model_matrix.data.mat);
+  GL_matrix_identity(u_model_matrix.uniform.data.mat);
 
   R_RecursiveWorldNode(cmodel_index, r_worldmodel[cmodel_index]->nodes);
 

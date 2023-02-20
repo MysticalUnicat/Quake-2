@@ -64,20 +64,20 @@ static char fragment_shader_source[] =
   );
 // clang-format on
 
-static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
-                                      .attribute[0] = {0, alias_memory_Format_Float32, 2, "xy", 0},
-                                      .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 8},
-                                      .attribute[2] = {0, alias_memory_Format_Unorm8, 4, "rgba", 16},
-                                      .binding[0] = {sizeof(struct DrawVertex)},
-                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
-                                      .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "img"},
-                                      .vertex_shader_source = vertex_shader_source,
-                                      .fragment_shader_source = fragment_shader_source,
-                                      .depth_range_min = 0,
-                                      .depth_range_max = 1,
-                                      .blend_enable = true,
-                                      .blend_src_factor = GL_SRC_ALPHA,
-                                      .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLES,
+                                         .attribute[0] = {0, alias_memory_Format_Float32, 2, "xy", 0},
+                                         .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 8},
+                                         .attribute[2] = {0, alias_memory_Format_Unorm8, 4, "rgba", 16},
+                                         .binding[0] = {sizeof(struct DrawVertex)},
+                                         .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
+                                         .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "img"},
+                                         .vertex_shader.source = vertex_shader_source,
+                                         .fragment_shader.source = fragment_shader_source,
+                                         .depth_range_min = 0,
+                                         .depth_range_max = 1,
+                                         .blend_enable = true,
+                                         .blend_src_factor = GL_SRC_ALPHA,
+                                         .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 static void draw_triangles_internal(GLuint image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
                                     const uint32_t *indexes, uint32_t num_indexes) {
@@ -86,15 +86,15 @@ static void draw_triangles_internal(GLuint image, const struct DrawVertex *verte
   struct GL_Buffer vertex_buffer =
       GL_allocate_temporary_buffer_from(GL_ARRAY_BUFFER, sizeof(struct DrawVertex) * num_vertexes, vertexes);
 
-  GL_draw_elements(
-      &draw_state,
-      &(struct DrawAssets){.image[0] = image, .element_buffer = &element_buffer, .vertex_buffers[0] = &vertex_buffer},
-      num_indexes, 1, 0, 0);
+  GL_draw_elements(&draw_state,
+                   &(struct GL_DrawAssets){
+                       .image[0] = image, .element_buffer = &element_buffer, .vertex_buffers[0] = &vertex_buffer},
+                   num_indexes, 1, 0, 0);
 }
 
 void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
                     const uint32_t *indexes, uint32_t num_indexes) {
-  draw_triangles_internal(((image_t *)image)->texnum, vertexes, num_vertexes, indexes, num_indexes);
+  // draw_triangles_internal(((image_t *)image)->texnum, vertexes, num_vertexes, indexes, num_indexes);
 }
 
 void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2, float t2,
@@ -106,7 +106,7 @@ void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float
       {{x2, y1}, {s2, t1}, {r * 255, g * 255, b * 255, a * 255}},
   };
   uint32_t indexes[6] = {0, 1, 2, 0, 2, 3};
-  draw_triangles_internal(image, vertexes, 4, indexes, 6);
+  // draw_triangles_internal(image, vertexes, 4, indexes, 6);
 }
 
 /*

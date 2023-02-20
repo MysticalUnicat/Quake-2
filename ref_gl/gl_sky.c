@@ -25,18 +25,18 @@ GL_MSTR(
 );
 // clang-format on
 
-static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
-                                      .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
-                                      .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
-                                      .binding[0] = {sizeof(float) * 3 + sizeof(float) * 2, 0},
-                                      .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "sky_map"},
-                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_model_view_projection_matrix},
-                                      .vertex_shader_source = vertex_shader_source,
-                                      .fragment_shader_source = fragment_shader_source,
-                                      .depth_mask = false,
-                                      .depth_test_enable = true,
-                                      .depth_range_min = 0,
-                                      .depth_range_max = 1};
+static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLES,
+                                         .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
+                                         .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
+                                         .binding[0] = {sizeof(float) * 3 + sizeof(float) * 2, 0},
+                                         .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "sky_map"},
+                                         .global[0] = {THIN_GL_VERTEX_BIT, &u_model_view_projection_matrix},
+                                         .vertex_shader.source = vertex_shader_source,
+                                         .fragment_shader.source = fragment_shader_source,
+                                         .depth_mask = false,
+                                         .depth_test_enable = true,
+                                         .depth_range_min = 0,
+                                         .depth_range_max = 1};
 
 static bool init = false;
 static struct GL_Buffer vertex_buffer;
@@ -52,17 +52,17 @@ struct Sky {
 } sky[CMODEL_COUNT];
 
 void GL_draw_sky(uint32_t cmodel_index) {
-  GL_matrix_translation(r_origin[0], r_origin[1], r_origin[2], u_model_matrix.data.mat);
-  GL_rotate(u_model_matrix.data.mat, r_newrefdef.time * sky[cmodel_index].rotate, sky[cmodel_index].axis[0],
+  GL_matrix_translation(r_origin[0], r_origin[1], r_origin[2], u_model_matrix.uniform.data.mat);
+  GL_rotate(u_model_matrix.uniform.data.mat, r_newrefdef.time * sky[cmodel_index].rotate, sky[cmodel_index].axis[0],
             sky[cmodel_index].axis[1], sky[cmodel_index].axis[2]);
 
   for(uint32_t i = 0; i < 6; i++) {
     // if(i == 3)
     //   continue;
     GL_draw_elements(&draw_state,
-                     &(struct DrawAssets){.element_buffer = &index_buffer,
-                                          .vertex_buffers[0] = &vertex_buffer,
-                                          .image[0] = sky[cmodel_index].image[i]->texnum},
+                     &(struct GL_DrawAssets){.element_buffer = &index_buffer,
+                                             .vertex_buffers[0] = &vertex_buffer,
+                                             .image[0] = sky[cmodel_index].image[i]->texnum},
                      6, 1, 4 * i, 0);
   }
 }

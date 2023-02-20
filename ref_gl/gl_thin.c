@@ -1,35 +1,74 @@
-#include "gl_thin.h"
+#include "gl_thin_cpp.h"
 
 #include "gl_local.h"
 
-struct GL_UniformTypeInfo {
+THIN_GL_IMPL_STRUCT(DrawArraysIndirectCommand, uint32(count), uint32(instance_count), uint32(first),
+                    uint32(base_instance))
+
+THIN_GL_IMPL_STRUCT(DrawElementsIndirectCommand, uint32(count), uint32(instance_count), uint32(first_index),
+                    uint32(base_vertex), uint32(base_instance))
+
+THIN_GL_IMPL_STRUCT(DispatchIndirectCommand, uint32(num_groups_x), uint32(num_groups_y), uint32(num_groups_z))
+
+const char shader_prelude[] = "#version 460 core\n";
+
+struct GL_TypeInfo {
   const char *name;
-};
-
-static struct GL_UniformTypeInfo uniform_type_info[] = {
-    [GL_UniformType_Float] = {"float"},   [GL_UniformType_Vec2] = {"vec2"},     [GL_UniformType_Vec3] = {"vec3"},
-    [GL_UniformType_Vec4] = {"vec4"},     [GL_UniformType_Int] = {"int"},       [GL_UniformType_IVec2] = {"ivec2"},
-    [GL_UniformType_IVec3] = {"ivec3"},   [GL_UniformType_IVec4] = {"ivec4"},   [GL_UniformType_Uint] = {"uint"},
-    [GL_UniformType_UVec2] = {"uvec2"},   [GL_UniformType_UVec3] = {"uvec3"},   [GL_UniformType_UVec4] = {"uvec4"},
-    [GL_UniformType_Mat2] = {"mat2"},     [GL_UniformType_Mat3] = {"mat3"},     [GL_UniformType_Mat4] = {"mat4"},
-    [GL_UniformType_Mat2x3] = {"mat2x3"}, [GL_UniformType_Mat3x2] = {"mat3x2"}, [GL_UniformType_Mat2x4] = {"mat2x4"},
-    [GL_UniformType_Mat4x2] = {"mat4x2"}, [GL_UniformType_Mat3x4] = {"mat3x4"}, [GL_UniformType_Mat4x3] = {"mat4x3"},
-};
-
-struct GL_ImageTypeInfo {
   GLenum target;
-  const char *name;
 };
 
-static struct GL_ImageTypeInfo image_type_info[] = {
-    [GL_ImageType_Sampler1D] = {GL_TEXTURE_1D, "sampler1D"},
-    [GL_ImageType_Texture1D] = {GL_TEXTURE_1D, "texture1D"},
-    [GL_ImageType_Image1D] = {GL_TEXTURE_1D, "image1D"},
-    [GL_ImageType_Sampler1DShadow] = {GL_TEXTURE_1D_ARRAY, "sampler1DShadow"},
-    [GL_ImageType_Sampler1DArray] = {GL_TEXTURE_1D_ARRAY, "sampler1DArray"},
-    [GL_ImageType_Texture1DArray] = {GL_TEXTURE_1D_ARRAY, "texture1DArray"},
-    [GL_ImageType_Sampler1DArrayShadow] = {GL_TEXTURE_1D_ARRAY, "sampler1DArrayShadow"},
-    [GL_ImageType_Sampler2D] = {GL_TEXTURE_2D, "sampler2D"},
+static struct GL_TypeInfo type_info[] = {
+    [GL_Type_Float] = {"float"},
+    [GL_Type_Float2] = {"vec2"},
+    [GL_Type_Float3] = {"vec3"},
+    [GL_Type_Float4] = {"vec4"},
+    [GL_Type_Int] = {"int"},
+    [GL_Type_Int2] = {"ivec2"},
+    [GL_Type_Int3] = {"ivec3"},
+    [GL_Type_Int4] = {"ivec4"},
+    [GL_Type_Uint] = {"uint"},
+    [GL_Type_Uint2] = {"uvec2"},
+    [GL_Type_Uint3] = {"uvec3"},
+    [GL_Type_Uint4] = {"uvec4"},
+    [GL_Type_Float2x2] = {"mat2"},
+    [GL_Type_Float3x3] = {"mat3"},
+    [GL_Type_Float4x4] = {"mat4"},
+    [GL_Type_Float2x3] = {"mat2x3"},
+    [GL_Type_Float3x2] = {"mat3x2"},
+    [GL_Type_Float2x4] = {"mat2x4"},
+    [GL_Type_Float4x2] = {"mat4x2"},
+    [GL_Type_Float3x4] = {"mat3x4"},
+    [GL_Type_Float4x3] = {"mat4x3"},
+    [GL_Type_Sampler1D] =
+        {
+            .name = "sampler1D",
+            .target = GL_TEXTURE_1D,
+        },
+    [GL_Type_Image1D] =
+        {
+            .name = "image1D",
+            .target = GL_TEXTURE_1D,
+        },
+    [GL_Type_Sampler1DShadow] =
+        {
+            .name = "sampler1DShadow",
+            .target = GL_TEXTURE_1D_ARRAY,
+        },
+    [GL_Type_Sampler1DArray] =
+        {
+            .name = "sampler1DArray",
+            .target = GL_TEXTURE_1D_ARRAY,
+        },
+    [GL_Type_Sampler1DArrayShadow] =
+        {
+            .name = "sampler1DArrayShadow",
+            .target = GL_TEXTURE_1D_ARRAY,
+        },
+    [GL_Type_Sampler2D] =
+        {
+            .name = "sampler2D",
+            .target = GL_TEXTURE_2D,
+        },
 };
 
 struct TemporaryBuffer {
@@ -49,11 +88,15 @@ static struct {
   uint32_t script_builder_len;
 
   uint32_t draw_index;
+  uint32_t emit_index;
 } _ = {0, 0, 0, 0};
 
-void script_builder_init(void) { _.script_builder_len = 0; }
+static void script_builder_init(void) {
+  _.script_builder_len = 0;
+  _.emit_index++;
+}
 
-void script_builder_add(const char *format, ...) {
+static void script_builder_add(const char *format, ...) {
   va_list ap;
   va_start(ap, format);
   uint32_t len = vsnprintf(NULL, 0, format, ap);
@@ -70,7 +113,25 @@ void script_builder_add(const char *format, ...) {
   va_end(ap);
 }
 
-static void script_builder_add_vertex_format(const struct DrawState *draw_state) {
+static void script_builder_add_shader(const struct GL_Shader *shader);
+
+static void script_builder_add_shader_requisites(const struct GL_Shader *shader) {
+  if(shader->emit_index == _.emit_index)
+    return;
+  for(uint32_t i = 0; i < 8; i++) {
+    if(shader->requires[i] == NULL)
+      break;
+    script_builder_add_shader(shader->requires[i]);
+  }
+}
+
+static void script_builder_add_shader(const struct GL_Shader *shader) {
+  script_builder_add_shader_requisites(shader);
+  script_builder_add("%s\n", shader->source);
+  *(uint32_t *)(&shader->source) = _.emit_index;
+}
+
+static void script_builder_add_vertex_format(const struct GL_DrawState *draw_state) {
   for(int i = 0; i < THIN_GL_MAX_ATTRIBUTES; i++) {
     if(draw_state->attribute[i].format == 0)
       break;
@@ -122,36 +183,50 @@ static void script_builder_add_vertex_format(const struct DrawState *draw_state)
   }
 }
 
-static void script_builder_add_uniform_format(const struct DrawState *draw_state, GLbitfield stage_bit) {
-  GLuint location = 0;
+static void script_builder_add_uniform_format(const struct GL_PipelineState *pipeline_state, GLbitfield stage_bit) {
+  GLuint uniform_location = 0;
+  GLuint shader_storage_buffer_binding = 0;
+
+  GLuint location, binding;
+
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
-    if(!draw_state->uniform[i].stage_bits)
+    if((stage_bit && !pipeline_state->uniform[i].stage_bits) || pipeline_state->uniform[i].type == GL_Type_Unused)
       continue;
-    location = i + 1;
-    if(!(draw_state->uniform[i].stage_bits & stage_bit))
+    GLuint location = uniform_location++;
+    if((pipeline_state->uniform[i].stage_bits & stage_bit) != stage_bit)
       continue;
-    script_builder_add("layout(location=%i) uniform %s u_%s;\n", i, uniform_type_info[draw_state->uniform[i].type].name,
-                       draw_state->uniform[i].name);
+    script_builder_add("layout(location=%i) uniform %s u_%s;\n", location,
+                       type_info[pipeline_state->uniform[i].type].name, pipeline_state->uniform[i].name);
   }
 
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
-    if(!draw_state->global[i].stage_bits)
+    if((stage_bit && !pipeline_state->global[i].stage_bits) || pipeline_state->global[i].resource == NULL)
       continue;
-    GLuint loc = *(GLuint *)(&draw_state->global[i].location) = location++;
-    if(!(draw_state->global[i].stage_bits & stage_bit))
+    if(pipeline_state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
+      binding = shader_storage_buffer_binding++;
+    } else {
+      location = uniform_location++;
+    }
+    if((pipeline_state->global[i].stage_bits & stage_bit) != stage_bit)
       continue;
-    script_builder_add("layout(location=%i) uniform %s u_%s;\n", loc,
-                       uniform_type_info[draw_state->global[i].uniform->type].name,
-                       draw_state->global[i].uniform->name);
+    if(pipeline_state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
+      script_builder_add_shader_requisites(pipeline_state->global[i].resource->block.structure);
+      script_builder_add("layout(std430, binding=%i) %s\n", binding,
+                         pipeline_state->global[i].resource->block.structure->source);
+    } else {
+      script_builder_add("layout(location=%i) uniform %s u_%s;\n", location,
+                         type_info[pipeline_state->global[i].resource->type].name,
+                         pipeline_state->global[i].resource->name);
+    }
   }
 }
 
-static void script_builder_add_images_format(const struct DrawState *draw_state, GLbitfield stage_bit) {
+static void script_builder_add_images_format(const struct GL_PipelineState *pipeline_state, GLbitfield stage_bit) {
   for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
-    if(!(draw_state->image[i].stage_bits & stage_bit))
+    if(!(pipeline_state->image[i].stage_bits & stage_bit))
       continue;
-    script_builder_add("layout(binding=%i) uniform %s u_%s;\n", i, image_type_info[draw_state->image[i].type].name,
-                       draw_state->image[i].name);
+    script_builder_add("layout(binding=%i) uniform %s u_%s;\n", i, type_info[pipeline_state->image[i].type].name,
+                       pipeline_state->image[i].name);
   }
 }
 
@@ -210,40 +285,40 @@ void glProgram_init(struct glProgram *prog, const char *vsource, const char *fso
   prog->program = program;
 }
 
-void GL_initialize_draw_state(const struct DrawState *state) {
-  if(state->vertex_shader_source != NULL && state->vertex_shader_object == 0) {
+void GL_initialize_draw_state(const struct GL_DrawState *state) {
+  if(state->vertex_shader.source != NULL && state->vertex_shader.object == 0) {
     script_builder_init();
-    script_builder_add("#version 460 core\n");
+    script_builder_add(shader_prelude);
     script_builder_add_vertex_format(state);
-    script_builder_add_uniform_format(state, THIN_GL_VERTEX_BIT);
-    script_builder_add_images_format(state, THIN_GL_VERTEX_BIT);
+    script_builder_add_uniform_format((const struct GL_PipelineState *)state, THIN_GL_VERTEX_BIT);
+    script_builder_add_images_format((const struct GL_PipelineState *)state, THIN_GL_VERTEX_BIT);
 
     GLuint shader = glCreateShader(GL_VERTEX_SHADER);
-    const char *sources[2] = {_.script_builder_ptr, state->vertex_shader_source};
-    GLint lengths[2] = {_.script_builder_len, strlen(state->vertex_shader_source)};
+    const char *sources[2] = {_.script_builder_ptr, state->vertex_shader.source};
+    GLint lengths[2] = {_.script_builder_len, strlen(state->vertex_shader.source)};
     glShaderSource(shader, 2, sources, lengths);
     gl_compileShader(shader);
-    *(GLuint *)(&state->vertex_shader_object) = shader;
+    *(GLuint *)(&state->vertex_shader.object) = shader;
   }
 
-  if(state->fragment_shader_source != NULL && state->fragment_shader_object == 0) {
+  if(state->fragment_shader.source != NULL && state->fragment_shader.object == 0) {
     script_builder_init();
-    script_builder_add("#version 460 core\n");
-    script_builder_add_uniform_format(state, THIN_GL_FRAGMENT_BIT);
-    script_builder_add_images_format(state, THIN_GL_FRAGMENT_BIT);
+    script_builder_add(shader_prelude);
+    script_builder_add_uniform_format((const struct GL_PipelineState *)state, THIN_GL_FRAGMENT_BIT);
+    script_builder_add_images_format((const struct GL_PipelineState *)state, THIN_GL_FRAGMENT_BIT);
 
     GLuint shader = glCreateShader(GL_FRAGMENT_SHADER);
-    const char *sources[2] = {_.script_builder_ptr, state->fragment_shader_source};
-    GLint lengths[2] = {_.script_builder_len, strlen(state->fragment_shader_source)};
+    const char *sources[2] = {_.script_builder_ptr, state->fragment_shader.source};
+    GLint lengths[2] = {_.script_builder_len, strlen(state->fragment_shader.source)};
     glShaderSource(shader, 2, sources, lengths);
     gl_compileShader(shader);
-    *(GLuint *)(&state->fragment_shader_object) = shader;
+    *(GLuint *)(&state->fragment_shader.object) = shader;
   }
 
-  if(state->vertex_shader_object != 0 && state->fragment_shader_object != 0 && state->program_object == 0) {
+  if(state->vertex_shader.object != 0 && state->fragment_shader.object != 0 && state->program_object == 0) {
     GLuint program = glCreateProgram();
-    glAttachShader(program, state->vertex_shader_object);
-    glAttachShader(program, state->fragment_shader_object);
+    glAttachShader(program, state->vertex_shader.object);
+    glAttachShader(program, state->fragment_shader.object);
     gl_linkProgram(program);
     *(GLuint *)(&state->program_object) = program;
   }
@@ -329,13 +404,19 @@ void GL_initialize_draw_state(const struct DrawState *state) {
   }
 }
 
-void GL_apply_draw_state(const struct DrawState *state) {
-  static struct DrawState current_draw_state;
+static void apply_pipeline_state(const struct GL_PipelineState *state) {
+  static struct GL_PipelineState current_pipeline_state;
 
-  if(current_draw_state.program_object != state->program_object) {
+  if(current_pipeline_state.program_object != state->program_object) {
     glUseProgram(state->program_object);
-    current_draw_state.program_object = state->program_object;
+    current_pipeline_state.program_object = state->program_object;
   }
+}
+
+void GL_apply_draw_state(const struct GL_DrawState *state) {
+  static struct GL_DrawState current_draw_state;
+
+  apply_pipeline_state((const struct GL_PipelineState *)state);
 
   if(current_draw_state.vertex_array_object != state->vertex_array_object) {
     glBindVertexArray(state->vertex_array_object);
@@ -384,193 +465,224 @@ void GL_apply_draw_state(const struct DrawState *state) {
   }
 }
 
-static inline void GL_apply_uniform(GLuint location, enum GL_UniformType type, GLsizei count,
+static inline void GL_apply_uniform(GLuint location, enum GL_Type type, GLsizei count,
                                     const struct GL_UniformData *data) {
   count = count || 1;
   if(data->pointer) {
     switch(type) {
-    case GL_UniformType_Unused:
+    case GL_Type_Unused:
       break;
-    case GL_UniformType_Float:
+    case GL_Type_Float:
       glUniform1fv(location, count, data->pointer);
       break;
-    case GL_UniformType_Vec2:
+    case GL_Type_Float2:
       glUniform2fv(location, count, data->pointer);
       break;
-    case GL_UniformType_Vec3:
+    case GL_Type_Float3:
       glUniform3fv(location, count, data->pointer);
       break;
-    case GL_UniformType_Vec4:
+    case GL_Type_Float4:
       glUniform4fv(location, count, data->pointer);
       break;
-    case GL_UniformType_Int:
+    case GL_Type_Int:
       glUniform1iv(location, count, data->pointer);
       break;
-    case GL_UniformType_IVec2:
+    case GL_Type_Int2:
       glUniform2iv(location, count, data->pointer);
       break;
-    case GL_UniformType_IVec3:
+    case GL_Type_Int3:
       glUniform3iv(location, count, data->pointer);
       break;
-    case GL_UniformType_IVec4:
+    case GL_Type_Int4:
       glUniform4iv(location, count, data->pointer);
       break;
-    case GL_UniformType_Uint:
+    case GL_Type_Uint:
       glUniform1uiv(location, count, data->pointer);
       break;
-    case GL_UniformType_UVec2:
+    case GL_Type_Uint2:
       glUniform2uiv(location, count, data->pointer);
       break;
-    case GL_UniformType_UVec3:
+    case GL_Type_Uint3:
       glUniform3uiv(location, count, data->pointer);
       break;
-    case GL_UniformType_UVec4:
+    case GL_Type_Uint4:
       glUniform4uiv(location, count, data->pointer);
       break;
-    case GL_UniformType_Mat2:
+    case GL_Type_Float2x2:
       glUniformMatrix2fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat3:
+    case GL_Type_Float3x3:
       glUniformMatrix3fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat4:
+    case GL_Type_Float4x4:
       glUniformMatrix4fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat2x3:
+    case GL_Type_Float2x3:
       glUniformMatrix2x3fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat3x2:
+    case GL_Type_Float3x2:
       glUniformMatrix3x2fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat2x4:
+    case GL_Type_Float2x4:
       glUniformMatrix2x4fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat4x2:
+    case GL_Type_Float4x2:
       glUniformMatrix4x2fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat3x4:
+    case GL_Type_Float3x4:
       glUniformMatrix3x4fv(location, count, data->transpose, data->pointer);
       break;
-    case GL_UniformType_Mat4x3:
+    case GL_Type_Float4x3:
       glUniformMatrix4x3fv(location, count, data->transpose, data->pointer);
       break;
     }
   } else {
     switch(type) {
-    case GL_UniformType_Unused:
+    case GL_Type_Unused:
       break;
-    case GL_UniformType_Float:
+    case GL_Type_Float:
       glUniform1f(location, data->_float);
       break;
-    case GL_UniformType_Vec2:
+    case GL_Type_Float2:
       glUniform2f(location, data->vec[0], data->vec[1]);
       break;
-    case GL_UniformType_Vec3:
+    case GL_Type_Float3:
       glUniform3f(location, data->vec[0], data->vec[1], data->vec[2]);
       break;
-    case GL_UniformType_Vec4:
+    case GL_Type_Float4:
       glUniform4f(location, data->vec[0], data->vec[1], data->vec[2], data->vec[3]);
       break;
-    case GL_UniformType_Int:
+    case GL_Type_Int:
       glUniform1i(location, data->_int);
       break;
-    case GL_UniformType_IVec2:
+    case GL_Type_Int2:
       glUniform2i(location, data->ivec[0], data->ivec[1]);
       break;
-    case GL_UniformType_IVec3:
+    case GL_Type_Int3:
       glUniform3i(location, data->ivec[0], data->ivec[1], data->ivec[2]);
       break;
-    case GL_UniformType_IVec4:
+    case GL_Type_Int4:
       glUniform4i(location, data->ivec[0], data->ivec[1], data->ivec[2], data->ivec[3]);
       break;
-    case GL_UniformType_Uint:
+    case GL_Type_Uint:
       glUniform1ui(location, data->uint);
       break;
-    case GL_UniformType_UVec2:
+    case GL_Type_Uint2:
       glUniform2ui(location, data->uvec[0], data->uvec[1]);
       break;
-    case GL_UniformType_UVec3:
+    case GL_Type_Uint3:
       glUniform3ui(location, data->uvec[0], data->uvec[1], data->uvec[2]);
       break;
-    case GL_UniformType_UVec4:
+    case GL_Type_Uint4:
       glUniform4ui(location, data->uvec[0], data->uvec[1], data->uvec[2], data->uvec[3]);
       break;
-    case GL_UniformType_Mat2:
+    case GL_Type_Float2x2:
       glUniformMatrix2fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat3:
+    case GL_Type_Float3x3:
       glUniformMatrix3fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat4:
+    case GL_Type_Float4x4:
       glUniformMatrix4fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat2x3:
+    case GL_Type_Float2x3:
       glUniformMatrix2x3fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat3x2:
+    case GL_Type_Float3x2:
       glUniformMatrix3x2fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat2x4:
+    case GL_Type_Float2x4:
       glUniformMatrix2x4fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat4x2:
+    case GL_Type_Float4x2:
       glUniformMatrix4x2fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat3x4:
+    case GL_Type_Float3x4:
       glUniformMatrix3x4fv(location, count, data->transpose, data->mat);
       break;
-    case GL_UniformType_Mat4x3:
+    case GL_Type_Float4x3:
       glUniformMatrix4x3fv(location, count, data->transpose, data->mat);
       break;
     }
   }
 }
 
-void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets *assets) {
-  static struct DrawAssets current_draw_assets;
+static inline GLbitfield apply_pipeline_assets(const struct GL_PipelineState *state,
+                                               const struct GL_PipelineAssets *assets, bool compute) {
+  static struct GL_PipelineAssets current_assets;
+
+  GLuint uniform_location = 0;
+  GLuint shader_storage_buffer_binding = 0;
+  GLuint location, binding;
+
+  GLbitfield barriers = 0;
 
   if(assets == NULL)
-    return;
+    return barriers;
 
   for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
     if(assets->image[i]) {
-      if(current_draw_assets.image[i] != assets->image[i]) {
-        if(image_type_info[state->image[i].type].target == GL_SAMPLER) {
+      if(current_assets.image[i] != assets->image[i]) {
+        if(type_info[state->image[i].type].target == GL_SAMPLER) {
           glBindSampler(i, assets->image[i]);
         } else {
           glActiveTexture(GL_TEXTURE0 + i);
-          glBindTexture(image_type_info[state->image[i].type].target, assets->image[i]);
+          glBindTexture(type_info[state->image[i].type].target, assets->image[i]);
         }
       } else {
         glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(GL_TEXTURE_2D, assets->image[i]);
       }
-      current_draw_assets.image[i] = assets->image[i];
+      current_assets.image[i] = assets->image[i];
     }
   }
 
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
-    if(state->uniform[i].type != 0) {
-      GL_apply_uniform(i, state->uniform[i].type, state->uniform[i].count, &assets->uniforms[i]);
+    if((!compute && !state->uniform[i].stage_bits) || state->uniform[i].type == GL_Type_Unused)
+      continue;
+    GLuint location = uniform_location++;
+    GL_apply_uniform(location, state->uniform[i].type, state->uniform[i].count, &assets->uniforms[i]);
+  }
+
+  for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
+    if((!compute && !state->global[i].stage_bits) || state->global[i].resource == NULL)
+      continue;
+    if(state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
+      binding = shader_storage_buffer_binding++;
+    } else {
+      location = uniform_location++;
     }
-    if(state->global[i].stage_bits && state->global[i].uniform != NULL) {
-      GL_Uniform_prepare(state->global[i].uniform);
-      GL_apply_uniform(state->global[i].location, state->global[i].uniform->type, state->global[i].uniform->count,
-                       &state->global[i].uniform->data);
+    if(state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
+      barriers |= GL_flush_buffer(state->global[i].resource->block.buffer);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, state->global[i].resource->block.buffer->buffer);
+    } else {
+      GL_ShaderResource_prepare(state->global[i].resource);
+      GL_apply_uniform(location, state->global[i].resource->type, state->global[i].resource->count,
+                       &state->global[i].resource->uniform.data);
     }
   }
 
-  GLbitfield barriers = 0;
+  return barriers;
+}
+
+void GL_apply_draw_assets(const struct GL_DrawState *state, const struct GL_DrawAssets *assets) {
+  static struct GL_DrawAssets current_draw_assets;
+
+  GLbitfield barriers =
+      apply_pipeline_assets((const struct GL_PipelineState *)state, (const struct GL_PipelineAssets *)assets, false);
+
+  if(assets == NULL)
+    return;
 
   if(assets->element_buffer != NULL) {
-    barriers |= GL_flush_buffer(assets->element_buffer) ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
+    barriers |= GL_flush_buffer(assets->element_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, assets->element_buffer->buffer);
   }
 
   for(int i = 0; i < THIN_GL_MAX_BINDINGS; i++) {
     if(assets->vertex_buffers[i] == NULL)
       break;
-    barriers |= GL_flush_buffer(assets->vertex_buffers[i]) ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
+    barriers |= GL_flush_buffer(assets->vertex_buffers[i]);
     switch(assets->vertex_buffers[i]->kind) {
     case GL_Buffer_Static:
       glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->binding[i].stride);
@@ -587,7 +699,7 @@ void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets
   }
 }
 
-void GL_draw_arrays(const struct DrawState *state, const struct DrawAssets *assets, GLint first, GLsizei count,
+void GL_draw_arrays(const struct GL_DrawState *state, const struct GL_DrawAssets *assets, GLint first, GLsizei count,
                     GLsizei instancecount, GLuint baseinstance) {
   GL_initialize_draw_state(state);
   GL_apply_draw_state(state);
@@ -598,7 +710,7 @@ void GL_draw_arrays(const struct DrawState *state, const struct DrawAssets *asse
   _.draw_index++;
 }
 
-void GL_draw_elements(const struct DrawState *state, const struct DrawAssets *assets, GLsizei count,
+void GL_draw_elements(const struct GL_DrawState *state, const struct GL_DrawAssets *assets, GLsizei count,
                       GLsizei instancecount, GLint basevertex, GLuint baseinstance) {
   GL_initialize_draw_state(state);
   GL_apply_draw_state(state);
@@ -609,6 +721,18 @@ void GL_draw_elements(const struct DrawState *state, const struct DrawAssets *as
       (void *)(assets->element_buffer->kind == GL_Buffer_Temporary ? assets->element_buffer->temporary.offset : 0) +
           sizeof(uint32_t) * assets->element_buffer_offset,
       instancecount, basevertex, baseinstance);
+
+  _.draw_index++;
+}
+
+void GL_draw_elements_indirect(const struct GL_DrawState *state, const struct GL_DrawAssets *assets,
+                               const struct GL_Buffer *indirect, GLsizei indirect_offset) {
+  GL_initialize_draw_state(state);
+  GL_apply_draw_state(state);
+  GL_apply_draw_assets(state, assets);
+
+  glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirect->buffer);
+  glDrawElementsIndirect(state->primitive, GL_UNSIGNED_INT, (const void *)(uintptr_t)indirect_offset);
 
   _.draw_index++;
 }
@@ -640,7 +764,7 @@ again:
   }
 
   // 16 << 20); // 16mb TODO make a cvar
-  GLsizei block_size = 16 << 20;
+  GLsizei block_size = 4 << 20;
   GLsizei allocation_size = ((size + block_size) / block_size) * block_size;
 
   _.temporary_buffers = realloc(_.temporary_buffers, sizeof(*_.temporary_buffers) * (_.num_temporary_buffers + 1));
@@ -664,7 +788,7 @@ struct GL_Buffer GL_allocate_temporary_buffer_from(GLenum type, GLsizei size, co
   return result;
 }
 
-bool GL_flush_buffer(const struct GL_Buffer *buffer) {
+GLbitfield GL_flush_buffer(const struct GL_Buffer *buffer) {
   switch(buffer->kind) {
   case GL_Buffer_Static:
     break;
@@ -672,10 +796,15 @@ bool GL_flush_buffer(const struct GL_Buffer *buffer) {
     if(buffer->temporary.dirty) {
       glFlushMappedNamedBufferRange(buffer->buffer, buffer->temporary.offset, buffer->size);
       *(bool *)&buffer->temporary.dirty = false;
-      return true;
+      return GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
     }
-    return false;
+  case GL_Buffer_GPU:
+    if(buffer->buffer == 0) {
+      glCreateBuffers(1, (GLuint *)&buffer->buffer);
+      glNamedBufferStorage(buffer->buffer, buffer->size, NULL, 0);
+    }
   }
+  return 0;
 }
 
 void GL_free_buffer(const struct GL_Buffer *buffer) {
@@ -706,11 +835,68 @@ void GL_temporary_buffer_stats(GLenum type, uint32_t *total_allocated, uint32_t 
   }
 }
 
-void GL_Uniform_prepare(const struct GL_Uniform *uniform) {
-  if(uniform->prepare_draw_index != _.draw_index) {
-    *(uint32_t *)&uniform->prepare_draw_index = _.draw_index;
-    if(uniform->prepare != NULL) {
-      uniform->prepare();
+void GL_ShaderResource_prepare(const struct GL_ShaderResource *resource) {
+  if(resource->uniform.prepare_draw_index != _.draw_index) {
+    *(uint32_t *)&resource->uniform.prepare_draw_index = _.draw_index;
+    if(resource->uniform.prepare != NULL) {
+      resource->uniform.prepare();
     }
   }
+}
+
+void GL_initialize_compute_state(const struct GL_ComputeState *state) {
+  if(state->shader.source != NULL && state->shader.object == 0) {
+    script_builder_init();
+    script_builder_add(shader_prelude);
+    script_builder_add("layout(local_size_x=%i, local_size_y=%i, local_size_z=%i) in;\n", state->local_group_x || 1,
+                       state->local_group_y || 1, state->local_group_z || 1);
+    script_builder_add_uniform_format((const struct GL_PipelineState *)state, 0);
+    script_builder_add_images_format((const struct GL_PipelineState *)state, 0);
+
+    script_builder_add_shader(&state->shader);
+
+    GLuint shader = glCreateShader(GL_COMPUTE_SHADER);
+    glShaderSource(shader, 1, (const char *const *)&_.script_builder_ptr, &_.script_builder_len);
+    gl_compileShader(shader);
+    *(GLuint *)(&state->shader.object) = shader;
+  }
+
+  if(state->shader.object != 0 && state->program_object == 0) {
+    GLuint program = glCreateProgram();
+    glAttachShader(program, state->shader.object);
+    gl_linkProgram(program);
+    *(GLuint *)(&state->program_object) = program;
+  }
+}
+
+void GL_apply_compute_state(const struct GL_ComputeState *state) {
+  apply_pipeline_state((const struct GL_PipelineState *)state);
+}
+
+void GL_apply_compute_assets(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets) {
+  static struct GL_ComputeAssets current_compute_assets;
+
+  apply_pipeline_assets((const struct GL_PipelineState *)state, (const struct GL_PipelineAssets *)assets, true);
+
+  if(assets == NULL)
+    return;
+}
+
+void GL_compute(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets, GLuint num_groups_x,
+                GLuint num_groups_y, GLuint num_groups_z) {
+  GL_initialize_compute_state(state);
+  GL_apply_compute_state(state);
+  GL_apply_compute_assets(state, assets);
+
+  glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
+}
+
+void GL_compute_indirect(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets,
+                         const struct GL_Buffer *indirect, GLsizei indirect_offset) {
+  GL_initialize_compute_state(state);
+  GL_apply_compute_state(state);
+  GL_apply_compute_assets(state, assets);
+
+  glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, indirect->buffer);
+  glDispatchComputeIndirect(indirect_offset);
 }

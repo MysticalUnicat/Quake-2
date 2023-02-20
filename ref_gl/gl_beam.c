@@ -19,20 +19,20 @@ static const char fragment_shader_source[] =
   );
 // clang-format on
 
-static struct DrawState draw_state = {.primitive = GL_TRIANGLE_STRIP,
-                                      .attribute[0] = {0, alias_memory_Format_Float32, 3, "position"},
-                                      .binding[0] = {sizeof(float) * 3},
-                                      .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec4, "color"},
-                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
-                                      .vertex_shader_source = vertex_shader_source,
-                                      .fragment_shader_source = fragment_shader_source,
-                                      .depth_test_enable = true,
-                                      .depth_range_min = 0,
-                                      .depth_range_max = 1,
-                                      .depth_mask = false,
-                                      .blend_enable = true,
-                                      .blend_src_factor = GL_SRC_ALPHA,
-                                      .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLE_STRIP,
+                                         .attribute[0] = {0, alias_memory_Format_Float32, 3, "position"},
+                                         .binding[0] = {sizeof(float) * 3},
+                                         .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float4, "color"},
+                                         .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
+                                         .vertex_shader.source = vertex_shader_source,
+                                         .fragment_shader.source = fragment_shader_source,
+                                         .depth_test_enable = true,
+                                         .depth_range_min = 0,
+                                         .depth_range_max = 1,
+                                         .depth_mask = false,
+                                         .blend_enable = true,
+                                         .blend_src_factor = GL_SRC_ALPHA,
+                                         .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 void GL_draw_beam(entity_t *e) {
   int i;
@@ -86,10 +86,10 @@ void GL_draw_beam(entity_t *e) {
     xyz += 3;
   }
 
-  GL_matrix_identity(u_model_matrix.data.mat);
+  GL_matrix_identity(u_model_matrix.uniform.data.mat);
   GL_draw_arrays(
       &draw_state,
-      &(struct DrawAssets){
+      &(struct GL_DrawAssets){
           .uniforms[0] = {.vec[0] = r / 255.0f, .vec[1] = g / 255.0f, .vec[2] = b / 255.0f, .vec[3] = e->alpha},
           .vertex_buffers[0] = &vertex_buffer,
       },

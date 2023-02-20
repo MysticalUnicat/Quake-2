@@ -52,13 +52,13 @@ typedef struct {
 
 extern viddef_t vid;
 
-extern struct GL_Uniform u_time;
-extern struct GL_Uniform u_model_matrix;
-extern struct GL_Uniform u_view_matrix;
-extern struct GL_Uniform u_model_view_matrix;
-extern struct GL_Uniform u_projection_matrix;
-extern struct GL_Uniform u_view_projection_matrix;
-extern struct GL_Uniform u_model_view_projection_matrix;
+extern struct GL_ShaderResource u_time;
+extern struct GL_ShaderResource u_model_matrix;
+extern struct GL_ShaderResource u_view_matrix;
+extern struct GL_ShaderResource u_model_view_matrix;
+extern struct GL_ShaderResource u_projection_matrix;
+extern struct GL_ShaderResource u_view_projection_matrix;
+extern struct GL_ShaderResource u_model_view_projection_matrix;
 
 struct SH1 {
   float f[12];

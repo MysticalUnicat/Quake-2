@@ -128,22 +128,22 @@ static const char fragment_shader_source[] =
   .binding[1] = {sizeof(uint16_t) * 2 + sizeof(int16_t) * 4, 0}
 
 #define UNIFORMS_FORMAT                                                                                                \
-  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_rgb0"},                                             \
-  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_r1"},                                               \
-  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_g1"},                                               \
-  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_b1"},                                               \
+  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_rgb0"},                                                  \
+  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_r1"},                                                    \
+  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_g1"},                                                    \
+  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_b1"},                                                    \
   .global[0] = {THIN_GL_VERTEX_BIT, &u_model_matrix}, .global[1] = {THIN_GL_VERTEX_BIT, &u_view_matrix},               \
   .global[2] = {THIN_GL_VERTEX_BIT, &u_projection_matrix}
 
-#define IMAGES_FORMAT .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "albedo_map"}
+#define IMAGES_FORMAT .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "albedo_map"}
 
 #define DRAW_STATE                                                                                                     \
   .primitive = GL_TRIANGLES, VERTEX_FORMAT, UNIFORMS_FORMAT, IMAGES_FORMAT,                                            \
-  .fragment_shader_source = fragment_shader_source
+  .fragment_shader.source = fragment_shader_source
 
-#define NO_SHELL .vertex_shader_source = vertex_shader_source
+#define NO_SHELL .vertex_shader.source = vertex_shader_source
 
-#define SHELL .vertex_shader_source = vertex_shader_shell_source
+#define SHELL .vertex_shader.source = vertex_shader_shell_source
 
 #define OPAQUE .depth_mask = true, .depth_test_enable = true
 
@@ -155,10 +155,10 @@ static const char fragment_shader_source[] =
 
 #define DEPTH_HACK .depth_range_min = 0, .depth_range_max = 0.3
 
-static struct DrawState draw_state_opaque = {DRAW_STATE, NO_SHELL, OPAQUE, NO_DEPTH_HACK};
-static struct DrawState draw_state_opaque_depthhack = {DRAW_STATE, NO_SHELL, OPAQUE, DEPTH_HACK};
-static struct DrawState draw_state_transparent = {DRAW_STATE, NO_SHELL, TRANSPARENT, NO_DEPTH_HACK};
-static struct DrawState draw_state_transparent_depthhack = {DRAW_STATE, NO_SHELL, TRANSPARENT, DEPTH_HACK};
+static struct GL_DrawState draw_state_opaque = {DRAW_STATE, NO_SHELL, OPAQUE, NO_DEPTH_HACK};
+static struct GL_DrawState draw_state_opaque_depthhack = {DRAW_STATE, NO_SHELL, OPAQUE, DEPTH_HACK};
+static struct GL_DrawState draw_state_transparent = {DRAW_STATE, NO_SHELL, TRANSPARENT, NO_DEPTH_HACK};
+static struct GL_DrawState draw_state_transparent_depthhack = {DRAW_STATE, NO_SHELL, TRANSPARENT, DEPTH_HACK};
 
 /*
 =================
@@ -323,7 +323,7 @@ void R_DrawAliasModel(entity_t *e) {
   GL_matrix_translation((currententity->oldorigin[0] - currententity->origin[0]) * currententity->backlerp,
                         (currententity->oldorigin[1] - currententity->origin[1]) * currententity->backlerp,
                         (currententity->oldorigin[2] - currententity->origin[2]) * currententity->backlerp,
-                        u_model_matrix.data.mat);
+                        u_model_matrix.uniform.data.mat);
 
   e->angles[PITCH] = -e->angles[PITCH]; // sigh.
   GL_TransformForEntity(e);
@@ -363,7 +363,7 @@ void R_DrawAliasModel(entity_t *e) {
     currententity->backlerp = 0;
 
   // GL_DrawAliasFrameLerp(paliashdr, currententity->backlerp);
-  struct DrawState *draw_state =
+  struct GL_DrawState *draw_state =
       (currententity->flags & RF_TRANSLUCENT)
           ? ((currententity->flags & RF_DEPTHHACK) ? &draw_state_transparent_depthhack : &draw_state_transparent)
           : ((currententity->flags & RF_DEPTHHACK) ? &draw_state_opaque_depthhack : &draw_state_opaque);
@@ -419,7 +419,7 @@ void R_DrawAliasModel(entity_t *e) {
 
     float alpha = (currententity->flags & RF_TRANSLUCENT) ? currententity->alpha : 1;
 
-    struct DrawAssets assets;
+    struct GL_DrawAssets assets;
 
     alias_memory_clear(&assets, sizeof(assets));
 

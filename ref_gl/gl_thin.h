@@ -11,6 +11,7 @@
 #define THIN_GL_MAX_BINDINGS 2
 #define THIN_GL_MAX_UNIFORMS 16
 #define THIN_GL_MAX_IMAGES 16
+#define THIN_GL_MAX_BUFFERS 16
 
 #define THIN_GL_VERTEX_BIT 0x01
 #define THIN_GL_GEOMETRY_BIT 0x02
@@ -20,29 +21,124 @@
 
 typedef void (*GL_VoidFn)(void);
 
-enum GL_UniformType {
-  GL_UniformType_Unused,
-  GL_UniformType_Float,
-  GL_UniformType_Vec2,
-  GL_UniformType_Vec3,
-  GL_UniformType_Vec4,
-  GL_UniformType_Int,
-  GL_UniformType_IVec2,
-  GL_UniformType_IVec3,
-  GL_UniformType_IVec4,
-  GL_UniformType_Uint,
-  GL_UniformType_UVec2,
-  GL_UniformType_UVec3,
-  GL_UniformType_UVec4,
-  GL_UniformType_Mat2,
-  GL_UniformType_Mat3,
-  GL_UniformType_Mat4,
-  GL_UniformType_Mat2x3,
-  GL_UniformType_Mat3x2,
-  GL_UniformType_Mat2x4,
-  GL_UniformType_Mat4x2,
-  GL_UniformType_Mat3x4,
-  GL_UniformType_Mat4x3,
+// --------------------------------------------------------------------------------------------------------------------
+// C to OpenGL data format
+enum GL_Type {
+  GL_Type_Unused,
+  GL_Type_Float,
+  GL_Type_Float2,
+  GL_Type_Float3,
+  GL_Type_Float4,
+  GL_Type_Double,
+  GL_Type_Double2,
+  GL_Type_Double3,
+  GL_Type_Double4,
+  GL_Type_Int,
+  GL_Type_Int2,
+  GL_Type_Int3,
+  GL_Type_Int4,
+  GL_Type_Uint,
+  GL_Type_Uint2,
+  GL_Type_Uint3,
+  GL_Type_Uint4,
+  GL_Type_Bool,
+  GL_Type_Bool2,
+  GL_Type_Bool3,
+  GL_Type_Bool4,
+  GL_Type_Float2x2,
+  GL_Type_Float3x3,
+  GL_Type_Float4x4,
+  GL_Type_Float2x3,
+  GL_Type_Float2x4,
+  GL_Type_Float3x2,
+  GL_Type_Float3x4,
+  GL_Type_Float4x2,
+  GL_Type_Float4x3,
+  GL_Type_Double2x2,
+  GL_Type_Double3x3,
+  GL_Type_Double4x4,
+  GL_Type_Double2x3,
+  GL_Type_Double2x4,
+  GL_Type_Double3x2,
+  GL_Type_Double3x4,
+  GL_Type_Double4x2,
+  GL_Type_Double4x3,
+  GL_Type_Sampler1D,
+  GL_Type_Sampler2D,
+  GL_Type_Sampler3D,
+  GL_Type_SamplerCube,
+  GL_Type_Sampler1DShadow,
+  GL_Type_Sampler2DShadow,
+  GL_Type_Sampler1DArray,
+  GL_Type_Sampler2DArray,
+  GL_Type_SamplerCubeArray,
+  GL_Type_Sampler1DArrayShadow,
+  GL_Type_Sampler2DArrayShadow,
+  GL_Type_Sampler2DMultisample,
+  GL_Type_Sampler2DMultisampleArray,
+  GL_Type_SamplerCubeShadow,
+  GL_Type_SamplerCubeArrayShadow,
+  GL_Type_SamplerBuffer,
+  GL_Type_Sampler2DRect,
+  GL_Type_Sampler2DRectShadow,
+  GL_Type_IntSampler1D,
+  GL_Type_IntSampler2D,
+  GL_Type_IntSampler3D,
+  GL_Type_IntSamplerCube,
+  GL_Type_IntSampler1DArray,
+  GL_Type_IntSampler2DArray,
+  GL_Type_IntSamplerCubeMapArray,
+  GL_Type_IntSampler2DMultisample,
+  GL_Type_IntSampler2DMultisampleArray,
+  GL_Type_IntSamplerBuffer,
+  GL_Type_IntSampler2DRect,
+  GL_Type_UintSampler1D,
+  GL_Type_UintSampler2D,
+  GL_Type_UintSampler3D,
+  GL_Type_UintSamplerCube,
+  GL_Type_UintSampler1DArray,
+  GL_Type_UintSampler2DArray,
+  GL_Type_UintSamplerCubeMapArray,
+  GL_Type_UintSampler2DMultisample,
+  GL_Type_UintSampler2DMultisampleArray,
+  GL_Type_UintSamplerBuffer,
+  GL_Type_UintSampler2DRect,
+  GL_Type_Image1D,
+  GL_Type_Image2D,
+  GL_Type_Image3D,
+  GL_Type_Image2DRect,
+  GL_Type_ImageCube,
+  GL_Type_ImageBuffer,
+  GL_Type_Image1DArray,
+  GL_Type_Image2DArray,
+  GL_Type_ImageCubeArray,
+  GL_Type_Image2DMultisample,
+  GL_Type_Image2DMultisampleArray,
+  GL_Type_IntImage1D,
+  GL_Type_IntImage2D,
+  GL_Type_IntImage3D,
+  GL_Type_IntImage2DRect,
+  GL_Type_IntImageCube,
+  GL_Type_IntImageBuffer,
+  GL_Type_IntImage1DArray,
+  GL_Type_IntImage2DArray,
+  GL_Type_IntImageCubeArray,
+  GL_Type_IntImage2DMultisample,
+  GL_Type_IntImage2DMultisampleArray,
+  GL_Type_UintImage1D,
+  GL_Type_UintImage2D,
+  GL_Type_UintImage3D,
+  GL_Type_UintImage2DRect,
+  GL_Type_UintImageCube,
+  GL_Type_UintImageBuffer,
+  GL_Type_UintImage1DArray,
+  GL_Type_UintImage2DArray,
+  GL_Type_UintImageCubeArray,
+  GL_Type_UintImage2DMultisample,
+  GL_Type_UintImage2DMultisampleArray,
+  GL_Type_AtomicUint,
+  GL_Type_InlineStructure, // valid in THIN_GL_STRUCT and THIN_GL_BLOCK
+  GL_Type_ShaderStorageBuffer
 };
 
 struct GL_UniformData {
@@ -63,29 +159,68 @@ struct GL_UniformData {
   };
 };
 
-struct GL_Uniform {
-  enum GL_UniformType type;
+struct GL_Shader {
+  const struct GL_Shader *requires[8];
+  const char *name;
+  const char *source;
+
+  // internal
+  GLuint object;
+  GLuint emit_index;
+};
+
+struct GL_ShaderResource {
+  enum GL_Type type;
   const char *name;
   GLsizei count;
-  struct GL_UniformData data;
-  GL_VoidFn prepare;
-  uint32_t prepare_draw_index;
+  union {
+    struct {
+      GL_VoidFn prepare;
+      uint32_t prepare_draw_index;
+      struct GL_UniformData data;
+    } uniform;
+    struct {
+      struct GL_Shader *structure;
+      struct GL_Buffer *buffer;
+    } block;
+  };
 };
 
-// NOTE: up to sampler 2D (that was needed at the time)
-enum GL_ImageType {
-  GL_ImageType_Unknown,
-  GL_ImageType_Sampler1D,
-  GL_ImageType_Texture1D,
-  GL_ImageType_Image1D,
-  GL_ImageType_Sampler1DShadow,
-  GL_ImageType_Sampler1DArray,
-  GL_ImageType_Texture1DArray,
-  GL_ImageType_Sampler1DArrayShadow,
-  GL_ImageType_Sampler2D,
+// --------------------------------------------------------------------------------------------------------------------
+// state setup for draw/compute
+// - interface defined in C ensures GLSL and C expect the same thing
+
+#define THIN_GL_PIPILINE_STATE_FIELDS                                                                                  \
+  struct {                                                                                                             \
+    GLbitfield stage_bits;                                                                                             \
+    enum GL_Type type;                                                                                                 \
+    const char *name;                                                                                                  \
+    GLsizei count;                                                                                                     \
+  } uniform[THIN_GL_MAX_UNIFORMS];                                                                                     \
+  struct {                                                                                                             \
+    GLbitfield stage_bits;                                                                                             \
+    struct GL_ShaderResource *resource;                                                                                \
+  } global[THIN_GL_MAX_UNIFORMS];                                                                                      \
+  struct {                                                                                                             \
+    GLbitfield stage_bits;                                                                                             \
+    enum GL_Type type;                                                                                                 \
+    const char *name;                                                                                                  \
+  } image[THIN_GL_MAX_IMAGES];                                                                                         \
+  /* internal */                                                                                                       \
+  GLuint program_object;
+
+struct GL_PipelineState {
+  THIN_GL_PIPILINE_STATE_FIELDS
 };
 
-struct DrawState {
+#define THIN_GL_STAGE_FIELDS                                                                                           \
+  const char *source;                                                                                                  \
+  /* internal */                                                                                                       \
+  GLuint shader_object;
+
+struct GL_VertexStage {
+  THIN_GL_STAGE_FIELDS
+
   GLenum primitive;
 
   struct {
@@ -101,47 +236,60 @@ struct DrawState {
     GLuint divisor;
   } binding[THIN_GL_MAX_BINDINGS];
 
-  struct {
-    GLbitfield stage_bits;
-    enum GL_UniformType type;
-    const char *name;
-    GLsizei count;
-  } uniform[THIN_GL_MAX_UNIFORMS];
+  // internal
+  GLuint vertex_array_object;
+};
+
+struct GL_DrawState {
+  THIN_GL_PIPILINE_STATE_FIELDS
+
+  GLenum primitive;
 
   struct {
-    GLbitfield stage_bits;
-    struct GL_Uniform *uniform;
-    GLuint location;
-  } global[THIN_GL_MAX_UNIFORMS];
+    GLuint binding;
+    alias_memory_Format format;
+    GLint size;
+    const GLchar *name;
+    GLuint offset;
+  } attribute[THIN_GL_MAX_ATTRIBUTES];
 
   struct {
-    GLbitfield stage_bits;
-    enum GL_ImageType type;
-    const char *name;
-  } image[THIN_GL_MAX_IMAGES];
+    GLsizei stride;
+    GLuint divisor;
+  } binding[THIN_GL_MAX_BINDINGS];
 
-  const char *vertex_shader_source;
+  struct GL_Shader vertex_shader;
 
   bool depth_test_enable;
   bool depth_mask;
   float depth_range_min;
   float depth_range_max;
 
-  const char *fragment_shader_source;
+  struct GL_Shader fragment_shader;
 
   bool blend_enable;
   GLenum blend_src_factor;
   GLenum blend_dst_factor;
 
   // opengl objects
-  GLuint vertex_shader_object;
-  GLuint fragment_shader_object;
-  GLuint program_object;
   GLuint vertex_array_object;
 };
 
+struct GL_ComputeState {
+  THIN_GL_PIPILINE_STATE_FIELDS
+
+  struct GL_Shader shader;
+
+  GLuint local_group_x;
+  GLuint local_group_y;
+  GLuint local_group_z;
+};
+
+// --------------------------------------------------------------------------------------------------------------------
+// asset
+
 struct GL_Buffer {
-  enum { GL_Buffer_Static, GL_Buffer_Temporary } kind;
+  enum { GL_Buffer_Static, GL_Buffer_Temporary, GL_Buffer_GPU } kind;
   GLuint buffer;
   GLsizei size;
   union {
@@ -153,10 +301,19 @@ struct GL_Buffer {
   };
 };
 
-struct DrawAssets {
-  GLuint image[THIN_GL_MAX_IMAGES];
+// --------------------------------------------------------------------------------------------------------------------
+// asset reference collection needed for a draw/compute
 
+#define THIN_GL_PIPILINE_ASSETS_FIELDS                                                                                 \
+  GLuint image[THIN_GL_MAX_IMAGES];                                                                                    \
   struct GL_UniformData uniforms[THIN_GL_MAX_UNIFORMS];
+
+struct GL_PipelineAssets {
+  THIN_GL_PIPILINE_ASSETS_FIELDS
+};
+
+struct GL_DrawAssets {
+  THIN_GL_PIPILINE_ASSETS_FIELDS
 
   const struct GL_Buffer *element_buffer;
   uint32_t element_buffer_offset;
@@ -164,23 +321,46 @@ struct DrawAssets {
   const struct GL_Buffer *vertex_buffers[THIN_GL_MAX_BINDINGS];
 };
 
-void GL_initialize_draw_state(const struct DrawState *state);
-void GL_apply_draw_state(const struct DrawState *state);
-void GL_apply_draw_assets(const struct DrawState *state, const struct DrawAssets *assets);
+struct GL_ComputeAssets {
+  THIN_GL_PIPILINE_ASSETS_FIELDS
+};
 
-void GL_draw_arrays(const struct DrawState *state, const struct DrawAssets *assets, GLint first, GLsizei count,
+// --------------------------------------------------------------------------------------------------------------------
+// draw
+void GL_initialize_draw_state(const struct GL_DrawState *state);
+void GL_apply_draw_state(const struct GL_DrawState *state);
+void GL_apply_draw_assets(const struct GL_DrawState *state, const struct GL_DrawAssets *assets);
+
+void GL_draw_arrays(const struct GL_DrawState *state, const struct GL_DrawAssets *assets, GLint first, GLsizei count,
                     GLsizei instancecount, GLuint baseinstance);
 
-void GL_draw_elements(const struct DrawState *state, const struct DrawAssets *assets, GLsizei count,
+void GL_draw_elements(const struct GL_DrawState *state, const struct GL_DrawAssets *assets, GLsizei count,
                       GLsizei instancecount, GLint basevertex, GLuint baseinstance);
 
+void GL_draw_elements_indirect(const struct GL_DrawState *state, const struct GL_DrawAssets *assets,
+                               const struct GL_Buffer *indirect, GLsizei indirect_offset);
+
+// --------------------------------------------------------------------------------------------------------------------
+// compute
+void GL_initialize_compute_state(const struct GL_ComputeState *state);
+void GL_apply_compute_state(const struct GL_ComputeState *state);
+void GL_apply_compute_assets(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets);
+
+void GL_compute(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets, GLuint num_groups_x,
+                GLuint num_groups_y, GLuint num_groups_z);
+
+void GL_compute_indirect(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets,
+                         const struct GL_Buffer *indirect, GLsizei indirect_offset);
+
+// --------------------------------------------------------------------------------------------------------------------
+// resource data
 struct GL_Buffer GL_allocate_static_buffer(GLenum type, GLsizei size, const void *data);
 
 struct GL_Buffer GL_allocate_temporary_buffer(GLenum type, GLsizei size);
 
 struct GL_Buffer GL_allocate_temporary_buffer_from(GLenum type, GLsizei size, const void *data);
 
-bool GL_flush_buffer(const struct GL_Buffer *buffer);
+GLbitfield GL_flush_buffer(const struct GL_Buffer *buffer);
 
 void GL_free_buffer(const struct GL_Buffer *buffer);
 
@@ -188,7 +368,9 @@ void GL_reset_temporary_buffers(void);
 
 void GL_temporary_buffer_stats(GLenum type, uint32_t *total_allocated, uint32_t *used);
 
-void GL_Uniform_prepare(const struct GL_Uniform *uniform);
+// --------------------------------------------------------------------------------------------------------------------
+// resource
+void GL_ShaderResource_prepare(const struct GL_ShaderResource *resource);
 
 // mimic OpenGL's matrix
 static inline void GL_matrix_construct(float xx, float yx, float zx, float wx, float xy, float yy, float zy, float wy,

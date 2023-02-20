@@ -30,22 +30,22 @@ static char fragment_shader_source[] =
   );
 // clang-format on
 
-static struct DrawState draw_state = {.primitive = GL_TRIANGLES,
-                                      .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
-                                      .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
-                                      .binding[0] = {sizeof(struct SpriteVertex)},
-                                      .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Float, "alpha"},
-                                      .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
-                                      .image[0] = {THIN_GL_FRAGMENT_BIT, GL_ImageType_Sampler2D, "img"},
-                                      .vertex_shader_source = vertex_shader_source,
-                                      .fragment_shader_source = fragment_shader_source,
-                                      .depth_test_enable = true,
-                                      .depth_mask = false,
-                                      .depth_range_min = 0,
-                                      .depth_range_max = 1,
-                                      .blend_enable = true,
-                                      .blend_src_factor = GL_SRC_ALPHA,
-                                      .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLES,
+                                         .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0},
+                                         .attribute[1] = {0, alias_memory_Format_Float32, 2, "st", 12},
+                                         .binding[0] = {sizeof(struct SpriteVertex)},
+                                         .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float, "alpha"},
+                                         .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
+                                         .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "img"},
+                                         .vertex_shader.source = vertex_shader_source,
+                                         .fragment_shader.source = fragment_shader_source,
+                                         .depth_test_enable = true,
+                                         .depth_mask = false,
+                                         .depth_range_min = 0,
+                                         .depth_range_max = 1,
+                                         .blend_enable = true,
+                                         .blend_src_factor = GL_SRC_ALPHA,
+                                         .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 /*
 =================
@@ -105,9 +105,9 @@ void GL_draw_sprite(entity_t *e) {
       GL_allocate_temporary_buffer_from(GL_ARRAY_BUFFER, sizeof(struct DrawVertex) * 4, vertexes);
 
   GL_draw_elements(&draw_state,
-                   &(struct DrawAssets){.image[0] = currentmodel->skins[e->frame]->texnum,
-                                        .element_buffer = &element_buffer,
-                                        .vertex_buffers[0] = &vertex_buffer,
-                                        .uniforms[0] = {._float = e->alpha}},
+                   &(struct GL_DrawAssets){.image[0] = currentmodel->skins[e->frame]->texnum,
+                                           .element_buffer = &element_buffer,
+                                           .vertex_buffers[0] = &vertex_buffer,
+                                           .uniforms[0] = {._float = e->alpha}},
                    6, 1, 0, 0);
 }

@@ -36,29 +36,31 @@ extern void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2
 
 // projection * view * model * vertex
 static inline void prepare_model_view(void) {
-  GL_matrix_multiply(u_view_matrix.data.mat, u_model_matrix.data.mat, u_model_view_matrix.data.mat);
+  GL_matrix_multiply(u_view_matrix.uniform.data.mat, u_model_matrix.uniform.data.mat,
+                     u_model_view_matrix.uniform.data.mat);
 }
 
 static inline void prepare_view_projection(void) {
-  GL_matrix_multiply(u_projection_matrix.data.mat, u_view_matrix.data.mat, u_view_projection_matrix.data.mat);
+  GL_matrix_multiply(u_projection_matrix.uniform.data.mat, u_view_matrix.uniform.data.mat,
+                     u_view_projection_matrix.uniform.data.mat);
 }
 
 static inline void prepare_model_view_projection(void) {
-  GL_Uniform_prepare(&u_view_projection_matrix);
-  GL_matrix_multiply(u_view_projection_matrix.data.mat, u_model_matrix.data.mat,
-                     u_model_view_projection_matrix.data.mat);
+  GL_ShaderResource_prepare(&u_view_projection_matrix);
+  GL_matrix_multiply(u_view_projection_matrix.uniform.data.mat, u_model_matrix.uniform.data.mat,
+                     u_model_view_projection_matrix.uniform.data.mat);
 }
 
-struct GL_Uniform u_time = {.type = GL_UniformType_Float, .name = "time"};
-struct GL_Uniform u_model_matrix = {.type = GL_UniformType_Mat4, .name = "model_matrix"};
-struct GL_Uniform u_view_matrix = {.type = GL_UniformType_Mat4, .name = "view_matrix"};
-struct GL_Uniform u_model_view_matrix = {
-    .type = GL_UniformType_Mat4, .name = "model_view_matrix", .prepare = prepare_model_view};
-struct GL_Uniform u_projection_matrix = {.type = GL_UniformType_Mat4, .name = "projection_matrix"};
-struct GL_Uniform u_view_projection_matrix = {
-    .type = GL_UniformType_Mat4, .name = "view_projection_matrix", .prepare = prepare_view_projection};
-struct GL_Uniform u_model_view_projection_matrix = {
-    .type = GL_UniformType_Mat4, .name = "model_view_projection_matrix", .prepare = prepare_model_view_projection};
+struct GL_ShaderResource u_time = {.type = GL_Type_Float, .name = "time"};
+struct GL_ShaderResource u_model_matrix = {.type = GL_Type_Float4x4, .name = "model_matrix"};
+struct GL_ShaderResource u_view_matrix = {.type = GL_Type_Float4x4, .name = "view_matrix"};
+struct GL_ShaderResource u_model_view_matrix = {
+    .type = GL_Type_Float4x4, .name = "model_view_matrix", .uniform.prepare = prepare_model_view};
+struct GL_ShaderResource u_projection_matrix = {.type = GL_Type_Float4x4, .name = "projection_matrix"};
+struct GL_ShaderResource u_view_projection_matrix = {
+    .type = GL_Type_Float4x4, .name = "view_projection_matrix", .uniform.prepare = prepare_view_projection};
+struct GL_ShaderResource u_model_view_projection_matrix = {
+    .type = GL_Type_Float4x4, .name = "model_view_projection_matrix", .uniform.prepare = prepare_model_view_projection};
 
 void R_Clear(void);
 
@@ -192,10 +194,10 @@ bool R_CullBox(vec3_t mins, vec3_t maxs) {
 }
 
 void GL_TransformForEntity(entity_t *e) {
-  GL_translate(u_model_matrix.data.mat, e->origin[0], e->origin[1], e->origin[2]);
-  GL_rotate_z(u_model_matrix.data.mat, e->angles[1]);
-  GL_rotate_y(u_model_matrix.data.mat, -e->angles[0]);
-  GL_rotate_x(u_model_matrix.data.mat, -e->angles[2]);
+  GL_translate(u_model_matrix.uniform.data.mat, e->origin[0], e->origin[1], e->origin[2]);
+  GL_rotate_z(u_model_matrix.uniform.data.mat, e->angles[1]);
+  GL_rotate_y(u_model_matrix.uniform.data.mat, -e->angles[0]);
+  GL_rotate_x(u_model_matrix.uniform.data.mat, -e->angles[2]);
 }
 
 //==================================================================================
@@ -325,7 +327,7 @@ void R_SetupFrame(void) {
 
   r_framecount++;
 
-  u_time.data._float = r_newrefdef.time;
+  u_time.uniform.data._float = r_newrefdef.time;
 
   // build the transformation matrix for the given view angles
   VectorCopy(r_newrefdef.vieworg, r_origin);
@@ -388,7 +390,7 @@ void MYgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble z
   xmin += -(2 * gl_state.camera_separation) / zNear;
   xmax += -(2 * gl_state.camera_separation) / zNear;
 
-  GL_matrix_frustum(xmin, xmax, ymin, ymax, zNear, zFar, u_projection_matrix.data.mat);
+  GL_matrix_frustum(xmin, xmax, ymin, ymax, zNear, zFar, u_projection_matrix.uniform.data.mat);
 }
 
 /*
@@ -424,13 +426,14 @@ void R_SetupGL(void) {
   glCullFace(GL_FRONT);
 
   // GL_matrix_rotation_x(-90, u_view_matrix.data.mat);
-  GL_matrix_identity(u_view_matrix.data.mat);
-  GL_rotate_x(u_view_matrix.data.mat, -90);
-  GL_rotate_z(u_view_matrix.data.mat, 90);
-  GL_rotate_x(u_view_matrix.data.mat, -r_newrefdef.viewangles[2]);
-  GL_rotate_y(u_view_matrix.data.mat, -r_newrefdef.viewangles[0]);
-  GL_rotate_z(u_view_matrix.data.mat, -r_newrefdef.viewangles[1]);
-  GL_translate(u_view_matrix.data.mat, -r_newrefdef.vieworg[0], -r_newrefdef.vieworg[1], -r_newrefdef.vieworg[2]);
+  GL_matrix_identity(u_view_matrix.uniform.data.mat);
+  GL_rotate_x(u_view_matrix.uniform.data.mat, -90);
+  GL_rotate_z(u_view_matrix.uniform.data.mat, 90);
+  GL_rotate_x(u_view_matrix.uniform.data.mat, -r_newrefdef.viewangles[2]);
+  GL_rotate_y(u_view_matrix.uniform.data.mat, -r_newrefdef.viewangles[0]);
+  GL_rotate_z(u_view_matrix.uniform.data.mat, -r_newrefdef.viewangles[1]);
+  GL_translate(u_view_matrix.uniform.data.mat, -r_newrefdef.vieworg[0], -r_newrefdef.vieworg[1],
+               -r_newrefdef.vieworg[2]);
 
   //
   // set drawing parms
@@ -516,8 +519,8 @@ void R_RenderView(refdef_t *fd) {
 }
 
 void R_SetGL2D(void) {
-  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.data.mat);
-  GL_matrix_identity(u_view_matrix.data.mat);
+  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.uniform.data.mat);
+  GL_matrix_identity(u_view_matrix.uniform.data.mat);
 
   // TODO remove
   glDisable(GL_CULL_FACE);
@@ -849,8 +852,8 @@ void R_BeginFrame(float camera_separation) {
   ** go into 2D mode
   */
   glViewport(0, 0, vid.width, vid.height);
-  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.data.mat);
-  GL_matrix_identity(u_view_matrix.data.mat);
+  GL_matrix_ortho(0, vid.width, vid.height, 0, -99999, 99999, u_projection_matrix.uniform.data.mat);
+  GL_matrix_identity(u_view_matrix.uniform.data.mat);
 
   // TODO
   glDisable(GL_CULL_FACE);

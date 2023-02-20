@@ -45,33 +45,33 @@ static const char fragment_shader_source[] =
   .attribute[0] = {0, alias_memory_Format_Float32, 3, "position", 0}, .binding[0] = {sizeof(float) * 3, 0}
 
 #define UNIFORMS_FORMAT                                                                                                \
-  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_rgb0"},                                             \
-  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_r1"},                                               \
-  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_g1"},                                               \
-  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_UniformType_Vec3, "light_b1"},                                               \
+  .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_rgb0"},                                                  \
+  .uniform[1] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_r1"},                                                    \
+  .uniform[2] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_g1"},                                                    \
+  .uniform[3] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float3, "light_b1"},                                                    \
   .global[0] = {THIN_GL_VERTEX_BIT, &u_model_view_projection_matrix}
 
-static struct DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
-                                             VERTEX_FORMAT,
-                                             UNIFORMS_FORMAT,
-                                             .vertex_shader_source = vertex_shader_source,
-                                             .fragment_shader_source = fragment_shader_source,
-                                             .depth_mask = true,
-                                             .depth_test_enable = true,
-                                             .depth_range_min = 0,
-                                             .depth_range_max = 1};
-static struct DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
-                                                  VERTEX_FORMAT,
-                                                  UNIFORMS_FORMAT,
-                                                  .vertex_shader_source = vertex_shader_source,
-                                                  .fragment_shader_source = fragment_shader_source,
-                                                  .depth_mask = false,
-                                                  .depth_test_enable = true,
-                                                  .depth_range_min = 0,
-                                                  .depth_range_max = 1,
-                                                  .blend_enable = true,
-                                                  .blend_src_factor = GL_SRC_ALPHA,
-                                                  .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
+static struct GL_DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
+                                                VERTEX_FORMAT,
+                                                UNIFORMS_FORMAT,
+                                                .vertex_shader.source = vertex_shader_source,
+                                                .fragment_shader.source = fragment_shader_source,
+                                                .depth_mask = true,
+                                                .depth_test_enable = true,
+                                                .depth_range_min = 0,
+                                                .depth_range_max = 1};
+static struct GL_DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
+                                                     VERTEX_FORMAT,
+                                                     UNIFORMS_FORMAT,
+                                                     .vertex_shader.source = vertex_shader_source,
+                                                     .fragment_shader.source = fragment_shader_source,
+                                                     .depth_mask = false,
+                                                     .depth_test_enable = true,
+                                                     .depth_range_min = 0,
+                                                     .depth_range_max = 1,
+                                                     .blend_enable = true,
+                                                     .blend_src_factor = GL_SRC_ALPHA,
+                                                     .blend_dst_factor = GL_ONE_MINUS_SRC_ALPHA};
 
 static bool init = false;
 static struct GL_Buffer element_buffer;
@@ -98,12 +98,12 @@ void GL_draw_model_not_found(void) {
   } else
     shadelight = R_LightPoint(r_newrefdef.cmodel_index, currententity->origin);
 
-  GL_matrix_identity(u_model_matrix.data.mat);
+  GL_matrix_identity(u_model_matrix.uniform.data.mat);
   GL_TransformForEntity(currententity);
 
   GL_draw_elements(
       (currententity->flags & RF_TRANSLUCENT) ? &draw_state_transparent : &draw_state_opaque,
-      &(struct DrawAssets){
+      &(struct GL_DrawAssets){
           .element_buffer = &element_buffer,
           .vertex_buffers[0] = &vertex_buffer,
           .uniforms[0] =
