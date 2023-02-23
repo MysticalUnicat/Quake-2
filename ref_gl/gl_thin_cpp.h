@@ -6,24 +6,27 @@
 
 #include "gl_thin.h"
 
+#define THIN_GL_ALIGNED(X) __attribute__((aligned(X)))
+
 #define THIN_GL_STRUCT_TO_C_require(NAME)
-#define THIN_GL_STRUCT_TO_C_unorm8(NAME) uint8_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_unorm8x2(NAME) uint8_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_unorm8x3(NAME) uint8_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_unorm8x4(NAME) uint8_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_unorm16(NAME) uint16_t NAME[2];
-#define THIN_GL_STRUCT_TO_C_unorm16x2(NAME) uint16_t NAME[2];
-#define THIN_GL_STRUCT_TO_C_unorm16x3(NAME) uint16_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_unorm16x4(NAME) uint16_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_snorm16(NAME) int16_t NAME[2];
-#define THIN_GL_STRUCT_TO_C_snorm16x2(NAME) int16_t NAME[2];
-#define THIN_GL_STRUCT_TO_C_snorm16x3(NAME) int16_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_snorm16x4(NAME) int16_t NAME[4];
-#define THIN_GL_STRUCT_TO_C_uint32(NAME) uint32_t NAME;
-#define THIN_GL_STRUCT_TO_C_float32(NAME) float NAME;
-#define THIN_GL_STRUCT_TO_C_float32x2(NAME) float NAME[2];
-#define THIN_GL_STRUCT_TO_C_float32x3(NAME) float NAME[3];
-#define THIN_GL_STRUCT_TO_C_float32x4(NAME) float NAME[4];
+#define THIN_GL_STRUCT_TO_C_unorm8(NAME) uint8_t NAME[4] THIN_GL_ALIGNED(4);     // uint (4, 4) -> float
+#define THIN_GL_STRUCT_TO_C_unorm8x2(NAME) uint8_t NAME[4] THIN_GL_ALIGNED(4);   // uint (4, 4) -> vec2
+#define THIN_GL_STRUCT_TO_C_unorm8x3(NAME) uint8_t NAME[4] THIN_GL_ALIGNED(4);   // uint (4, 4) -> vec3
+#define THIN_GL_STRUCT_TO_C_unorm8x4(NAME) uint8_t NAME[4] THIN_GL_ALIGNED(4);   // uint (4, 4) -> vec4
+#define THIN_GL_STRUCT_TO_C_unorm16(NAME) uint16_t NAME[2] THIN_GL_ALIGNED(4);   // uint (4, 4) -> float
+#define THIN_GL_STRUCT_TO_C_unorm16x2(NAME) uint16_t NAME[2] THIN_GL_ALIGNED(4); // uint (4, 4) -> vec2
+#define THIN_GL_STRUCT_TO_C_unorm16x3(NAME) uint16_t NAME[4] THIN_GL_ALIGNED(8); // uvec2 (8, 8) -> vec3
+#define THIN_GL_STRUCT_TO_C_unorm16x4(NAME) uint16_t NAME[4] THIN_GL_ALIGNED(8); // uvec2 (8, 8) -> vec4
+#define THIN_GL_STRUCT_TO_C_snorm16(NAME) int16_t NAME[2] THIN_GL_ALIGNED(4);    // uint (4, 4) -> float
+#define THIN_GL_STRUCT_TO_C_snorm16x2(NAME) int16_t NAME[2] THIN_GL_ALIGNED(4);  // uint (4, 4) -> vec2
+#define THIN_GL_STRUCT_TO_C_snorm16x3(NAME) int16_t NAME[4] THIN_GL_ALIGNED(8);  // uvec2 (8, 8) -> vec3
+#define THIN_GL_STRUCT_TO_C_snorm16x4(NAME) int16_t NAME[4] THIN_GL_ALIGNED(8);  // uvec2 (8, 8) -> vec4
+#define THIN_GL_STRUCT_TO_C_uint32(NAME) uint32_t NAME THIN_GL_ALIGNED(4);       // uint (4, 4) -> uint
+#define THIN_GL_STRUCT_TO_C_int32(NAME) int32_t NAME THIN_GL_ALIGNED(4);         // int (4, 4) -> int
+#define THIN_GL_STRUCT_TO_C_float32(NAME) float NAME THIN_GL_ALIGNED(4);         // float (4, 4) -> float
+#define THIN_GL_STRUCT_TO_C_float32x2(NAME) float NAME[2] THIN_GL_ALIGNED(8);    // vec2 (8, 8) -> vec2
+#define THIN_GL_STRUCT_TO_C_float32x3(NAME) float NAME[3] THIN_GL_ALIGNED(16);   // vec3 (16, 16) -> vec3
+#define THIN_GL_STRUCT_TO_C_float32x4(NAME) float NAME[4] THIN_GL_ALIGNED(16);   // vec4 (16, 16) -> vec4
 #define THIN_GL_STRUCT_TO_C_struct(TYPE, NAME) struct GL_##TYPE NAME;
 #define THIN_GL_STRUCT_TO_C_unsized_array(TYPE)
 #define THIN_GL_STRUCT_TO_C_(ITEM) ALIAS_CPP_CAT(THIN_GL_STRUCT_TO_C_, ITEM)
@@ -46,6 +49,7 @@
 #define THIN_GL_STRUCT_TO_GLSL_PACKED_snorm16x3(NAME) "uvec2 " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACKED_snorm16x4(NAME) "uvec2 " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACKED_uint32(NAME) "uint " #NAME
+#define THIN_GL_STRUCT_TO_GLSL_PACKED_int32(NAME) "int " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACKED_float32(NAME) "float " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACKED_float32x2(NAME) "vec2 " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACKED_float32x3(NAME) "vec3 " #NAME
@@ -67,6 +71,7 @@
 #define THIN_GL_STRUCT_TO_GLSL_UNPACKED_snorm16x3(NAME) "vec3 " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACKED_snorm16x4(NAME) "vec4 " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACKED_uint32(NAME) "uint " #NAME
+#define THIN_GL_STRUCT_TO_GLSL_UNPACKED_int32(NAME) "int " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACKED_float32(NAME) "float " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACKED_float32x2(NAME) "vec2 " #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACKED_float32x3(NAME) "vec3 " #NAME
@@ -92,6 +97,7 @@
 #define THIN_GL_STRUCT_TO_GLSL_PACK_snorm16x4(NAME)                                                                    \
   "uvec2(packSnorm2x16(unpack." #NAME ".xy), packSnorm2x16(unpack." #NAME ".zw))"
 #define THIN_GL_STRUCT_TO_GLSL_PACK_uint32(NAME) "unpack." #NAME
+#define THIN_GL_STRUCT_TO_GLSL_PACK_int32(NAME) "unpack." #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACK_float32(NAME) "unpack." #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACK_float32x2(NAME) "unpack." #NAME
 #define THIN_GL_STRUCT_TO_GLSL_PACK_float32x3(NAME) "unpack." #NAME
@@ -117,6 +123,7 @@
 #define THIN_GL_STRUCT_TO_GLSL_UNPACK_snorm16x4(NAME)                                                                  \
   "vec4(unpackSnorm2x16(pack." #NAME ".x), unpackSnorm2x16(pack." #NAME ".y))"
 #define THIN_GL_STRUCT_TO_GLSL_UNPACK_uint32(NAME) "pack." #NAME
+#define THIN_GL_STRUCT_TO_GLSL_UNPACK_int32(NAME) "pack." #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACK_float32(NAME) "pack." #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACK_float32x2(NAME) "pack." #NAME
 #define THIN_GL_STRUCT_TO_GLSL_UNPACK_float32x3(NAME) "pack." #NAME
@@ -155,6 +162,7 @@
 #define THIN_GL_STRUCT_TO_DESC_snorm16x3(NAME)
 #define THIN_GL_STRUCT_TO_DESC_snorm16x4(NAME)
 #define THIN_GL_STRUCT_TO_DESC_uint32(NAME)
+#define THIN_GL_STRUCT_TO_DESC_int32(NAME)
 #define THIN_GL_STRUCT_TO_DESC_float32(NAME)
 #define THIN_GL_STRUCT_TO_DESC_float32x2(NAME)
 #define THIN_GL_STRUCT_TO_DESC_float32x3(NAME)
@@ -197,6 +205,7 @@ THIN_GL_DECLARE_STRUCT(DispatchIndirectCommand, uint32(num_groups_x), uint32(num
 
 #define THIN_GL_BLOCK_TO_GLSL_require(NAME) "  //"
 #define THIN_GL_BLOCK_TO_GLSL_uint32(NAME) "  uint " #NAME
+#define THIN_GL_BLOCK_TO_GLSL_int32(NAME) "  int " #NAME
 #define THIN_GL_BLOCK_TO_GLSL_float32(NAME) "  float " #NAME
 #define THIN_GL_BLOCK_TO_GLSL_float32x2(NAME) "  vec2 " #NAME
 #define THIN_GL_BLOCK_TO_GLSL_float32x3(NAME) "  vec3 " #NAME

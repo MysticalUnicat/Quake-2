@@ -41,7 +41,7 @@ static struct GL_ShaderResource sorted_resource = {.type = GL_Type_ShaderStorage
                                                    .block.buffer = &sorted_buffer,
                                                    .block.structure = &GL_particle_sorted_shader};
 
-THIN_GL_BLOCK(particle_counter, uint32(alive), uint32(dead), uint32(emitted))
+THIN_GL_BLOCK(particle_counter, uint32(alive), int32(dead))
 static struct GL_Buffer counter_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(struct GL_particle_counter)};
 static struct GL_ShaderResource counter_resource = {.type = GL_Type_ShaderStorageBuffer,
                                                     .name = "particle_counter",
@@ -64,7 +64,7 @@ static struct GL_ShaderResource indirect_resource = {.type = GL_Type_ShaderStora
 static char initialize_compute_shader_source[] =
 GL_MSTR(
   void main() {
-    u_particle_counter.dead = u_count;
+    u_particle_counter.dead = int(u_count);
 
     u_particle_indirect.simulate.num_groups_x = 0;
     u_particle_indirect.simulate.num_groups_y = 1;
@@ -109,7 +109,7 @@ GL_MSTR(
     u_particle_indirect.draw.base_instance = 0;
 
     for(uint i = 0; i < u_count; i++)
-      u_particle_dead.item[i] = i;
+      u_particle_dead.item[i] = (u_count - 1) - i;
   }
 );
 // clang-format on
@@ -133,21 +133,36 @@ static void ensure_init(void) {
 static char emit_single_compute_shader_source[] =
 GL_MSTR(
   void main() {
-    uint index = u_particle_dead.item[atomicAdd(u_particle_counter.dead, -1) - 1];
-    u_particle_data.item[index] = particle_Data_pack(particle_Data(
-      vec4(origin, time),
-      vec4(velocity, alpha) / 256,
-      vec4(acceleration, alpha_velocity) / 256,
-      albedo,
-      emit,
-      vec2(incandescnence, incandescence_velocity)
-    ));
-    u_particle_alive.item[atomicAdd(u_particle_counter.alive, 1)] = index;
+    int dead_index = atomicAdd(u_particle_counter.dead, -1);
+    atomicMax(u_particle_counter.dead, 0);
+
+    if(dead_index > 0) {
+      uint index = u_particle_dead.item[dead_index - 1];
+      u_particle_data.item[index] = particle_Data_pack(particle_Data(
+        vec4(u_origin, u_time),
+        vec4(u_velocity / 256, u_alpha / 256),
+        vec4(u_acceleration / 256, u_alphaVelocity / 256),
+        u_albedo,
+        u_emit,
+        vec2(u_incandescnence / 256, u_incandescenceVelocity / 256)
+      ));
+      u_particle_alive.item[atomicAdd(u_particle_counter.alive, 1)] = index;
+    }
   }
 );
 // clang-format on
 
 struct GL_ComputeState emit_single_compute_state = {.shader.source = emit_single_compute_shader_source,
+                                                    .uniform[0] = {0, GL_Type_Float3, "origin"},
+                                                    .uniform[1] = {0, GL_Type_Float3, "velocity"},
+                                                    .uniform[2] = {0, GL_Type_Float3, "acceleration"},
+                                                    .uniform[3] = {0, GL_Type_Float, "time"},
+                                                    .uniform[4] = {0, GL_Type_Float, "alpha"},
+                                                    .uniform[5] = {0, GL_Type_Float, "alphaVelocity"},
+                                                    .uniform[6] = {0, GL_Type_Float4, "albedo"},
+                                                    .uniform[7] = {0, GL_Type_Float4, "emit"},
+                                                    .uniform[8] = {0, GL_Type_Float, "incandescnence"},
+                                                    .uniform[9] = {0, GL_Type_Float, "incandescenceVelocity"},
                                                     .global[0] = {0, &dead_resource},
                                                     .global[1] = {0, &counter_resource},
                                                     .global[2] = {0, &data_resource},
@@ -158,7 +173,7 @@ static char presimulate_compute_shader_source[] =
 GL_MSTR(
   void main() {
     u_particle_indirect.simulate.num_groups_x = u_particle_counter.alive;
-    u_particle_counter.emitted = 0;
+    u_particle_counter.alive = 0;
   }
 );
 // clang-format on
@@ -174,11 +189,11 @@ GL_MSTR(
     uint index = u_particle_alive.item[gl_GlobalInvocationID.x];
     particle_Data data = particle_Data_unpack(u_particle_data.item[index]);
     float time = u_frame.time - data.origin_time.w;
-    float alpha = data.velocity_alpha.w + data.acceleration_alphaVelocity.w * time;
+    float alpha = data.velocity_alpha.w * 256 + data.acceleration_alphaVelocity.w * 256 * time;
     if(alpha > 0) {
-      vec3 position = data.origin_time.xyz + (data.velocity_alpha.xyz * time + data.acceleration_alphaVelocity.xyz * time * time) * 256;
-      uint sorted_index = atomicAdd(u_particle_counter.emitted, 1);
-      u_particle_distance.item[sorted_index] = uint(length(position - u_frame.viewOrigin));
+      vec3 position = data.origin_time.xyz + data.velocity_alpha.xyz * 256 * time + data.acceleration_alphaVelocity.xyz * 256 * time * time;
+      uint sorted_index = atomicAdd(u_particle_counter.alive, 1);
+      u_particle_distance.item[sorted_index] = uint(length(position - u_frame.viewOrigin) * 1024);
       u_particle_sorted.item[sorted_index] = index;
     } else {
       uint dead_index = atomicAdd(u_particle_counter.dead, 1);
@@ -201,7 +216,7 @@ struct GL_ComputeState simulate_compute_state = {.shader.source = simulate_compu
 static char postsimulate_compute_shader_source[] =
 GL_MSTR(
   void main() {
-    uint count = u_particle_counter.emitted;
+    uint count = u_particle_counter.alive;
     u_particle_indirect.sort1.num_groups_x = count;
     u_particle_indirect.sort2.num_groups_x = count;
     u_particle_indirect.sort3.num_groups_x = count;
@@ -211,13 +226,21 @@ GL_MSTR(
     u_particle_indirect.sort7.num_groups_x = count;
     u_particle_indirect.sort8.num_groups_x = count;
     u_particle_indirect.draw.count = count;
+
+    /* make a buffer copy? */
+    for(uint i = 0; i < count; i++)
+      u_particle_alive.item[i] = u_particle_sorted.item[i];
   }
 );
 // clang-format on
 
-struct GL_ComputeState postsimulate_compute_state = {.shader.source = postsimulate_compute_shader_source,
-                                                     .global[0] = {0, &indirect_resource},
-                                                     .global[1] = {0, &counter_resource}};
+struct GL_ComputeState postsimulate_compute_state = {
+    .shader.source = postsimulate_compute_shader_source,
+    .global[0] = {0, &indirect_resource},
+    .global[1] = {0, &counter_resource},
+    .global[2] = {0, &alive_resource},
+    .global[3] = {0, &sorted_resource},
+};
 
 // clang-format off
 static char vertex_shader_source[] =
@@ -227,9 +250,9 @@ GL_MSTR(
 
   void main() {
     float time = u_time - in_time;
-    vec3 position = in_origin + (in_velocity * time + in_acceleration * time * time) * 256;
-    float alpha = clamp((in_alpha + in_alpha_velocity * time) * 256, 0, 1);
-    float incandescence = clamp((in_incandescence + in_incandescence_velocity * time) * 256, 0, 1);
+    vec3 position = in_origin + in_velocity * 256 * time + in_acceleration * 256 * time * time;
+    float alpha = clamp(in_alpha * 256 + in_alpha_velocity * 256 * time, 0, 1);
+    float incandescence = clamp(in_incandescence * 256 + in_incandescence_velocity * 256 * time, 0, 1);
 
     gl_Position = u_view_projection_matrix * vec4(position, 1);
     float size = u_point_size_sizemin_sizemax.x;
@@ -269,6 +292,34 @@ GL_MSTR(
 void GL_AddParticle(float time, const vec3_t origin, const vec3_t velocity, const vec3_t acceleration, int albedo,
                     int emit, float alpha, float alphavel, float incandescence, float incandescencevel) {
   ensure_init();
+
+  uint8_t albedo_rgba[4];
+  uint8_t emit_rgba[4];
+
+  *(uint32_t *)albedo_rgba = d_8to24table[albedo];
+  *(uint32_t *)emit_rgba = d_8to24table[emit];
+
+  struct GL_ComputeAssets assets;
+  memset(&assets, 0, sizeof(assets));
+
+  VectorCopy(origin, assets.uniforms[0].vec);
+  VectorCopy(velocity, assets.uniforms[1].vec);
+  VectorCopy(acceleration, assets.uniforms[2].vec);
+  assets.uniforms[3]._float = time;
+  assets.uniforms[4]._float = alpha;
+  assets.uniforms[5]._float = alphavel;
+  assets.uniforms[6].vec[0] = albedo_rgba[0] / 256.0f;
+  assets.uniforms[6].vec[1] = albedo_rgba[1] / 256.0f;
+  assets.uniforms[6].vec[2] = albedo_rgba[2] / 256.0f;
+  assets.uniforms[6].vec[3] = 1;
+  assets.uniforms[7].vec[0] = emit_rgba[0] / 256.0f;
+  assets.uniforms[7].vec[1] = emit_rgba[1] / 256.0f;
+  assets.uniforms[7].vec[2] = emit_rgba[2] / 256.0f;
+  assets.uniforms[7].vec[3] = 1;
+  assets.uniforms[8]._float = incandescence;
+  assets.uniforms[9]._float = incandescencevel;
+
+  GL_compute(&emit_single_compute_state, &assets, 1, 1, 1);
 }
 
 static struct GL_DrawState particle_draw_state = {
@@ -336,6 +387,7 @@ void GL_draw_particles(void) {
                                  .element_buffer = &sorted_buffer};
 
   glMemoryBarrier(GL_ELEMENT_ARRAY_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
+
   GL_draw_elements_indirect(&particle_draw_state, &assets, &indirect_buffer,
                             offsetof(struct GL_particle_indirect, draw));
 }

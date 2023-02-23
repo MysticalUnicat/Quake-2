@@ -684,14 +684,11 @@ GLbitfield GL_apply_draw_assets(const struct GL_DrawState *state, const struct G
       if(assets->vertex_buffers[i] == NULL)
         break;
       barriers |= GL_flush_buffer(assets->vertex_buffers[i], GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-      switch(assets->vertex_buffers[i]->kind) {
-      case GL_Buffer_Static:
-        glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->binding[i].stride);
-        break;
-      case GL_Buffer_Temporary:
+      if(assets->vertex_buffers[i]->kind == GL_Buffer_Temporary) {
         glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, assets->vertex_buffers[i]->offset,
                            state->binding[i].stride);
-        break;
+      } else {
+        glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->binding[i].stride);
       }
     }
   }

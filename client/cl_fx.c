@@ -961,7 +961,13 @@ void CL_ClearParticles(void) {
 
 void CL_AddParticle(const vec3_t origin, const vec3_t velocity, const vec3_t acceleration, int albedo, int emit,
                     float alpha, float alphavel, float incandescence, float incandescencevel) {
+#if 1
+  void GL_AddParticle(float time, const vec3_t origin, const vec3_t velocity, const vec3_t acceleration, int albedo,
+                      int emit, float alpha, float alphavel, float incandescence, float incandescencevel);
 
+  GL_AddParticle(cl.time * 0.001, origin, velocity, acceleration, albedo, emit, alpha, alphavel, incandescence,
+                 incandescencevel);
+#else
   cparticle_t *p;
 
   if(!free_particles)
@@ -986,6 +992,7 @@ void CL_AddParticle(const vec3_t origin, const vec3_t velocity, const vec3_t acc
 
   p->incandescence = incandescence;
   p->incandescencevel = incandescencevel;
+#endif
 }
 
 /*
