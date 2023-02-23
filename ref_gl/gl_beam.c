@@ -73,7 +73,7 @@ void GL_draw_beam(entity_t *e) {
 
   struct GL_Buffer vertex_buffer = GL_allocate_temporary_buffer(GL_ARRAY_BUFFER, sizeof(float) * 3 * 4 * NUM_BEAM_SEGS);
 
-  float *xyz = vertex_buffer.temporary.mapping;
+  float *xyz = vertex_buffer.mapping;
 
   for(i = 0; i < NUM_BEAM_SEGS; i++) {
     VectorCopy(start_points[i], xyz);

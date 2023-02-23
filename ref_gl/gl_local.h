@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdio.h>
 #include <math.h>
 
-#include "gl_thin.h"
+#include "gl_thin_cpp.h"
 
 bool QGL_Init(void);
 void QGL_Shutdown(void);
@@ -59,6 +59,14 @@ extern struct GL_ShaderResource u_model_view_matrix;
 extern struct GL_ShaderResource u_projection_matrix;
 extern struct GL_ShaderResource u_view_projection_matrix;
 extern struct GL_ShaderResource u_model_view_projection_matrix;
+
+extern struct GL_ShaderResource u_frame;
+extern struct GL_ShaderResource u_view;
+extern struct GL_ShaderResource u_draw;
+
+THIN_GL_DECLARE_BLOCK(Frame, float32(time), float32x3(viewOrigin))
+
+THIN_GL_DECLARE_BLOCK(View, float32x3(origin))
 
 struct SH1 {
   float f[12];

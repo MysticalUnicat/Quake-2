@@ -94,7 +94,7 @@ static void draw_triangles_internal(GLuint image, const struct DrawVertex *verte
 
 void Draw_Triangles(const struct BaseImage *image, const struct DrawVertex *vertexes, uint32_t num_vertexes,
                     const uint32_t *indexes, uint32_t num_indexes) {
-  // draw_triangles_internal(((image_t *)image)->texnum, vertexes, num_vertexes, indexes, num_indexes);
+  draw_triangles_internal(((image_t *)image)->texnum, vertexes, num_vertexes, indexes, num_indexes);
 }
 
 void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2, float t2,
@@ -106,7 +106,7 @@ void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float
       {{x2, y1}, {s2, t1}, {r * 255, g * 255, b * 255, a * 255}},
   };
   uint32_t indexes[6] = {0, 1, 2, 0, 2, 3};
-  // draw_triangles_internal(image, vertexes, 4, indexes, 6);
+  draw_triangles_internal(image, vertexes, 4, indexes, 6);
 }
 
 /*

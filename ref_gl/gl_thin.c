@@ -116,8 +116,6 @@ static void script_builder_add(const char *format, ...) {
 static void script_builder_add_shader(const struct GL_Shader *shader);
 
 static void script_builder_add_shader_requisites(const struct GL_Shader *shader) {
-  if(shader->emit_index == _.emit_index)
-    return;
   for(uint32_t i = 0; i < 8; i++) {
     if(shader->requires[i] == NULL)
       break;
@@ -126,9 +124,11 @@ static void script_builder_add_shader_requisites(const struct GL_Shader *shader)
 }
 
 static void script_builder_add_shader(const struct GL_Shader *shader) {
+  if(shader->emit_index == _.emit_index)
+    return;
   script_builder_add_shader_requisites(shader);
   script_builder_add("%s\n", shader->source);
-  *(uint32_t *)(&shader->source) = _.emit_index;
+  *(uint32_t *)(&shader->emit_index) = _.emit_index;
 }
 
 static void script_builder_add_vertex_format(const struct GL_DrawState *draw_state) {
@@ -211,8 +211,9 @@ static void script_builder_add_uniform_format(const struct GL_PipelineState *pip
       continue;
     if(pipeline_state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
       script_builder_add_shader_requisites(pipeline_state->global[i].resource->block.structure);
-      script_builder_add("layout(std430, binding=%i) %s\n", binding,
-                         pipeline_state->global[i].resource->block.structure->source);
+      script_builder_add("layout(std430, binding=%i) %s u_%s;\n", binding,
+                         pipeline_state->global[i].resource->block.structure->source,
+                         pipeline_state->global[i].resource->name);
     } else {
       script_builder_add("layout(location=%i) uniform %s u_%s;\n", location,
                          type_info[pipeline_state->global[i].resource->type].name,
@@ -404,19 +405,21 @@ void GL_initialize_draw_state(const struct GL_DrawState *state) {
   }
 }
 
-static void apply_pipeline_state(const struct GL_PipelineState *state) {
+static GLbitfield apply_pipeline_state(const struct GL_PipelineState *state) {
   static struct GL_PipelineState current_pipeline_state;
 
   if(current_pipeline_state.program_object != state->program_object) {
     glUseProgram(state->program_object);
     current_pipeline_state.program_object = state->program_object;
   }
+
+  return 0;
 }
 
-void GL_apply_draw_state(const struct GL_DrawState *state) {
+GLbitfield GL_apply_draw_state(const struct GL_DrawState *state) {
   static struct GL_DrawState current_draw_state;
 
-  apply_pipeline_state((const struct GL_PipelineState *)state);
+  GLbitfield barriers = apply_pipeline_state((const struct GL_PipelineState *)state);
 
   if(current_draw_state.vertex_array_object != state->vertex_array_object) {
     glBindVertexArray(state->vertex_array_object);
@@ -463,6 +466,8 @@ void GL_apply_draw_state(const struct GL_DrawState *state) {
     glDisable(GL_BLEND);
     current_draw_state.blend_enable = false;
   }
+
+  return barriers;
 }
 
 static inline void GL_apply_uniform(GLuint location, enum GL_Type type, GLsizei count,
@@ -617,11 +622,8 @@ static inline GLbitfield apply_pipeline_assets(const struct GL_PipelineState *st
 
   GLbitfield barriers = 0;
 
-  if(assets == NULL)
-    return barriers;
-
   for(uint32_t i = 0; i < THIN_GL_MAX_IMAGES; i++) {
-    if(assets->image[i]) {
+    if(assets != NULL && assets->image[i]) {
       if(current_assets.image[i] != assets->image[i]) {
         if(type_info[state->image[i].type].target == GL_SAMPLER) {
           glBindSampler(i, assets->image[i]);
@@ -641,7 +643,8 @@ static inline GLbitfield apply_pipeline_assets(const struct GL_PipelineState *st
     if((!compute && !state->uniform[i].stage_bits) || state->uniform[i].type == GL_Type_Unused)
       continue;
     GLuint location = uniform_location++;
-    GL_apply_uniform(location, state->uniform[i].type, state->uniform[i].count, &assets->uniforms[i]);
+    if(assets != NULL)
+      GL_apply_uniform(location, state->uniform[i].type, state->uniform[i].count, &assets->uniforms[i]);
   }
 
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
@@ -653,7 +656,7 @@ static inline GLbitfield apply_pipeline_assets(const struct GL_PipelineState *st
       location = uniform_location++;
     }
     if(state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
-      barriers |= GL_flush_buffer(state->global[i].resource->block.buffer);
+      barriers |= GL_flush_buffer(state->global[i].resource->block.buffer, GL_SHADER_STORAGE_BARRIER_BIT);
       glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, state->global[i].resource->block.buffer->buffer);
     } else {
       GL_ShaderResource_prepare(state->global[i].resource);
@@ -665,45 +668,49 @@ static inline GLbitfield apply_pipeline_assets(const struct GL_PipelineState *st
   return barriers;
 }
 
-void GL_apply_draw_assets(const struct GL_DrawState *state, const struct GL_DrawAssets *assets) {
+GLbitfield GL_apply_draw_assets(const struct GL_DrawState *state, const struct GL_DrawAssets *assets) {
   static struct GL_DrawAssets current_draw_assets;
 
   GLbitfield barriers =
       apply_pipeline_assets((const struct GL_PipelineState *)state, (const struct GL_PipelineAssets *)assets, false);
 
-  if(assets == NULL)
-    return;
+  if(assets != NULL) {
+    if(assets->element_buffer != NULL) {
+      barriers |= GL_flush_buffer(assets->element_buffer, GL_ELEMENT_ARRAY_BARRIER_BIT);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, assets->element_buffer->buffer);
+    }
 
-  if(assets->element_buffer != NULL) {
-    barriers |= GL_flush_buffer(assets->element_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, assets->element_buffer->buffer);
-  }
-
-  for(int i = 0; i < THIN_GL_MAX_BINDINGS; i++) {
-    if(assets->vertex_buffers[i] == NULL)
-      break;
-    barriers |= GL_flush_buffer(assets->vertex_buffers[i]);
-    switch(assets->vertex_buffers[i]->kind) {
-    case GL_Buffer_Static:
-      glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->binding[i].stride);
-      break;
-    case GL_Buffer_Temporary:
-      glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, assets->vertex_buffers[i]->temporary.offset,
-                         state->binding[i].stride);
-      break;
+    for(int i = 0; i < THIN_GL_MAX_BINDINGS; i++) {
+      if(assets->vertex_buffers[i] == NULL)
+        break;
+      barriers |= GL_flush_buffer(assets->vertex_buffers[i], GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+      switch(assets->vertex_buffers[i]->kind) {
+      case GL_Buffer_Static:
+        glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, 0, state->binding[i].stride);
+        break;
+      case GL_Buffer_Temporary:
+        glBindVertexBuffer(i, assets->vertex_buffers[i]->buffer, assets->vertex_buffers[i]->offset,
+                           state->binding[i].stride);
+        break;
+      }
     }
   }
 
-  if(barriers != 0) {
+  return barriers;
+}
+
+static void apply_barriers(GLbitfield barriers) {
+  if(barriers)
     glMemoryBarrier(barriers);
-  }
 }
 
 void GL_draw_arrays(const struct GL_DrawState *state, const struct GL_DrawAssets *assets, GLint first, GLsizei count,
                     GLsizei instancecount, GLuint baseinstance) {
   GL_initialize_draw_state(state);
-  GL_apply_draw_state(state);
-  GL_apply_draw_assets(state, assets);
+  GLbitfield barriers = GL_apply_draw_state(state);
+  barriers |= GL_apply_draw_assets(state, assets);
+
+  apply_barriers(barriers);
 
   glDrawArraysInstancedBaseInstance(state->primitive, first, count, instancecount, baseinstance);
 
@@ -713,12 +720,14 @@ void GL_draw_arrays(const struct GL_DrawState *state, const struct GL_DrawAssets
 void GL_draw_elements(const struct GL_DrawState *state, const struct GL_DrawAssets *assets, GLsizei count,
                       GLsizei instancecount, GLint basevertex, GLuint baseinstance) {
   GL_initialize_draw_state(state);
-  GL_apply_draw_state(state);
-  GL_apply_draw_assets(state, assets);
+  GLbitfield barriers = GL_apply_draw_state(state);
+  barriers |= GL_apply_draw_assets(state, assets);
+
+  apply_barriers(barriers);
 
   glDrawElementsInstancedBaseVertexBaseInstance(
       state->primitive, count, GL_UNSIGNED_INT,
-      (void *)(assets->element_buffer->kind == GL_Buffer_Temporary ? assets->element_buffer->temporary.offset : 0) +
+      (void *)(assets->element_buffer->kind == GL_Buffer_Temporary ? assets->element_buffer->offset : 0) +
           sizeof(uint32_t) * assets->element_buffer_offset,
       instancecount, basevertex, baseinstance);
 
@@ -728,8 +737,12 @@ void GL_draw_elements(const struct GL_DrawState *state, const struct GL_DrawAsse
 void GL_draw_elements_indirect(const struct GL_DrawState *state, const struct GL_DrawAssets *assets,
                                const struct GL_Buffer *indirect, GLsizei indirect_offset) {
   GL_initialize_draw_state(state);
-  GL_apply_draw_state(state);
-  GL_apply_draw_assets(state, assets);
+  GLbitfield barriers = GL_apply_draw_state(state);
+  barriers |= GL_apply_draw_assets(state, assets);
+
+  barriers |= GL_flush_buffer(indirect, GL_COMMAND_BARRIER_BIT);
+
+  apply_barriers(barriers);
 
   glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirect->buffer);
   glDrawElementsIndirect(state->primitive, GL_UNSIGNED_INT, (const void *)(uintptr_t)indirect_offset);
@@ -754,10 +767,9 @@ again:
       result.kind = GL_Buffer_Temporary;
       result.buffer = _.temporary_buffers[i].buffer;
       result.size = size;
-      result.temporary.mapping =
-          (void *)((GLbyte *)_.temporary_buffers[i].mapped_memory + _.temporary_buffers[i].offset);
-      result.temporary.offset = _.temporary_buffers[i].offset;
-      result.temporary.dirty = true;
+      result.mapping = (void *)((GLbyte *)_.temporary_buffers[i].mapped_memory + _.temporary_buffers[i].offset);
+      result.offset = _.temporary_buffers[i].offset;
+      result.dirty = true;
       _.temporary_buffers[i].offset += size;
       return result;
     }
@@ -784,26 +796,75 @@ again:
 
 struct GL_Buffer GL_allocate_temporary_buffer_from(GLenum type, GLsizei size, const void *ptr) {
   struct GL_Buffer result = GL_allocate_temporary_buffer(type, size);
-  memcpy(result.temporary.mapping, ptr, size);
+  memcpy(result.mapping, ptr, size);
   return result;
 }
 
-GLbitfield GL_flush_buffer(const struct GL_Buffer *buffer) {
+static void activate_buffer(const struct GL_Buffer *buffer) {
+  if(buffer->buffer != 0)
+    return;
   switch(buffer->kind) {
   case GL_Buffer_Static:
     break;
   case GL_Buffer_Temporary:
-    if(buffer->temporary.dirty) {
-      glFlushMappedNamedBufferRange(buffer->buffer, buffer->temporary.offset, buffer->size);
-      *(bool *)&buffer->temporary.dirty = false;
+    break;
+  case GL_Buffer_CPU:
+    glCreateBuffers(1, (GLuint *)&buffer->buffer);
+    glNamedBufferStorage(buffer->buffer, buffer->size, NULL, GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT);
+    *(void **)&buffer->mapping = glMapNamedBufferRange(
+        buffer->buffer, 0, buffer->size, GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+    break;
+  case GL_Buffer_GPU:
+    glCreateBuffers(1, (GLuint *)&buffer->buffer);
+    glNamedBufferStorage(buffer->buffer, buffer->size, NULL, 0);
+    break;
+  }
+}
+
+void *GL_update_buffer_begin(const struct GL_Buffer *buffer, GLintptr offset, GLsizei size) {
+  (void)offset;
+  (void)size;
+  if(buffer->kind == GL_Buffer_CPU) {
+    activate_buffer(buffer);
+    return buffer->mapping;
+  }
+  return NULL;
+}
+
+void GL_update_buffer_end(const struct GL_Buffer *buffer, GLintptr offset, GLsizei size) {
+  if(buffer->kind == GL_Buffer_CPU) {
+    glFlushMappedNamedBufferRange(buffer->buffer, offset, size);
+    *(bool *)&buffer->dirty = true;
+  }
+}
+
+GLbitfield GL_flush_buffer(const struct GL_Buffer *buffer, GLbitfield read_barrier_bits) {
+  switch(buffer->kind) {
+  case GL_Buffer_Static:
+    break;
+  case GL_Buffer_Temporary:
+    if(buffer->dirty) {
+      glFlushMappedNamedBufferRange(buffer->buffer, buffer->offset, buffer->size);
+      *(bool *)&buffer->dirty = false;
       return GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
     }
-  case GL_Buffer_GPU:
-    if(buffer->buffer == 0) {
-      glCreateBuffers(1, (GLuint *)&buffer->buffer);
-      glNamedBufferStorage(buffer->buffer, buffer->size, NULL, 0);
+    break;
+  case GL_Buffer_CPU:
+    activate_buffer(buffer);
+    if(buffer->dirty) {
+      *(bool *)&buffer->dirty = false;
+      return GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
     }
+    break;
+  case GL_Buffer_GPU:
+    activate_buffer(buffer);
+    if(buffer->dirty) {
+      *(bool *)&buffer->dirty = false;
+      return read_barrier_bits;
+    }
+    break;
   }
+
   return 0;
 }
 
@@ -869,24 +930,29 @@ void GL_initialize_compute_state(const struct GL_ComputeState *state) {
   }
 }
 
-void GL_apply_compute_state(const struct GL_ComputeState *state) {
-  apply_pipeline_state((const struct GL_PipelineState *)state);
+GLbitfield GL_apply_compute_state(const struct GL_ComputeState *state) {
+  return apply_pipeline_state((const struct GL_PipelineState *)state);
 }
 
-void GL_apply_compute_assets(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets) {
+GLbitfield GL_apply_compute_assets(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets) {
   static struct GL_ComputeAssets current_compute_assets;
 
-  apply_pipeline_assets((const struct GL_PipelineState *)state, (const struct GL_PipelineAssets *)assets, true);
+  GLbitfield barriers =
+      apply_pipeline_assets((const struct GL_PipelineState *)state, (const struct GL_PipelineAssets *)assets, true);
 
-  if(assets == NULL)
-    return;
+  if(assets != NULL) {
+  }
+
+  return barriers;
 }
 
 void GL_compute(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets, GLuint num_groups_x,
                 GLuint num_groups_y, GLuint num_groups_z) {
   GL_initialize_compute_state(state);
-  GL_apply_compute_state(state);
-  GL_apply_compute_assets(state, assets);
+  GLbitfield barriers = GL_apply_compute_state(state);
+  barriers |= GL_apply_compute_assets(state, assets);
+
+  apply_barriers(barriers);
 
   glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
 }
@@ -894,8 +960,12 @@ void GL_compute(const struct GL_ComputeState *state, const struct GL_ComputeAsse
 void GL_compute_indirect(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets,
                          const struct GL_Buffer *indirect, GLsizei indirect_offset) {
   GL_initialize_compute_state(state);
-  GL_apply_compute_state(state);
-  GL_apply_compute_assets(state, assets);
+  GLbitfield barriers = GL_apply_compute_state(state);
+  barriers |= GL_apply_compute_assets(state, assets);
+
+  barriers |= GL_flush_buffer(indirect, GL_COMMAND_BARRIER_BIT);
+
+  apply_barriers(barriers);
 
   glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, indirect->buffer);
   glDispatchComputeIndirect(indirect_offset);

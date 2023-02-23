@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 #include "gl_local.h"
 
-#include "gl_thin.h"
+#include "gl_thin_cpp.h"
 
 #include <GLFW/glfw3.h>
 
@@ -31,6 +31,10 @@ extern void GL_draw_beam(entity_t *e);
 extern void GL_draw_sprite(entity_t *e);
 extern void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2,
                             float t2, float r, float g, float b, float a);
+
+THIN_GL_IMPL_BLOCK(Frame, float32(time), float32x3(viewOrigin))
+
+THIN_GL_IMPL_BLOCK(View, float32x3(origin))
 
 // -------------------------------------------------
 
@@ -61,6 +65,15 @@ struct GL_ShaderResource u_view_projection_matrix = {
     .type = GL_Type_Float4x4, .name = "view_projection_matrix", .uniform.prepare = prepare_view_projection};
 struct GL_ShaderResource u_model_view_projection_matrix = {
     .type = GL_Type_Float4x4, .name = "model_view_projection_matrix", .uniform.prepare = prepare_model_view_projection};
+
+struct GL_Buffer u_frame_buffer = {.kind = GL_Buffer_CPU, .size = sizeof(struct GL_Frame)};
+struct GL_ShaderResource u_frame = {.type = GL_Type_ShaderStorageBuffer,
+                                    .name = "frame",
+                                    .block.buffer = &u_frame_buffer,
+                                    .block.structure = &GL_Frame_shader};
+
+struct GL_ShaderResource u_view;
+struct GL_ShaderResource u_draw;
 
 void R_Clear(void);
 
@@ -554,6 +567,11 @@ R_RenderFrame
 @@@@@@@@@@@@@@@@@@@@@
 */
 void R_RenderFrame(refdef_t *fd) {
+  struct GL_Frame *frame = (struct GL_Frame *)GL_update_buffer_begin(&u_frame_buffer, 0, sizeof(*frame));
+  frame->time = fd->time;
+  VectorCopy(fd->vieworg, frame->viewOrigin);
+  GL_update_buffer_end(&u_frame_buffer, 0, sizeof(*frame));
+
   R_RenderView(fd);
   R_SetLightLevel();
   R_SetGL2D();
@@ -684,13 +702,13 @@ static inline void debug_callback(GLenum source, GLenum type, GLuint id, GLenum 
                             // existing vertex array object."
   }
   if(type == GL_DEBUG_TYPE_PERFORMANCE) {
-    ri.Con_Printf(PRINT_ALL, "OPENGL performance note - %s\n", message);
+    // ri.Con_Printf(PRINT_ALL, "OPENGL performance note - %s\n", message);
   }
   if(type == GL_DEBUG_TYPE_OTHER) {
-    ri.Con_Printf(PRINT_ALL, "OPENGL other note - %s\n", message);
+    // ri.Con_Printf(PRINT_ALL, "OPENGL other note - %s\n", message);
   }
   if(type == GL_DEBUG_TYPE_MARKER) {
-    ri.Con_Printf(PRINT_ALL, "OPENGL marker - %s\n", message);
+    // ri.Con_Printf(PRINT_ALL, "OPENGL marker - %s\n", message);
   }
 }
 

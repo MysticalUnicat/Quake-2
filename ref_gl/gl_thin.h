@@ -289,16 +289,12 @@ struct GL_ComputeState {
 // asset
 
 struct GL_Buffer {
-  enum { GL_Buffer_Static, GL_Buffer_Temporary, GL_Buffer_GPU } kind;
+  enum { GL_Buffer_Static, GL_Buffer_Temporary, GL_Buffer_GPU, GL_Buffer_CPU } kind;
   GLuint buffer;
   GLsizei size;
-  union {
-    struct {
-      void *mapping;
-      GLintptr offset;
-      bool dirty;
-    } temporary;
-  };
+  void *mapping;
+  GLintptr offset;
+  bool dirty;
 };
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -328,8 +324,8 @@ struct GL_ComputeAssets {
 // --------------------------------------------------------------------------------------------------------------------
 // draw
 void GL_initialize_draw_state(const struct GL_DrawState *state);
-void GL_apply_draw_state(const struct GL_DrawState *state);
-void GL_apply_draw_assets(const struct GL_DrawState *state, const struct GL_DrawAssets *assets);
+GLbitfield GL_apply_draw_state(const struct GL_DrawState *state);
+GLbitfield GL_apply_draw_assets(const struct GL_DrawState *state, const struct GL_DrawAssets *assets);
 
 void GL_draw_arrays(const struct GL_DrawState *state, const struct GL_DrawAssets *assets, GLint first, GLsizei count,
                     GLsizei instancecount, GLuint baseinstance);
@@ -343,8 +339,8 @@ void GL_draw_elements_indirect(const struct GL_DrawState *state, const struct GL
 // --------------------------------------------------------------------------------------------------------------------
 // compute
 void GL_initialize_compute_state(const struct GL_ComputeState *state);
-void GL_apply_compute_state(const struct GL_ComputeState *state);
-void GL_apply_compute_assets(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets);
+GLbitfield GL_apply_compute_state(const struct GL_ComputeState *state);
+GLbitfield GL_apply_compute_assets(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets);
 
 void GL_compute(const struct GL_ComputeState *state, const struct GL_ComputeAssets *assets, GLuint num_groups_x,
                 GLuint num_groups_y, GLuint num_groups_z);
@@ -360,7 +356,10 @@ struct GL_Buffer GL_allocate_temporary_buffer(GLenum type, GLsizei size);
 
 struct GL_Buffer GL_allocate_temporary_buffer_from(GLenum type, GLsizei size, const void *data);
 
-GLbitfield GL_flush_buffer(const struct GL_Buffer *buffer);
+void *GL_update_buffer_begin(const struct GL_Buffer *buffer, GLintptr offset, GLsizei size);
+void GL_update_buffer_end(const struct GL_Buffer *buffer, GLintptr offset, GLsizei size);
+
+GLbitfield GL_flush_buffer(const struct GL_Buffer *buffer, GLbitfield read_barrier_bits);
 
 void GL_free_buffer(const struct GL_Buffer *buffer);
 

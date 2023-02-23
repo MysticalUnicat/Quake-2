@@ -207,7 +207,7 @@ THIN_GL_DECLARE_STRUCT(DispatchIndirectCommand, uint32(num_groups_x), uint32(num
 
 #define THIN_GL_BLOCK_TO_GLSL(NAME, ...)                                                                               \
   static const char GL_##NAME##_glsl[] =                                                                               \
-      "buffer " #NAME " {\n" ALIAS_CPP_EVAL(ALIAS_CPP_MAP(THIN_GL_BLOCK_TO_GLSL_, __VA_ARGS__)) "} u_" #NAME ";";
+      "buffer " #NAME " {\n" ALIAS_CPP_EVAL(ALIAS_CPP_MAP(THIN_GL_BLOCK_TO_GLSL_, __VA_ARGS__)) "} ";
 
 #define THIN_GL_DECLARE_BLOCK(NAME, ...)                                                                               \
   THIN_GL_BLOCK_TO_C(NAME, __VA_ARGS__)                                                                                \

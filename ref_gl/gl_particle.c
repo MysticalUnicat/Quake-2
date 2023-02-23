@@ -4,38 +4,47 @@
 
 #define NUM_PARTICLES 1000000
 
-THIN_GL_STRUCT(particle_Data, float32x4(origin__time), snorm16x4(velocity__alpha),
-               snorm16x4(acceleration__alpha_velocity), unorm8x4(albedo), unorm8x4(emit),
-               snorm16x2(incandescence__incandescence_velocity))
-THIN_GL_BLOCK(particle_data, require(particle_Data), unsized_array(struct(particle_Data, item)))
+THIN_GL_STRUCT(particle_Data, float32x4(origin_time), snorm16x4(velocity_alpha), snorm16x4(acceleration_alphaVelocity),
+               unorm8x4(albedo), unorm8x4(emit), snorm16x2(incandescence_incandescenceVelocity))
+THIN_GL_BLOCK(particle_data, require(particle_Data), unsized_array(struct(particle_DataPacked, item)))
 static struct GL_Buffer data_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(struct GL_particle_Data) * NUM_PARTICLES};
-static struct GL_ShaderResource data_resource = {
-    .type = GL_Type_ShaderStorageBuffer, .block.buffer = &data_buffer, .block.structure = &GL_particle_data_shader};
+static struct GL_ShaderResource data_resource = {.type = GL_Type_ShaderStorageBuffer,
+                                                 .name = "particle_data",
+                                                 .block.buffer = &data_buffer,
+                                                 .block.structure = &GL_particle_data_shader};
 
 THIN_GL_BLOCK(particle_distance, unsized_array(uint32(item)))
 static struct GL_Buffer distance_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(uint32_t) * NUM_PARTICLES};
 static struct GL_ShaderResource distance_resource = {.type = GL_Type_ShaderStorageBuffer,
+                                                     .name = "particle_distance",
                                                      .block.buffer = &distance_buffer,
                                                      .block.structure = &GL_particle_distance_shader};
 
 THIN_GL_BLOCK(particle_dead, unsized_array(uint32(item)))
 static struct GL_Buffer dead_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(uint32_t) * NUM_PARTICLES};
-static struct GL_ShaderResource dead_resource = {
-    .type = GL_Type_ShaderStorageBuffer, .block.buffer = &dead_buffer, .block.structure = &GL_particle_dead_shader};
+static struct GL_ShaderResource dead_resource = {.type = GL_Type_ShaderStorageBuffer,
+                                                 .name = "particle_dead",
+                                                 .block.buffer = &dead_buffer,
+                                                 .block.structure = &GL_particle_dead_shader};
 
 THIN_GL_BLOCK(particle_alive, unsized_array(uint32(item)))
 static struct GL_Buffer alive_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(uint32_t) * NUM_PARTICLES};
-static struct GL_ShaderResource alive_resource = {
-    .type = GL_Type_ShaderStorageBuffer, .block.buffer = &alive_buffer, .block.structure = &GL_particle_alive_shader};
+static struct GL_ShaderResource alive_resource = {.type = GL_Type_ShaderStorageBuffer,
+                                                  .name = "particle_alive",
+                                                  .block.buffer = &alive_buffer,
+                                                  .block.structure = &GL_particle_alive_shader};
 
 THIN_GL_BLOCK(particle_sorted, unsized_array(uint32(item)))
 static struct GL_Buffer sorted_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(uint32_t) * NUM_PARTICLES};
-static struct GL_ShaderResource sorted_resource = {
-    .type = GL_Type_ShaderStorageBuffer, .block.buffer = &sorted_buffer, .block.structure = &GL_particle_sorted_shader};
+static struct GL_ShaderResource sorted_resource = {.type = GL_Type_ShaderStorageBuffer,
+                                                   .name = "particle_sorted",
+                                                   .block.buffer = &sorted_buffer,
+                                                   .block.structure = &GL_particle_sorted_shader};
 
 THIN_GL_BLOCK(particle_counter, uint32(alive), uint32(dead), uint32(emitted))
 static struct GL_Buffer counter_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(struct GL_particle_counter)};
 static struct GL_ShaderResource counter_resource = {.type = GL_Type_ShaderStorageBuffer,
+                                                    .name = "particle_counter",
                                                     .block.buffer = &counter_buffer,
                                                     .block.structure = &GL_particle_counter_shader};
 
@@ -47,7 +56,7 @@ THIN_GL_BLOCK(particle_indirect, require(DispatchIndirectCommand), require(DrawE
               struct(DispatchIndirectCommand, sort8), struct(DrawElementsIndirectCommand, draw))
 static struct GL_Buffer indirect_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(struct GL_particle_indirect)};
 static struct GL_ShaderResource indirect_resource = {.type = GL_Type_ShaderStorageBuffer,
-                                                     .name = "indirect",
+                                                     .name = "particle_indirect",
                                                      .block.buffer = &indirect_buffer,
                                                      .block.structure = &GL_particle_indirect_shader};
 
@@ -121,22 +130,35 @@ static void ensure_init(void) {
 }
 
 // clang-format off
-static char compute_emit_shader_source[] =
+static char emit_single_compute_shader_source[] =
 GL_MSTR(
   void main() {
-    uint index = u_DEAD.item[atomicCounterDecrement(u_COUNTER.dead) - 1];
-    u_DATA.item[index] = ...;
-    u_ALIVE[atomicCounterIncrement(u_COUNTER.alive)] = index;
+    uint index = u_particle_dead.item[atomicAdd(u_particle_counter.dead, -1) - 1];
+    u_particle_data.item[index] = particle_Data_pack(particle_Data(
+      vec4(origin, time),
+      vec4(velocity, alpha) / 256,
+      vec4(acceleration, alpha_velocity) / 256,
+      albedo,
+      emit,
+      vec2(incandescnence, incandescence_velocity)
+    ));
+    u_particle_alive.item[atomicAdd(u_particle_counter.alive, 1)] = index;
   }
 );
 // clang-format on
+
+struct GL_ComputeState emit_single_compute_state = {.shader.source = emit_single_compute_shader_source,
+                                                    .global[0] = {0, &dead_resource},
+                                                    .global[1] = {0, &counter_resource},
+                                                    .global[2] = {0, &data_resource},
+                                                    .global[3] = {0, &alive_resource}};
 
 // clang-format off
 static char presimulate_compute_shader_source[] =
 GL_MSTR(
   void main() {
-    u_INDIRECT.simulate.num_groups_x = u_COUNTER.alive;
-    u_COUNTER.emitter = 0;
+    u_particle_indirect.simulate.num_groups_x = u_particle_counter.alive;
+    u_particle_counter.emitted = 0;
   }
 );
 // clang-format on
@@ -149,17 +171,18 @@ struct GL_ComputeState presimulate_compute_state = {.shader.source = presimulate
 static char simulate_compute_shader_source[] =
 GL_MSTR(
   void main() {
-    uint work_id = gl_GlobalInvocationID.x;
-    uint index = u_ALIVE.item[work_id];
-    Data data = Data_unpack(u_DATA.item[index]);
-    float time = u_FRAME.time - data.origin__time.w;
-    float alpha = data.velocity__alpha.w + data.acceleration__alpha_velocity.w * time;
+    uint index = u_particle_alive.item[gl_GlobalInvocationID.x];
+    particle_Data data = particle_Data_unpack(u_particle_data.item[index]);
+    float time = u_frame.time - data.origin_time.w;
+    float alpha = data.velocity_alpha.w + data.acceleration_alphaVelocity.w * time;
     if(alpha > 0) {
-      vec3 position = data.origin__time.xyz + (data.velocity__alpha.xyz / 256) * time + (data.acceleration__alpha_velocity.xyz / 256) * time * time;
-      u_ACTIVE.item[index].position__distance = vec4(position, length(position - u_FRAME.view_origin));
-      u_SORTED.item[atomicCounterIncrement(u_COUNTER.emitted)] = index;
+      vec3 position = data.origin_time.xyz + (data.velocity_alpha.xyz * time + data.acceleration_alphaVelocity.xyz * time * time) * 256;
+      uint sorted_index = atomicAdd(u_particle_counter.emitted, 1);
+      u_particle_distance.item[sorted_index] = uint(length(position - u_frame.viewOrigin));
+      u_particle_sorted.item[sorted_index] = index;
     } else {
-      u_DEAD.item[atomicCounterIncrement(u_COUNTER.dead)] = index;
+      uint dead_index = atomicAdd(u_particle_counter.dead, 1);
+      u_particle_dead.item[dead_index] = index;
     }
   }
 );
@@ -171,22 +194,23 @@ struct GL_ComputeState simulate_compute_state = {.shader.source = simulate_compu
                                                  .global[2] = {0, &distance_resource},
                                                  .global[3] = {0, &sorted_resource},
                                                  .global[4] = {0, &dead_resource},
-                                                 .global[5] = {0, &counter_resource}};
+                                                 .global[5] = {0, &counter_resource},
+                                                 .global[6] = {0, &u_frame}};
 
 // clang-format off
 static char postsimulate_compute_shader_source[] =
 GL_MSTR(
   void main() {
-    uint count = u_COUNTER.emitted;
-    u_INDIRECT.sort1.num_groups_x = count;
-    u_INDIRECT.sort2.num_groups_x = count;
-    u_INDIRECT.sort3.num_groups_x = count;
-    u_INDIRECT.sort4.num_groups_x = count;
-    u_INDIRECT.sort5.num_groups_x = count;
-    u_INDIRECT.sort6.num_groups_x = count;
-    u_INDIRECT.sort7.num_groups_x = count;
-    u_INDIRECT.sort8.num_groups_x = count;
-    u_INDIRECT.draw.count = count;
+    uint count = u_particle_counter.emitted;
+    u_particle_indirect.sort1.num_groups_x = count;
+    u_particle_indirect.sort2.num_groups_x = count;
+    u_particle_indirect.sort3.num_groups_x = count;
+    u_particle_indirect.sort4.num_groups_x = count;
+    u_particle_indirect.sort5.num_groups_x = count;
+    u_particle_indirect.sort6.num_groups_x = count;
+    u_particle_indirect.sort7.num_groups_x = count;
+    u_particle_indirect.sort8.num_groups_x = count;
+    u_particle_indirect.draw.count = count;
   }
 );
 // clang-format on
@@ -203,9 +227,9 @@ GL_MSTR(
 
   void main() {
     float time = u_time - in_time;
-    vec3 position = in_origin + (((in_acceleration * time) + in_velocity) * time) / 256;
-    float alpha = clamp((in_alpha + in_alpha_velocity * time) / 256, 0, 1);
-    float incandescence = clamp((in_incandescence + in_incandescence_velocity * time) / 256, 0, 1);
+    vec3 position = in_origin + (in_velocity * time + in_acceleration * time * time) * 256;
+    float alpha = clamp((in_alpha + in_alpha_velocity * time) * 256, 0, 1);
+    float incandescence = clamp((in_incandescence + in_incandescence_velocity * time) * 256, 0, 1);
 
     gl_Position = u_view_projection_matrix * vec4(position, 1);
     float size = u_point_size_sizemin_sizemax.x;
@@ -242,156 +266,6 @@ GL_MSTR(
 );
 // clang-format on
 
-#if 0
-void GL_AddParticle(float time, const vec3_t origin, const vec3_t velocity, const vec3_t acceleration, int albedo,
-                    int emit, float alpha, float alphavel, float incandescence, float incandescencevel) {
-  if(_.buffer.buffer == 0) {
-    _.buffer = GL_allocate_dynamic_buffer(GL_ARRAY_BUFFER, sizeof(struct ParticleBuffer) * NUM_PARTICLES);
-    _.write_index = 0;
-    _.read_index = 0;
-  }
-  ((struct ParticleBuffer *)_.buffer.dynamic.mapping)[_.write_index % NUM_PARTICLES] = (struct ParticleBuffer){
-      .time = time,
-      .origin[0] = origin[0],
-      .origin[1] = origin[1],
-      .origin[2] = origin[2],
-      .velocity[0] = velocity[0] * 256,
-      .velocity[1] = velocity[1] * 256,
-      .velocity[2] = velocity[2] * 256,
-      .acceleration[0] = acceleration[0] * 256,
-      .acceleration[1] = acceleration[1] * 256,
-      .acceleration[2] = acceleration[2] * 256,
-      .albedo[0] = ((uint8_t *)(d_8to24table + albedo))[0],
-      .albedo[1] = ((uint8_t *)(d_8to24table + albedo))[1],
-      .albedo[2] = ((uint8_t *)(d_8to24table + albedo))[2],
-      .emit[0] = ((uint8_t *)(d_8to24table + emit))[0],
-      .emit[1] = ((uint8_t *)(d_8to24table + emit))[1],
-      .emit[2] = ((uint8_t *)(d_8to24table + emit))[2],
-      .alpha = alpha * 256,
-      .alpha_velocity = alphavel * 256,
-      .incandescence = incandescence * 256,
-      .incandescence_velocity = incandescencevel * 256,
-  };
-  _.write_index++;
-}
-
-struct ParticleBuffer {
-  float origin[3];                //  0 float
-  float time;                     // 12 float
-  int16_t velocity[3];            // 16 snorm
-  int16_t alpha;                  // 22 snorm
-  int16_t acceleration[3];        // 24 snorm
-  int16_t alpha_velocity;         // 30 snorm
-  uint8_t albedo[3];              // 32 unorm
-  uint8_t unused_1;               // 35 -----
-  uint8_t emit[3];                // 36 unorm
-  uint8_t unused_2;               // 39 -----
-  int16_t incandescence;          // 40 snorm
-  int16_t incandescence_velocity; // 42 snorm
-};
-
-static void flush_particles(void) {
-  // if(_.read_index < _.write_index) {
-  //   uint32_t base = _.read_index % NUM_PARTICLES;
-  //   uint32_t length = _.write_index - _.read_index;
-  //   if(length > NUM_PARTICLES) {
-  //     base = 0;
-  //     length = NUM_PARTICLES;
-  //   }
-  //   if(base + length > NUM_PARTICLES) {
-  //     GL_flush_dynamic_buffer(_.buffer, base * sizeof(struct ParticleBuffer),
-  //                             (NUM_PARTICLES - base) * sizeof(struct ParticleBuffer));
-  //     GL_flush_dynamic_buffer(_.buffer, 0, (length - (NUM_PARTICLES - base)) * sizeof(struct ParticleBuffer));
-  //   } else {
-  //     GL_flush_dynamic_buffer(_.buffer, base * sizeof(struct ParticleBuffer), length * sizeof(struct
-  //     ParticleBuffer));
-  //   }
-  //   _.read_index = _.write_index;
-  // }
-}
-
-static struct GL_DrawState particle_draw_state = {
-    .primitive = GL_POINTS,
-    .attribute[0] = {0, alias_memory_Format_Float32, 3, "origin", 0},
-    .attribute[1] = {0, alias_memory_Format_Float32, 1, "time", 12},
-    .attribute[2] = {0, alias_memory_Format_Snorm16, 3, "velocity", 16},
-    .attribute[3] = {0, alias_memory_Format_Snorm16, 1, "alpha", 22},
-    .attribute[4] = {0, alias_memory_Format_Snorm16, 3, "acceleration", 24},
-    .attribute[5] = {0, alias_memory_Format_Snorm16, 1, "alpha_velocity", 30},
-    .attribute[6] = {0, alias_memory_Format_Unorm8, 3, "albedo", 32},
-    .attribute[7] = {0, alias_memory_Format_Unorm8, 3, "emit", 36},
-    .attribute[8] = {0, alias_memory_Format_Snorm16, 1, "incandescence", 40},
-    .attribute[9] = {0, alias_memory_Format_Snorm16, 1, "incandescence_velocity", 42},
-    .binding[0] = {sizeof(struct ParticleBuffer), 0},
-    .uniform[0] = {THIN_GL_VERTEX_BIT, GL_Type_Float3, "point_size_sizemin_sizemax"},
-    .uniform[1] = {THIN_GL_VERTEX_BIT, GL_Type_Float3, "point_a_b_c"},
-    .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
-    .global[1] = {THIN_GL_VERTEX_BIT, &u_view_matrix},
-    .global[2] = {THIN_GL_VERTEX_BIT, &u_time},
-    .vertex_shader.source = vertex_shader_source,
-    .fragment_shader.source = fragment_shader_source,
-    .depth_test_enable = true,
-    .depth_range_min = 0,
-    .depth_range_max = 1,
-    .depth_mask = false,
-    .blend_enable = true,
-    .blend_src_factor = GL_ONE,
-    .blend_dst_factor = GL_SRC1_COLOR};
-
-struct ParticlePositionAttributes {
-  float position[3];
-  float distance_squared;
-  uint8_t albedo[4];
-  uint8_t emit[4];
-};
-
-static int compare_particle(const void *ap, const void *bp) {
-  const struct ParticlePositionAttributes *a = (const struct ParticlePositionAttributes *)ap;
-  const struct ParticlePositionAttributes *b = (const struct ParticlePositionAttributes *)bp;
-  return (int)(a->distance_squared - b->distance_squared);
-}
-
-void GL_draw_particles(void) {
-  int i;
-  const particle_t *p;
-
-  if(r_newrefdef.num_particles == 0)
-    return;
-
-  struct GL_Buffer buffer = GL_allocate_temporary_buffer(GL_ARRAY_BUFFER, sizeof(struct ParticlePositionAttributes) *
-                                                                              r_newrefdef.num_particles);
-
-  struct ParticlePositionAttributes *output = (struct ParticlePositionAttributes *)buffer.temporary.mapping;
-
-  for(i = 0, p = r_newrefdef.particles; i < r_newrefdef.num_particles; i++, p++) {
-    output[i].position[0] = p->origin[0];
-    output[i].position[1] = p->origin[1];
-    output[i].position[2] = p->origin[2];
-
-    float dist[3] = {p->origin[0] - r_newrefdef.vieworg[0], p->origin[1] - r_newrefdef.vieworg[1],
-                     p->origin[2] - r_newrefdef.vieworg[2]};
-    output[i].distance_squared = dist[0] * dist[0] + dist[1] * dist[1] + dist[2] * dist[2];
-
-    *(int *)output[i].albedo = d_8to24table[p->albedo];
-    output[i].albedo[3] = p->alpha * 255;
-
-    *(int *)output[i].emit = d_8to24table[p->emit];
-    output[i].emit[3] = p->incandescence * 255;
-  }
-
-  qsort(output, r_newrefdef.num_particles, sizeof(*output), compare_particle);
-
-  struct GL_DrawAssets assets = {.uniforms[0] = {.vec[0] = gl_particle_size->value,
-                                                 .vec[1] = gl_particle_min_size->value,
-                                                 .vec[2] = gl_particle_max_size->value},
-                                 .uniforms[1] = {.vec[0] = gl_particle_att_a->value,
-                                                 .vec[1] = gl_particle_att_b->value,
-                                                 .vec[2] = gl_particle_att_c->value},
-                                 .vertex_buffers[0] = &buffer};
-
-  GL_draw_arrays(&particle_draw_state, &assets, 0, r_newrefdef.num_particles, 1, 0);
-}
-#else
 void GL_AddParticle(float time, const vec3_t origin, const vec3_t velocity, const vec3_t acceleration, int albedo,
                     int emit, float alpha, float alphavel, float incandescence, float incandescencevel) {
   ensure_init();
@@ -399,21 +273,20 @@ void GL_AddParticle(float time, const vec3_t origin, const vec3_t velocity, cons
 
 static struct GL_DrawState particle_draw_state = {
     .primitive = GL_POINTS,
-    .attribute[0] = {0, alias_memory_Format_Float32, 3, "origin", offsetof(struct GL_particle_Data, origin__time)},
-    .attribute[1] = {0, alias_memory_Format_Float32, 1, "time", offsetof(struct GL_particle_Data, origin__time) + 12},
-    .attribute[2] = {0, alias_memory_Format_Snorm16, 3, "velocity", offsetof(struct GL_particle_Data, velocity__alpha)},
-    .attribute[3] = {0, alias_memory_Format_Snorm16, 1, "alpha",
-                     offsetof(struct GL_particle_Data, velocity__alpha) + 6},
-    .attribute[5] = {0, alias_memory_Format_Snorm16, 3, "velocity",
-                     offsetof(struct GL_particle_Data, acceleration__alpha_velocity)},
+    .attribute[0] = {0, alias_memory_Format_Float32, 3, "origin", offsetof(struct GL_particle_Data, origin_time)},
+    .attribute[1] = {0, alias_memory_Format_Float32, 1, "time", offsetof(struct GL_particle_Data, origin_time) + 12},
+    .attribute[2] = {0, alias_memory_Format_Snorm16, 3, "velocity", offsetof(struct GL_particle_Data, velocity_alpha)},
+    .attribute[3] = {0, alias_memory_Format_Snorm16, 1, "alpha", offsetof(struct GL_particle_Data, velocity_alpha) + 6},
+    .attribute[4] = {0, alias_memory_Format_Snorm16, 3, "acceleration",
+                     offsetof(struct GL_particle_Data, acceleration_alphaVelocity)},
     .attribute[5] = {0, alias_memory_Format_Snorm16, 1, "alpha_velocity",
-                     offsetof(struct GL_particle_Data, acceleration__alpha_velocity) + 6},
+                     offsetof(struct GL_particle_Data, acceleration_alphaVelocity) + 6},
     .attribute[6] = {0, alias_memory_Format_Unorm8, 3, "albedo", offsetof(struct GL_particle_Data, albedo)},
     .attribute[7] = {0, alias_memory_Format_Unorm8, 3, "emit", offsetof(struct GL_particle_Data, emit)},
     .attribute[8] = {0, alias_memory_Format_Snorm16, 1, "incandescence",
-                     offsetof(struct GL_particle_Data, incandescence__incandescence_velocity)},
+                     offsetof(struct GL_particle_Data, incandescence_incandescenceVelocity)},
     .attribute[9] = {0, alias_memory_Format_Snorm16, 1, "incandescence_velocity",
-                     offsetof(struct GL_particle_Data, incandescence__incandescence_velocity) + 2},
+                     offsetof(struct GL_particle_Data, incandescence_incandescenceVelocity) + 2},
     .binding[0] = {sizeof(struct GL_particle_Data), 0},
     .uniform[0] = {THIN_GL_VERTEX_BIT, GL_Type_Float3, "point_size_sizemin_sizemax"},
     .uniform[1] = {THIN_GL_VERTEX_BIT, GL_Type_Float3, "point_a_b_c"},
@@ -459,10 +332,10 @@ void GL_draw_particles(void) {
                                  .uniforms[1] = {.vec[0] = gl_particle_att_a->value,
                                                  .vec[1] = gl_particle_att_b->value,
                                                  .vec[2] = gl_particle_att_c->value},
-                                 .vertex_buffers[0] = &data_buffer};
+                                 .vertex_buffers[0] = &data_buffer,
+                                 .element_buffer = &sorted_buffer};
 
   glMemoryBarrier(GL_ELEMENT_ARRAY_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
   GL_draw_elements_indirect(&particle_draw_state, &assets, &indirect_buffer,
                             offsetof(struct GL_particle_indirect, draw));
 }
-#endif
