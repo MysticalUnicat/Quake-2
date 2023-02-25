@@ -70,7 +70,7 @@ struct GL_Buffer u_frame_buffer = {.kind = GL_Buffer_CPU, .size = sizeof(struct 
 struct GL_ShaderResource u_frame = {.type = GL_Type_ShaderStorageBuffer,
                                     .name = "frame",
                                     .block.buffer = &u_frame_buffer,
-                                    .block.structure = &GL_Frame_shader};
+                                    .block.snippet = &GL_Frame_snippet};
 
 struct GL_ShaderResource u_view;
 struct GL_ShaderResource u_draw;

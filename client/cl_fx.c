@@ -1113,7 +1113,7 @@ void CL_TeleporterParticles(entity_state_t *ent) {
     }
 
     p.org[2] = ent->origin[2] - 16 + (rand() & 7);
-    p.vel[2] = 80 + (rand() & 7);
+    p.vel[2] = 80 + (rand() & 31);
 
     p.accel[0] = p.accel[1] = 0;
     p.accel[2] = -PARTICLE_GRAVITY;
@@ -1336,6 +1336,10 @@ void CL_BlasterTrail(vec3_t start, vec3_t end) {
     }
 
     VectorAdd(move, vec, move);
+
+    p.emit = p.albedo;
+    p.albedo = 0;
+    p.incandescence = 2;
 
     CL_AddParticle(p.org, p.vel, p.accel, p.albedo, p.emit, p.alpha, p.alphavel, p.incandescence, p.incandescencevel);
   }

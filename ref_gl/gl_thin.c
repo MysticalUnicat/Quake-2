@@ -113,9 +113,9 @@ static void script_builder_add(const char *format, ...) {
   va_end(ap);
 }
 
-static void script_builder_add_shader(const struct GL_Shader *shader);
+static void script_builder_add_shader(const struct GL_ShaderSnippet *shader);
 
-static void script_builder_add_shader_requisites(const struct GL_Shader *shader) {
+static void script_builder_add_shader_requisites(const struct GL_ShaderSnippet *shader) {
   for(uint32_t i = 0; i < 8; i++) {
     if(shader->requires[i] == NULL)
       break;
@@ -123,11 +123,11 @@ static void script_builder_add_shader_requisites(const struct GL_Shader *shader)
   }
 }
 
-static void script_builder_add_shader(const struct GL_Shader *shader) {
+static void script_builder_add_shader(const struct GL_ShaderSnippet *shader) {
   if(shader->emit_index == _.emit_index)
     return;
   script_builder_add_shader_requisites(shader);
-  script_builder_add("%s\n", shader->source);
+  script_builder_add("%s\n", shader->code);
   *(uint32_t *)(&shader->emit_index) = _.emit_index;
 }
 
@@ -210,9 +210,10 @@ static void script_builder_add_uniform_format(const struct GL_PipelineState *pip
     if((pipeline_state->global[i].stage_bits & stage_bit) != stage_bit)
       continue;
     if(pipeline_state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
-      script_builder_add_shader_requisites(pipeline_state->global[i].resource->block.structure);
+      script_builder_add_shader_requisites(pipeline_state->global[i].resource->block.snippet);
+
       script_builder_add("layout(std430, binding=%i) %s u_%s;\n", binding,
-                         pipeline_state->global[i].resource->block.structure->source,
+                         pipeline_state->global[i].resource->block.snippet->code,
                          pipeline_state->global[i].resource->name);
     } else {
       script_builder_add("layout(location=%i) uniform %s u_%s;\n", location,
@@ -287,39 +288,41 @@ void glProgram_init(struct glProgram *prog, const char *vsource, const char *fso
 }
 
 void GL_initialize_draw_state(const struct GL_DrawState *state) {
-  if(state->vertex_shader.source != NULL && state->vertex_shader.object == 0) {
+  if(state->vertex_shader != NULL && state->vertex_shader_object == 0) {
     script_builder_init();
     script_builder_add(shader_prelude);
     script_builder_add_vertex_format(state);
     script_builder_add_uniform_format((const struct GL_PipelineState *)state, THIN_GL_VERTEX_BIT);
     script_builder_add_images_format((const struct GL_PipelineState *)state, THIN_GL_VERTEX_BIT);
 
+    script_builder_add_shader_requisites((const struct GL_ShaderSnippet *)state->vertex_shader);
+    script_builder_add("%s", state->vertex_shader->code);
+
     GLuint shader = glCreateShader(GL_VERTEX_SHADER);
-    const char *sources[2] = {_.script_builder_ptr, state->vertex_shader.source};
-    GLint lengths[2] = {_.script_builder_len, strlen(state->vertex_shader.source)};
-    glShaderSource(shader, 2, sources, lengths);
+    glShaderSource(shader, 1, (const char *const *)&_.script_builder_ptr, &_.script_builder_len);
     gl_compileShader(shader);
-    *(GLuint *)(&state->vertex_shader.object) = shader;
+    *(GLuint *)(&state->vertex_shader_object) = shader;
   }
 
-  if(state->fragment_shader.source != NULL && state->fragment_shader.object == 0) {
+  if(state->fragment_shader != NULL && state->fragment_shader_object == 0) {
     script_builder_init();
     script_builder_add(shader_prelude);
     script_builder_add_uniform_format((const struct GL_PipelineState *)state, THIN_GL_FRAGMENT_BIT);
     script_builder_add_images_format((const struct GL_PipelineState *)state, THIN_GL_FRAGMENT_BIT);
 
+    script_builder_add_shader_requisites((const struct GL_ShaderSnippet *)state->fragment_shader);
+    script_builder_add("%s", state->fragment_shader->code);
+
     GLuint shader = glCreateShader(GL_FRAGMENT_SHADER);
-    const char *sources[2] = {_.script_builder_ptr, state->fragment_shader.source};
-    GLint lengths[2] = {_.script_builder_len, strlen(state->fragment_shader.source)};
-    glShaderSource(shader, 2, sources, lengths);
+    glShaderSource(shader, 1, (const char *const *)&_.script_builder_ptr, &_.script_builder_len);
     gl_compileShader(shader);
-    *(GLuint *)(&state->fragment_shader.object) = shader;
+    *(GLuint *)(&state->fragment_shader_object) = shader;
   }
 
-  if(state->vertex_shader.object != 0 && state->fragment_shader.object != 0 && state->program_object == 0) {
+  if(state->vertex_shader_object != 0 && state->fragment_shader_object != 0 && state->program_object == 0) {
     GLuint program = glCreateProgram();
-    glAttachShader(program, state->vertex_shader.object);
-    glAttachShader(program, state->fragment_shader.object);
+    glAttachShader(program, state->vertex_shader_object);
+    glAttachShader(program, state->fragment_shader_object);
     gl_linkProgram(program);
     *(GLuint *)(&state->program_object) = program;
   }
@@ -903,25 +906,25 @@ void GL_ShaderResource_prepare(const struct GL_ShaderResource *resource) {
 }
 
 void GL_initialize_compute_state(const struct GL_ComputeState *state) {
-  if(state->shader.source != NULL && state->shader.object == 0) {
+  if(state->shader != NULL && state->shader_object == 0) {
     script_builder_init();
     script_builder_add(shader_prelude);
     script_builder_add("layout(local_size_x=%i, local_size_y=%i, local_size_z=%i) in;\n", state->local_group_x || 1,
                        state->local_group_y || 1, state->local_group_z || 1);
     script_builder_add_uniform_format((const struct GL_PipelineState *)state, 0);
     script_builder_add_images_format((const struct GL_PipelineState *)state, 0);
-
-    script_builder_add_shader(&state->shader);
+    script_builder_add_shader_requisites((const struct GL_ShaderSnippet *)state->shader);
+    script_builder_add("%s", state->shader->code);
 
     GLuint shader = glCreateShader(GL_COMPUTE_SHADER);
     glShaderSource(shader, 1, (const char *const *)&_.script_builder_ptr, &_.script_builder_len);
     gl_compileShader(shader);
-    *(GLuint *)(&state->shader.object) = shader;
+    *(GLuint *)(&state->shader_object) = shader;
   }
 
-  if(state->shader.object != 0 && state->program_object == 0) {
+  if(state->shader_object != 0 && state->program_object == 0) {
     GLuint program = glCreateProgram();
-    glAttachShader(program, state->shader.object);
+    glAttachShader(program, state->shader_object);
     gl_linkProgram(program);
     *(GLuint *)(&state->program_object) = program;
   }

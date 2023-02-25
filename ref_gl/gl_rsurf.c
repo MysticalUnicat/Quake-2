@@ -79,36 +79,37 @@ extern void R_BuildLightMap(msurface_t *surf, byte *dest_rgb0, byte *dest_r1, by
 */
 
 // clang-format off
-static const char bsp_vertex_shader_source[] =
-GL_MSTR(
-  layout(location = 0) out vec2 out_main_st;
-  layout(location = 1) out vec2 out_lightmap_st;
-
-  void main() {
+THIN_GL_SHADER(bsp_vertex,
+  code(
+    layout(location = 0) out vec2 out_main_st;
+    layout(location = 1) out vec2 out_lightmap_st;
+  ),
+  main(
     gl_Position = u_model_view_projection_matrix * vec4(in_position, 1);
 
     out_main_st = in_main_st;
     out_lightmap_st = in_lightmap_st;
-  }
-);
-static const char bsp_fragment_shader_source[] =
-GL_MSTR(
-  layout(location = 0) in vec2 in_main_st;
-  layout(location = 1) in vec2 in_lightmap_st;
+  )
+)
 
-  layout(location = 0) out vec4 out_color;
+THIN_GL_SHADER(bsp_fragment,
+  code(
+    layout(location = 0) in vec2 in_main_st;
+    layout(location = 1) in vec2 in_lightmap_st;
 
-  float do_sh1(float r0, vec3 r1, vec3 normal) {
-    float r1_length = length(r1);
-    vec3 r1_normalized = r1 / r1_length;
-    float q = 0.5 * (1 + dot(r1_normalized, normal));
-    float r1_length_over_r0 = r1_length / r0;
-    float p = 1 + 2 * r1_length_over_r0;
-    float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
-    return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
-  }
+    layout(location = 0) out vec4 out_color;
 
-  void main() {
+    float do_sh1(float r0, vec3 r1, vec3 normal) {
+      float r1_length = length(r1);
+      vec3 r1_normalized = r1 / r1_length;
+      float q = 0.5 * (1 + dot(r1_normalized, normal));
+      float r1_length_over_r0 = r1_length / r0;
+      float p = 1 + 2 * r1_length_over_r0;
+      float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
+    }
+  ),
+  main(
     mat3 texture_space = mat3(u_tangent, u_bitangent, u_normal);
 
     vec3 albedo_map = texture(u_albedo_map, in_main_st).rgb;
@@ -127,26 +128,27 @@ GL_MSTR(
     );
 
     out_color = vec4(albedo_map * lightmap * 2, u_alpha_time.x);
-  }
-);
-static const char bsp_turbulent_fragment_shader_source[] =
-GL_MSTR(
-  layout(location = 0) in vec2 in_main_st;
-  layout(location = 1) in vec2 in_lightmap_st;
+  )
+)
 
-  layout(location = 0) out vec4 out_color;
+THIN_GL_SHADER(bsp_turbulent_fragment,
+  code(
+    layout(location = 0) in vec2 in_main_st;
+    layout(location = 1) in vec2 in_lightmap_st;
 
-  float do_sh1(float r0, vec3 r1, vec3 normal) {
-    float r1_length = length(r1);
-    vec3 r1_normalized = r1 / r1_length;
-    float q = 0.5 * (1 + dot(r1_normalized, normal));
-    float r1_length_over_r0 = r1_length / r0;
-    float p = 1 + 2 * r1_length_over_r0;
-    float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
-    return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
-  }
+    layout(location = 0) out vec4 out_color;
 
-  void main() {
+    float do_sh1(float r0, vec3 r1, vec3 normal) {
+      float r1_length = length(r1);
+      vec3 r1_normalized = r1 / r1_length;
+      float q = 0.5 * (1 + dot(r1_normalized, normal));
+      float r1_length_over_r0 = r1_length / r0;
+      float p = 1 + 2 * r1_length_over_r0;
+      float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
+      return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
+    }
+  ),
+  main(
     mat3 texture_space = mat3(u_tangent, u_bitangent, u_normal);
 
     vec2 turbuluent_st = sin(in_main_st.ts * 4 + vec2(u_alpha_time.y, u_alpha_time.y)) * 0.0625;
@@ -168,8 +170,8 @@ GL_MSTR(
     );
 
     out_color = vec4(albedo_map * lightmap * 2, u_alpha_time.x);
-  }
-);
+  )
+)
 // clang-format on
 
 #define VERTEX_FORMAT                                                                                                  \
@@ -197,8 +199,8 @@ static struct GL_DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
                                                 VERTEX_FORMAT,
                                                 UNIFORMS_FORMAT,
                                                 IMAGES_FORMAT,
-                                                .vertex_shader.source = bsp_vertex_shader_source,
-                                                .fragment_shader.source = bsp_fragment_shader_source,
+                                                .vertex_shader = &bsp_vertex_shader,
+                                                .fragment_shader = &bsp_fragment_shader,
                                                 .depth_range_min = 0,
                                                 .depth_range_max = 1,
                                                 .depth_test_enable = true,
@@ -208,8 +210,8 @@ static struct GL_DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
                                                      VERTEX_FORMAT,
                                                      UNIFORMS_FORMAT,
                                                      IMAGES_FORMAT,
-                                                     .vertex_shader.source = bsp_vertex_shader_source,
-                                                     .fragment_shader.source = bsp_fragment_shader_source,
+                                                     .vertex_shader = &bsp_vertex_shader,
+                                                     .fragment_shader = &bsp_fragment_shader,
                                                      .depth_range_min = 0,
                                                      .depth_range_max = 1,
                                                      .depth_test_enable = true,
@@ -222,9 +224,8 @@ static struct GL_DrawState draw_state_turbulent_opaque = {.primitive = GL_TRIANG
                                                           VERTEX_FORMAT,
                                                           UNIFORMS_FORMAT,
                                                           IMAGES_FORMAT,
-                                                          .vertex_shader.source = bsp_vertex_shader_source,
-                                                          .fragment_shader.source =
-                                                              bsp_turbulent_fragment_shader_source,
+                                                          .vertex_shader = &bsp_vertex_shader,
+                                                          .fragment_shader = &bsp_turbulent_fragment_shader,
                                                           .depth_range_min = 0,
                                                           .depth_range_max = 1,
                                                           .depth_test_enable = true,
@@ -234,9 +235,8 @@ static struct GL_DrawState draw_state_turbulent_transparent = {.primitive = GL_T
                                                                VERTEX_FORMAT,
                                                                UNIFORMS_FORMAT,
                                                                IMAGES_FORMAT,
-                                                               .vertex_shader.source = bsp_vertex_shader_source,
-                                                               .fragment_shader.source =
-                                                                   bsp_turbulent_fragment_shader_source,
+                                                               .vertex_shader = &bsp_vertex_shader,
+                                                               .fragment_shader = &bsp_turbulent_fragment_shader,
                                                                .depth_range_min = 0,
                                                                .depth_range_max = 1,
                                                                .depth_test_enable = true,

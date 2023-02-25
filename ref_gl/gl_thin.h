@@ -159,14 +159,21 @@ struct GL_UniformData {
   };
 };
 
-struct GL_Shader {
-  const struct GL_Shader *requires[8];
-  const char *name;
-  const char *source;
+struct GL_ShaderSnippet {
+  const struct GL_ShaderSnippet *requires[8];
+  const char *code;
 
-  // internal
-  GLuint object;
+  /* internal */
+  uint32_t structure_size;
   GLuint emit_index;
+};
+
+struct GL_Shader {
+  const struct GL_ShaderSnippet *requires[8];
+  const char *code;
+
+  /* internal */
+  GLuint object;
 };
 
 struct GL_ShaderResource {
@@ -180,7 +187,7 @@ struct GL_ShaderResource {
       struct GL_UniformData data;
     } uniform;
     struct {
-      struct GL_Shader *structure;
+      struct GL_ShaderSnippet *snippet;
       struct GL_Buffer *buffer;
     } block;
   };
@@ -206,6 +213,11 @@ struct GL_ShaderResource {
     enum GL_Type type;                                                                                                 \
     const char *name;                                                                                                  \
   } image[THIN_GL_MAX_IMAGES];                                                                                         \
+  struct {                                                                                                             \
+    GLbitfield stage_bits;                                                                                             \
+    enum GL_Type type;                                                                                                 \
+    const char *name;                                                                                                  \
+  } buffer[THIN_GL_MAX_UNIFORMS];                                                                                      \
   /* internal */                                                                                                       \
   GLuint program_object;
 
@@ -258,31 +270,36 @@ struct GL_DrawState {
     GLuint divisor;
   } binding[THIN_GL_MAX_BINDINGS];
 
-  struct GL_Shader vertex_shader;
+  const struct GL_Shader *vertex_shader;
 
   bool depth_test_enable;
   bool depth_mask;
   float depth_range_min;
   float depth_range_max;
 
-  struct GL_Shader fragment_shader;
+  const struct GL_Shader *fragment_shader;
 
   bool blend_enable;
   GLenum blend_src_factor;
   GLenum blend_dst_factor;
 
-  // opengl objects
+  /* internal */
+  GLuint vertex_shader_object;
+  GLuint fragment_shader_object;
   GLuint vertex_array_object;
 };
 
 struct GL_ComputeState {
   THIN_GL_PIPILINE_STATE_FIELDS
 
-  struct GL_Shader shader;
+  const struct GL_Shader *shader;
 
   GLuint local_group_x;
   GLuint local_group_y;
   GLuint local_group_z;
+
+  /* internal */
+  GLuint shader_object;
 };
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -366,6 +383,8 @@ void GL_free_buffer(const struct GL_Buffer *buffer);
 void GL_reset_temporary_buffers(void);
 
 void GL_temporary_buffer_stats(GLenum type, uint32_t *total_allocated, uint32_t *used);
+
+void GL_destroy_buffer(const struct GL_Buffer *buffer);
 
 // --------------------------------------------------------------------------------------------------------------------
 // resource

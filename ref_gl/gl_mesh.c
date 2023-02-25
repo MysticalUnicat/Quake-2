@@ -36,8 +36,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 struct SH1 shadelight;
 
 // clang-format off
-static const char vertex_shader_source[] =
-  GL_MSTR(
+THIN_GL_SHADER(vertex,
+  code(
     layout(location = 0) out vec2 out_st;
     layout(location = 1) out vec3 out_normal;
 
@@ -62,34 +62,20 @@ static const char vertex_shader_source[] =
 
       return mat3(tangent, bitangent, normal);
     }
+  ),
+  main(
+    gl_Position = u_projection_matrix * u_view_matrix * u_model_matrix * vec4(in_position, 1);
 
-    void main() {
-      gl_Position = u_projection_matrix * u_view_matrix * u_model_matrix * vec4(in_position, 1);
+    out_st = in_st;
 
-      out_st = in_st;
+    mat3 tbn = quaternion_to_matrix(in_quaternion);
 
-      mat3 tbn = quaternion_to_matrix(in_quaternion);
+    out_normal = tbn[2];
+  )
+)
 
-      out_normal = tbn[2];
-    }
-  );
-
-// static const char vertex_shader_shell_source[] =
-//   GL_MSTR(
-//     layout(location = 0) out vec2 out_st;
-//     layout(location = 2) out vec3 out_tbn;
-
-//     void main() {
-//       gl_Position = u_model_view_projection_matrix * in_position + in_normal * 5;
-
-//       out_st = in_st;
-
-//       out_tbn =  mat3(in_tangent, in_bitangent, in_normal);
-//     }
-//   );
-
-static const char fragment_shader_source[] =
-  GL_MSTR(
+THIN_GL_SHADER(fragment,
+  code(
     layout(location = 0) in vec2 in_st;
     layout(location = 1) in vec3 in_normal;
 
@@ -104,21 +90,21 @@ static const char fragment_shader_source[] =
       float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
       return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
     }
+  ),
+  main(
+    vec3 albedo_map = texture(u_albedo_map, in_st).rgb;
+    // vec3 normal_map = texture(u_normal_map, in_st).rgb;
+    // vec3 normal = in_tbn * normalize(normal_map * 2 - 1);
+    vec3 normal = in_normal;
 
-    void main() {
-      vec3 albedo_map = texture(u_albedo_map, in_st).rgb;
-      // vec3 normal_map = texture(u_normal_map, in_st).rgb;
-      // vec3 normal = in_tbn * normalize(normal_map * 2 - 1);
-      vec3 normal = in_normal;
+    vec3 lightmap = vec3(do_sh1(u_light_rgb0.r, u_light_r1, normal),
+                          do_sh1(u_light_rgb0.g, u_light_g1, normal),
+                          do_sh1(u_light_rgb0.b, u_light_b1, normal));
 
-      vec3 lightmap = vec3(do_sh1(u_light_rgb0.r, u_light_r1, normal),
-                           do_sh1(u_light_rgb0.g, u_light_g1, normal),
-                           do_sh1(u_light_rgb0.b, u_light_b1, normal));
-
-      out_color = vec4(albedo_map * lightmap * 2, 1);
-      // out_color = vec4(in_normal * 2 + 1, 1);
-    }
-  );
+    out_color = vec4(albedo_map * lightmap * 2, 1);
+    // out_color = vec4(in_normal * 2 + 1, 1);
+  )
+)
 // clang-format on
 
 #define VERTEX_FORMAT                                                                                                  \
@@ -138,12 +124,11 @@ static const char fragment_shader_source[] =
 #define IMAGES_FORMAT .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "albedo_map"}
 
 #define DRAW_STATE                                                                                                     \
-  .primitive = GL_TRIANGLES, VERTEX_FORMAT, UNIFORMS_FORMAT, IMAGES_FORMAT,                                            \
-  .fragment_shader.source = fragment_shader_source
+  .primitive = GL_TRIANGLES, VERTEX_FORMAT, UNIFORMS_FORMAT, IMAGES_FORMAT, .fragment_shader = &fragment_shader
 
-#define NO_SHELL .vertex_shader.source = vertex_shader_source
+#define NO_SHELL .vertex_shader = &vertex_shader
 
-#define SHELL .vertex_shader.source = vertex_shader_shell_source
+#define SHELL .vertex_shader = &vertex_shader_shell
 
 #define OPAQUE .depth_mask = true, .depth_test_enable = true
 

@@ -3,26 +3,25 @@
 #include "gl_thin.h"
 
 // clang-format off
-static char vertex_shader_source[] =
-GL_MSTR(
-  layout(location = 0) out vec2 out_st;
-
-  void main() {
+THIN_GL_SHADER(vertex,
+  code(
+    layout(location = 0) out vec2 out_st;
+  ),
+  main(
     gl_Position = u_model_view_projection_matrix * vec4(in_position, 1);
     out_st = in_st;
-  }
-);
+  )
+)
 
-static char fragment_shader_source[] =
-GL_MSTR(
-  layout(location = 0) in vec2 in_st;
-
-  layout(location = 0) out vec4 out_color;
-
-  void main() {
+THIN_GL_SHADER(fragment,
+  code(
+    layout(location = 0) in vec2 in_st;
+    layout(location = 0) out vec4 out_color;
+  ),
+  main(
     out_color = texture(u_sky_map, in_st);
-  }
-);
+  )
+)
 // clang-format on
 
 static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLES,
@@ -31,8 +30,8 @@ static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLES,
                                          .binding[0] = {sizeof(float) * 3 + sizeof(float) * 2, 0},
                                          .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "sky_map"},
                                          .global[0] = {THIN_GL_VERTEX_BIT, &u_model_view_projection_matrix},
-                                         .vertex_shader.source = vertex_shader_source,
-                                         .fragment_shader.source = fragment_shader_source,
+                                         .vertex_shader = &vertex_shader,
+                                         .fragment_shader = &fragment_shader,
                                          .depth_mask = false,
                                          .depth_test_enable = true,
                                          .depth_range_min = 0,

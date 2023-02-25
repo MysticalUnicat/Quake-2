@@ -39,29 +39,29 @@ void Draw_InitLocal(void) {
 }
 
 // clang-format off
-static char vertex_shader_source[] =
-  GL_MSTR(
+THIN_GL_SHADER(vertex,
+  code(
     layout(location = 0) out vec2 out_st;
     layout(location = 1) out vec4 out_rgba;
+  ),
+  main(
+    gl_Position = u_view_projection_matrix * vec4(in_xy, 0, 1);
+    out_st = in_st;
+    out_rgba = in_rgba;
+  )
+)
 
-    void main() {
-      gl_Position = u_view_projection_matrix * vec4(in_xy, 0, 1);
-      out_st = in_st;
-      out_rgba = in_rgba;
-    }
-  );
-
-static char fragment_shader_source[] =
-  GL_MSTR(
+THIN_GL_SHADER(fragment,
+  code(
     layout(location = 0) in vec2 in_st;
     layout(location = 1) in vec4 in_rgba;
 
     layout(location = 0) out vec4 out_color;
-
-    void main() {
-      out_color = texture(u_img, in_st) * in_rgba;
-    }
-  );
+  ),
+  main(
+    out_color = texture(u_img, in_st) * in_rgba;
+  )
+)
 // clang-format on
 
 static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLES,
@@ -71,8 +71,8 @@ static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLES,
                                          .binding[0] = {sizeof(struct DrawVertex)},
                                          .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
                                          .image[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Sampler2D, "img"},
-                                         .vertex_shader.source = vertex_shader_source,
-                                         .fragment_shader.source = fragment_shader_source,
+                                         .vertex_shader = &vertex_shader,
+                                         .fragment_shader = &fragment_shader,
                                          .depth_range_min = 0,
                                          .depth_range_max = 1,
                                          .blend_enable = true,

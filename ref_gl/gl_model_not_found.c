@@ -3,18 +3,18 @@
 #include "gl_thin.h"
 
 // clang-format off
-static const char vertex_shader_source[] =
-  GL_MSTR(
+THIN_GL_SHADER(vertex,
+  code(
     layout(location = 0) out vec3 out_normal;
+  ),
+  main(
+    gl_Position = u_model_view_projection_matrix * vec4(in_position, 1);
+    out_normal = normalize(in_position);
+  )
+)
 
-    void main() {
-      gl_Position = u_model_view_projection_matrix * vec4(in_position, 1);
-      out_normal = normalize(in_position);
-    }
-  );
-
-static const char fragment_shader_source[] =
-  GL_MSTR(
+THIN_GL_SHADER(fragment,
+  code(
     layout(location = 0) in vec3 in_normal;
 
     layout(location = 0) out vec4 out_color;
@@ -28,8 +28,8 @@ static const char fragment_shader_source[] =
       float a = (1 - r1_length_over_r0) / (1 + r1_length_over_r0);
       return r0 * (1 + (1 - a) * (p + 1) * pow(q, p));
     }
-
-    void main() {
+  ),
+  main(
       vec3 normal = in_normal;
 
       vec3 lightmap = vec3(do_sh1(u_light_rgb0.r, u_light_r1, normal),
@@ -37,8 +37,8 @@ static const char fragment_shader_source[] =
                            do_sh1(u_light_rgb0.b, u_light_b1, normal));
 
       out_color = vec4(lightmap * 2, 0.33);
-    }
-  );
+  )
+)
 // clang-format on
 
 #define VERTEX_FORMAT                                                                                                  \
@@ -54,8 +54,8 @@ static const char fragment_shader_source[] =
 static struct GL_DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
                                                 VERTEX_FORMAT,
                                                 UNIFORMS_FORMAT,
-                                                .vertex_shader.source = vertex_shader_source,
-                                                .fragment_shader.source = fragment_shader_source,
+                                                .vertex_shader = &vertex_shader,
+                                                .fragment_shader = &fragment_shader,
                                                 .depth_mask = true,
                                                 .depth_test_enable = true,
                                                 .depth_range_min = 0,
@@ -63,8 +63,8 @@ static struct GL_DrawState draw_state_opaque = {.primitive = GL_TRIANGLES,
 static struct GL_DrawState draw_state_transparent = {.primitive = GL_TRIANGLES,
                                                      VERTEX_FORMAT,
                                                      UNIFORMS_FORMAT,
-                                                     .vertex_shader.source = vertex_shader_source,
-                                                     .fragment_shader.source = fragment_shader_source,
+                                                     .vertex_shader = &vertex_shader,
+                                                     .fragment_shader = &fragment_shader,
                                                      .depth_mask = false,
                                                      .depth_test_enable = true,
                                                      .depth_range_min = 0,

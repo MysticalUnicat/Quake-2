@@ -3,20 +3,19 @@
 #define NUM_BEAM_SEGS 6
 
 // clang-format off
-static const char vertex_shader_source[] =
-  GL_MSTR(
-    void main() {
-      gl_Position = u_view_projection_matrix * vec4(in_position, 1);
-    }
-  );
+THIN_GL_SHADER(vertex, main(
+  gl_Position = u_view_projection_matrix * vec4(in_position, 1)
+))
 
-static const char fragment_shader_source[] =
-  GL_MSTR(
+THIN_GL_SHADER(fragment,
+  // TODO move fragment output to draw state
+  code(
     layout(location = 0) out vec4 out_color;
-    void main() {
-      out_color = u_color;
-    }
-  );
+  ),
+  main(
+    out_color = u_color;
+  )
+)
 // clang-format on
 
 static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLE_STRIP,
@@ -24,8 +23,8 @@ static struct GL_DrawState draw_state = {.primitive = GL_TRIANGLE_STRIP,
                                          .binding[0] = {sizeof(float) * 3},
                                          .uniform[0] = {THIN_GL_FRAGMENT_BIT, GL_Type_Float4, "color"},
                                          .global[0] = {THIN_GL_VERTEX_BIT, &u_view_projection_matrix},
-                                         .vertex_shader.source = vertex_shader_source,
-                                         .fragment_shader.source = fragment_shader_source,
+                                         .vertex_shader = &vertex_shader,
+                                         .fragment_shader = &fragment_shader,
                                          .depth_test_enable = true,
                                          .depth_range_min = 0,
                                          .depth_range_max = 1,
