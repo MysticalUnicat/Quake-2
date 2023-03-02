@@ -212,7 +212,8 @@
 #define THIN_GL_STRUCT_TO_DESC(NAME, ...)                                                                              \
   struct GL_ShaderSnippet GL_##NAME##_snippet = {                                                                      \
       .requires = {ALIAS_CPP_EVAL(ALIAS_CPP_MAP(THIN_GL_STRUCT_TO_DESC_, __VA_ARGS__)) NULL},                          \
-      .code = GL_##NAME##_glsl};
+      .code = GL_##NAME##_glsl,                                                                                        \
+      .structure_size = sizeof(struct GL_##NAME)};
 
 #define THIN_GL_DECLARE_STRUCT(NAME, ...)                                                                              \
   THIN_GL_STRUCT_TO_C(NAME, __VA_ARGS__)                                                                               \
@@ -256,17 +257,17 @@ THIN_GL_DECLARE_STRUCT(DispatchIndirectCommand, uint32(num_groups_x), uint32(num
   static const char GL_##NAME##_glsl[] =                                                                               \
       "buffer " #NAME " {\n" ALIAS_CPP_EVAL(ALIAS_CPP_MAP(THIN_GL_BLOCK_TO_GLSL_, __VA_ARGS__)) "} ";
 
-                                          #define THIN_GL_DECLARE_BLOCK(NAME, ...)                                                                               \
-                                            THIN_GL_BLOCK_TO_C(NAME, __VA_ARGS__)                                                                                \
-                                            extern struct GL_ShaderSnippet GL_##NAME##_snippet;
+#define THIN_GL_DECLARE_BLOCK(NAME, ...)                                                                               \
+  THIN_GL_BLOCK_TO_C(NAME, __VA_ARGS__)                                                                                \
+  extern struct GL_ShaderSnippet GL_##NAME##_snippet;
 
-                                          #define THIN_GL_IMPL_BLOCK(NAME, ...)                                                                                  \
-                                            THIN_GL_BLOCK_TO_GLSL(NAME, __VA_ARGS__)                                                                             \
-                                            THIN_GL_BLOCK_TO_DESC(NAME, __VA_ARGS__)
+#define THIN_GL_IMPL_BLOCK(NAME, ...)                                                                                  \
+  THIN_GL_BLOCK_TO_GLSL(NAME, __VA_ARGS__)                                                                             \
+  THIN_GL_BLOCK_TO_DESC(NAME, __VA_ARGS__)
 
-                                          #define THIN_GL_BLOCK(NAME, ...)                                                                                       \
-                                            THIN_GL_BLOCK_TO_C(NAME, __VA_ARGS__)                                                                                \
-                                            THIN_GL_BLOCK_TO_GLSL(NAME, __VA_ARGS__)                                                                             \
-                                            THIN_GL_BLOCK_TO_DESC(NAME, __VA_ARGS__)
+#define THIN_GL_BLOCK(NAME, ...)                                                                                       \
+  THIN_GL_BLOCK_TO_C(NAME, __VA_ARGS__)                                                                                \
+  THIN_GL_BLOCK_TO_GLSL(NAME, __VA_ARGS__)                                                                             \
+  THIN_GL_BLOCK_TO_DESC(NAME, __VA_ARGS__)
 
 #endif

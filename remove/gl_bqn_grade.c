@@ -12,7 +12,7 @@
 #define TO_STR_(X) #X
 
 // clang-format off
-THIN_GL_IMPL_STRUCT(BQN_Grade_Parameters, uint32(num_keys), uint32(num_blocks))
+THIN_GL_IMPL_STRUCT(BQN_Grade_Parameters, require(DispatchIndirectCommand), struct(DispatchIndirectCommand, indirect), uint32(num_keys), uint32(num_blocks))
 
 THIN_GL_IMPL_SNIPPET(BQN_grade,
   require(BQN_Grade_Parameters),
@@ -24,14 +24,18 @@ THIN_GL_IMPL_SNIPPET(BQN_grade,
     "#define GRADE_BLOCK_SIZE (GRADE_THREADGROUP_SIZE * GRADE_ELEMENTS_PER_THREAD)\n"
   ),
   code(
-    void BQN_Grade_Parameters_initialize(uint num_keys) {
-      u_grade_parameters.num_keys = num_keys;
-      u_grade_parameters.num_blocks = (num_keys + GRADE_BLOCK_SIZE - 1) / GRADE_BLOCK_SIZE;
+    BQN_Grade_Parameters BQN_Grade_Parameters_initialize(uint num_keys) {
+      uint num_blocks = (num_keys + GRADE_BLOCK_SIZE - 1) / GRADE_BLOCK_SIZE;
+      return BQN_Grade_Parameters(
+        DispatchIndirectCommand(),
+        num_keys,
+        num_blocks
+      );
     }
   )
 )
 
-THIN_GL_SHADER(BQN_grade_prepare, require(grade_constants), main(
+THIN_GL_SHADER(BQN_grade_prepare, require(BQN_grade), main(
   u_indirect.local_group_x = u_grade_parameters.num_blocks;
   u_indirect.local_group_y = 1;
   u_indirect.local_group_z = 1;
@@ -89,8 +93,6 @@ THIN_GL_SHADER(BQN_grade_distribute,
   )
 )
 // clang-format on
-
-static struct GL_Buffer indirect_buffer;
 
 void GL_bqn_grade_nbits(const struct GL_Buffer *parameters, const struct GL_Buffer *input,
                         const struct GL_Buffer *middle, const struct GL_Buffer *counts, const struct GL_Buffer *output,

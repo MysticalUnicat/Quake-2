@@ -1103,7 +1103,7 @@ void CL_TeleporterParticles(entity_state_t *ent) {
 
   memset(&p, 0, sizeof(p));
 
-  for(i = 0; i < 8; i++) {
+  for(i = 0; i < 800; i++) {
     p.albedo = 0xdb;
     p.emit = 0xdb;
 

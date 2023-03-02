@@ -144,6 +144,7 @@ enum GL_Type {
 struct GL_UniformData {
   const void *pointer;
   GLboolean transpose;
+  const struct GL_Buffer *buffer;
   union {
     float _float;
     float vec[4];
@@ -188,7 +189,10 @@ struct GL_ShaderResource {
     } uniform;
     struct {
       struct GL_ShaderSnippet *snippet;
-      struct GL_Buffer *buffer;
+      union {
+        struct GL_Buffer *buffer;
+        struct GL_Buffer *buffers[THIN_GL_MAX_BUFFERS];
+      };
     } block;
   };
 };
@@ -203,6 +207,7 @@ struct GL_ShaderResource {
     enum GL_Type type;                                                                                                 \
     const char *name;                                                                                                  \
     GLsizei count;                                                                                                     \
+    const struct GL_ShaderSnippet *struture;                                                                           \
   } uniform[THIN_GL_MAX_UNIFORMS];                                                                                     \
   struct {                                                                                                             \
     GLbitfield stage_bits;                                                                                             \
@@ -213,11 +218,6 @@ struct GL_ShaderResource {
     enum GL_Type type;                                                                                                 \
     const char *name;                                                                                                  \
   } image[THIN_GL_MAX_IMAGES];                                                                                         \
-  struct {                                                                                                             \
-    GLbitfield stage_bits;                                                                                             \
-    enum GL_Type type;                                                                                                 \
-    const char *name;                                                                                                  \
-  } buffer[THIN_GL_MAX_UNIFORMS];                                                                                      \
   /* internal */                                                                                                       \
   GLuint program_object;
 

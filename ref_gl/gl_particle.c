@@ -1,8 +1,7 @@
 #include "gl_local.h"
 
 #include "gl_thin_cpp.h"
-
-#include "gl_bqn.h"
+#include "gl_compute.h"
 
 #define NUM_PARTICLES 1000000
 
@@ -57,6 +56,15 @@ static struct GL_ShaderResource indirect_resource = {.type = GL_Type_ShaderStora
                                                      .name = "particle_indirect",
                                                      .block.buffer = &indirect_buffer,
                                                      .block.snippet = &GL_particle_indirect_snippet};
+
+THIN_GL_BLOCK(sort_parameters, require(DispatchIndirectCommand), uint32(num_particles), uint32(size),
+              struct(DispatchIndirectCommand, fill), struct(DispatchIndirectCommand, radix),
+              struct(DispatchIndirectCommand, rotate), struct(DispatchIndirectCommand, sortedmatrix))
+static struct GL_Buffer sort_parameters_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(struct GL_sort_parameters)};
+static struct GL_ShaderResource sort_parameters_resource = {.type = GL_Type_ShaderStorageBuffer,
+                                                            .name = "sort_parameters",
+                                                            .block.buffer = &sort_parameters_buffer,
+                                                            .block.snippet = &GL_sort_parameters_snippet};
 
 // clang-format off
 THIN_GL_SHADER(initialize, main(
@@ -120,29 +128,6 @@ THIN_GL_SHADER(emit_single, require(emit_particle), main(
 ))
 // clang-format on
 
-// clang-format off
-// static char emit_single_compute_shader_source[] =
-// GL_MSTR(
-//   void main() {
-//     int dead_index = atomicAdd(u_particle_counter.dead, -1);
-//     atomicMax(u_particle_counter.dead, 0);
-
-//     if(dead_index > 0) {
-//       uint index = u_particle_dead.item[dead_index - 1];
-//       u_particle_data.item[index] = particle_Data_pack(particle_Data(
-//         vec4(u_origin, u_time),
-//         vec4(u_velocity / 256, u_alpha / 256),
-//         vec4(u_acceleration / 256, u_alphaVelocity / 256),
-//         u_albedo,
-//         u_emit,
-//         vec2(u_incandescence / 256, u_incandescenceVelocity / 256)
-//       ));
-//       u_particle_alive.item[atomicAdd(u_particle_counter.alive, 1)] = index;
-//     }
-//   }
-// );
-// clang-format on
-
 struct GL_ComputeState emit_single_compute_state = {.shader = &emit_single_shader,
                                                     .uniform[0] = {0, GL_Type_Float3, "origin"},
                                                     .uniform[1] = {0, GL_Type_Float3, "velocity"},
@@ -201,9 +186,24 @@ THIN_GL_SHADER(post_simulate, main(
   uint count = u_particle_counter.alive;
   u_particle_indirect.draw.count = count;
 
-  /* make a buffer copy? */
-  for(uint i = 0; i < count; i++)
-    u_particle_alive.item[i] = u_particle_emitted.item[i];
+  u_sort_particles.num_particles = num_particles;
+  u_sort_particles.size = uint(ceil(sqrt(num_particles)));
+
+  u_sort_particles.fill.num_local_x = u_sort_particles.size * u_sort_particles.size - num_particles;
+  u_sort_particles.fill.num_local_y = 1
+  u_sort_particles.fill.num_local_z = 1;
+
+  u_sort_particles.radix.num_local_x = RADIXSORT_WORKGROUP_SIZE;
+  u_sort_particles.radix.num_local_y = u_sort_particles.size;
+  u_sort_particles.radix.num_local_z = 1;
+
+  u_sort_particles.rotate.num_local_x = u_sort_particles.size;
+  u_sort_particles.rotate.num_local_y = u_sort_particles.size;
+  u_sort_particles.rotate.num_local_z = 1;
+
+  u_sort_particles.sortedmatrix.num_local_x = u_sort_particles.size;
+  u_sort_particles.sortedmatrix.num_local_y = u_sort_particles.size;
+  u_sort_particles.sortedmatrix.num_local_z = 1;
 ))
 // clang-format on
 
@@ -214,6 +214,117 @@ struct GL_ComputeState postsimulate_compute_state = {
     .global[2] = {0, &alive_resource},
     .global[3] = {0, &emitted_resource},
 };
+
+// clang-format off
+THIN_GL_SHADER(sort_particles_fill_pass,
+  require(sort_key_uint),
+  main(
+    sort_store_key(0, u_sort_particles.num_particles + gl_LocalInvocationID.x, 0xFFFFFFFF);
+  )
+)
+// clang-format on
+
+static struct GL_ComputeState sort_particles_fill_pass_state = {
+    .shader = &GL_sort_particles_fill_pass_state_shader, .local_group_x = 1, .local_group_y = 1, .local_group_z = 1};
+
+// clang-format off
+// RADIXSORT_WORKGROUP_SIZE,1,1 over RADIXSORT_WORKGROUP_SIZE,u_size,1
+THIN_GL_SHADER(sort_particles_radix_pass_1,
+  require(sort_key_uint),
+  require(sort_value_uint),
+  require(radixsort_key_value),
+  main(
+    uint buffer_offset = gl_GlobalInvocationID.y * u_sort_particles.size;
+    uint buffer = 0;
+    for(uint bit_offset = 0, ; bit_offset < u_num_bits; bit_offset += RADIXSORT_BITS_PER_PASS) {
+      radixsort_key_value(buffer, buffer_offset, bit_offset, u_sort_particles.size);
+      buffer = !buffer;
+    }
+  )
+)
+// clang-format on
+
+// clang-format off
+// 1,1,1 over u_size,u_size,1
+THIN_GL_SHADER(sort_particles_rotate_pass,
+  require(sort_key_uint),
+  require(sort_value_uint),
+  main(
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+    uint src_index = y*u_sort_particles.size + x;
+    uint dst_index = x*u_sort_particles.size + (u_sort_particles.size - 1 - y);
+    sort_store_key(1, dst_index, sort_load_key(0, src_index));
+    sort_store_value(1, dst_index, sort_load_value(0, src_index));
+  )
+)
+// clang-format on
+
+// clang-format off
+// RADIXSORT_WORKGROUP_SIZE,1,1 over RADIXSORT_WORKGROUP_SIZE,u_size,1
+THIN_GL_SHADER(sort_particles_radix_pass_2,
+  require(sort_key_uint),
+  require(sort_value_uint),
+  require(radixsort_key_value),
+  main(
+    uint buffer_offset = gl_GlobalInvocationID.y * u_sort_particles.size;
+    uint buffer = 1;
+    for(uint bit_offset = 0, ; bit_offset < u_num_bits; bit_offset += RADIXSORT_BITS_PER_PASS) {
+      radixsort_key_value(buffer, buffer_offset, bit_offset, u_sort_particles.size);
+      buffer = !buffer;
+    }
+  )
+)
+// clang-format on
+
+// clang-format off
+// 1,1,1 over u_size,u_size,1
+THIN_GL_SHADER(sort_particles_unrotate_pass,
+  require(sort_key_uint),
+  require(sort_value_uint),
+  main(
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+    uint src_index = x*u_sort_particles.size + (u_sort_particles.size - 1 - y);
+    uint dst_index = y*u_sort_particles.size + x;
+    sort_store_key(0, dst_index, sort_load_key(1, src_index));
+    sort_store_value(0, dst_index, sort_load_value(1, src_index));
+  )
+)
+// clang-format on
+
+// clang-format off
+// 1,1,1 over u_size,u_size,1
+THIN_GL_SHADER(sort_particles_enumerate_pass,
+  require(sort_key_uint),
+  require(sort_value_uint),
+  require(sortedmatrix_key_value)
+  main(
+    sortedmatrix_key_value(0, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+  )
+)
+// clang-format on
+
+static struct GL_ComputeState sort_particles_radix_pass_1_state = {.shader =
+                                                                       &GL_sort_particles_radix_pass_1_state_shader,
+                                                                   .local_group_x = RADIXSORT_WORKGROUP_SIZE,
+                                                                   .local_group_y = 1,
+                                                                   .local_group_z = 1};
+
+static struct GL_ComputeState sort_particles_rotate_pass_state = {
+    .shader = &GL_sort_particles_rotate_pass_shader, .local_group_x = 1, .local_group_y = 1, .local_group_z = 1};
+
+static struct GL_ComputeState sort_particles_radix_pass_2_state = {.shader =
+                                                                       &GL_sort_particles_radix_pass_2_state_shader,
+                                                                   .local_group_x = RADIXSORT_WORKGROUP_SIZE,
+                                                                   .local_group_y = 1,
+                                                                   .local_group_z = 1};
+
+static struct GL_ComputeState sort_particles_unrotate_pass_state = {
+    .shader = &GL_sort_particles_unrotate_pass_shader, .local_group_x = 1, .local_group_y = 1, .local_group_z = 1};
+
+static struct GL_ComputeState sort_particles_sortedmatrix_pass_state = {
+    .shader = &GL_sort_particles_sortedmatrix_pass_shader, .local_group_x = 1, .local_group_y = 1, .local_group_z = 1};
 
 // clang-format off
 THIN_GL_SHADER(vertex,
@@ -230,10 +341,10 @@ THIN_GL_SHADER(vertex,
     gl_Position = u_view_projection_matrix * vec4(position, 1);
     float size = 40;
     float size_min = 2;
-    float size_max = 80;
+    float size_max = 40;
     float a = 0.01;
     float b = 0;
-    float c = 0.001;
+    float c = 0.01;
     float dist = length(u_view_matrix * vec4(position, 1));
     float dist_atten = 1 / (a + b * dist + c * dist * dist);
     float derived_size = size * sqrt(dist_atten);
@@ -337,9 +448,37 @@ void GL_draw_particles(void) {
   glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
   GL_compute(&postsimulate_compute_state, NULL, 1, 1, 1);
 
-  // GL_bqn_grade(&grade_parameters_buffer, &distance_buffer, &alive_buffer, &grade_counts_buffer,
-  // &grade_result_buffer); GL_bqn_select(&select_parameters_buffer, &emitted_buffer, &grade_result_buffer,
-  // &alive_buffer);
+  void GL_sort_particles(const struct GL_Buffer *parameters, const const struct GL_Buffer *source_keys,
+                         const struct GL_Buffer *source_values, const struct GL_Buffer *destination_keys,
+                         const struct GL_Buffer *destination_values) {
+    struct GL_ComputeAssets assets = {
+        .uniforms[0].buffer[0] = parameters,
+        .uniforms[1].buffer[0] = source_keys,
+        .uniforms[1].buffer[1] = source_values,
+        .uniforms[2].buffer[0] = destination_keys,
+        .uniforms[2].buffer[1] = destination_values,
+    };
+
+    GL_compute_indirect(&sort_particles_fill_pass_state, &assets, &parameters,
+                        offsetof(GL_sort_particles_Parameters, fill));
+
+    GL_compute_indirect(&sort_particles_radix_pass_1_state, &assets, &parameters,
+                        offsetof(GL_sort_particles_Parameters, radix));
+
+    GL_compute_indirect(&sort_particles_rotate_state, &assets, &parameters,
+                        offsetof(GL_sort_particles_Parameters, rotate));
+
+    GL_compute_indirect(&sort_particles_radix_pass_2_state, &assets, &parameters,
+                        offsetof(GL_sort_particles_Parameters, radix));
+
+    GL_compute_indirect(&sort_particles_unrotate_state, &assets, &parameters,
+                        offsetof(GL_sort_particles_Parameters, rotate));
+
+    GL_compute_indirect(&sort_particles_sortedmatrix_pass_state, &assets, &parameters,
+                        offsetof(GL_sort_particles_Parameters, sortedmatrix));
+  }
+
+  // GL_parallelSort_key_value_pairs(&parallelSort_scratch, &distance_buffer, &emitted_buffer);
 
   struct GL_DrawAssets assets = {.uniforms[0] = {.vec[0] = gl_particle_size->value,
                                                  .vec[1] = gl_particle_min_size->value,
