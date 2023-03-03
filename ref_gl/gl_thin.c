@@ -10,7 +10,9 @@ THIN_GL_IMPL_STRUCT(DrawElementsIndirectCommand, uint32(count), uint32(instance_
 
 THIN_GL_IMPL_STRUCT(DispatchIndirectCommand, uint32(num_groups_x), uint32(num_groups_y), uint32(num_groups_z))
 
-const char shader_prelude[] = "#version 460 core\n";
+const char shader_prelude[] = "#version 460 core\n"
+                              "#extension GL_KHR_shader_subgroup_arithmetic : enable\n"
+                              "#define _Bool bool\n";
 
 struct GL_TypeInfo {
   const char *name;
@@ -101,8 +103,8 @@ static void script_builder_add(const char *format, ...) {
   va_start(ap, format);
   uint32_t len = vsnprintf(NULL, 0, format, ap);
   va_end(ap);
-  if(_.script_builder_len + len > _.script_builder_cap) {
-    _.script_builder_cap = _.script_builder_len + len + 1;
+  if(_.script_builder_len + len + 1 > _.script_builder_cap) {
+    _.script_builder_cap = _.script_builder_len + len + 2;
     _.script_builder_cap += _.script_builder_cap >> 1;
     _.script_builder_ptr = realloc(_.script_builder_ptr, sizeof(*_.script_builder_ptr) * _.script_builder_cap);
   }
@@ -202,8 +204,10 @@ static void script_builder_add_uniform_format(const struct GL_PipelineState *pip
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
     if((stage_bit && !pipeline_state->global[i].stage_bits) || pipeline_state->global[i].resource == NULL)
       continue;
+    uint32_t count = alias_max(pipeline_state->global[i].resource->count, 1);
     if(pipeline_state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
-      binding = shader_storage_buffer_binding++;
+      binding = shader_storage_buffer_binding;
+      shader_storage_buffer_binding += count;
     } else {
       location = uniform_location++;
     }
@@ -212,13 +216,18 @@ static void script_builder_add_uniform_format(const struct GL_PipelineState *pip
     if(pipeline_state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
       script_builder_add_shader_requisites(pipeline_state->global[i].resource->block.snippet);
 
-      script_builder_add("layout(std430, binding=%i) %s u_%s;\n", binding,
+      script_builder_add("layout(std430, binding=%i) %s u_%s", binding,
                          pipeline_state->global[i].resource->block.snippet->code,
                          pipeline_state->global[i].resource->name);
     } else {
-      script_builder_add("layout(location=%i) uniform %s u_%s;\n", location,
+      script_builder_add("layout(location=%i) uniform %s u_%s", location,
                          type_info[pipeline_state->global[i].resource->type].name,
                          pipeline_state->global[i].resource->name);
+    }
+    if(count > 1) {
+      script_builder_add("[%i];\n", count);
+    } else {
+      script_builder_add(";\n");
     }
   }
 }
@@ -290,7 +299,7 @@ void glProgram_init(struct glProgram *prog, const char *vsource, const char *fso
 void GL_initialize_draw_state(const struct GL_DrawState *state) {
   if(state->vertex_shader != NULL && state->vertex_shader_object == 0) {
     script_builder_init();
-    script_builder_add(shader_prelude);
+    script_builder_add("%s", shader_prelude);
     script_builder_add_vertex_format(state);
     script_builder_add_uniform_format((const struct GL_PipelineState *)state, THIN_GL_VERTEX_BIT);
     script_builder_add_images_format((const struct GL_PipelineState *)state, THIN_GL_VERTEX_BIT);
@@ -306,7 +315,7 @@ void GL_initialize_draw_state(const struct GL_DrawState *state) {
 
   if(state->fragment_shader != NULL && state->fragment_shader_object == 0) {
     script_builder_init();
-    script_builder_add(shader_prelude);
+    script_builder_add("%s", shader_prelude);
     script_builder_add_uniform_format((const struct GL_PipelineState *)state, THIN_GL_FRAGMENT_BIT);
     script_builder_add_images_format((const struct GL_PipelineState *)state, THIN_GL_FRAGMENT_BIT);
 
@@ -653,14 +662,23 @@ static inline GLbitfield apply_pipeline_assets(const struct GL_PipelineState *st
   for(uint32_t i = 0; i < THIN_GL_MAX_UNIFORMS; i++) {
     if((!compute && !state->global[i].stage_bits) || state->global[i].resource == NULL)
       continue;
+    uint32_t count = alias_max(state->global[i].resource->count, 1);
     if(state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
-      binding = shader_storage_buffer_binding++;
+      binding = shader_storage_buffer_binding;
+      shader_storage_buffer_binding += count;
     } else {
       location = uniform_location++;
     }
     if(state->global[i].resource->type == GL_Type_ShaderStorageBuffer) {
-      barriers |= GL_flush_buffer(state->global[i].resource->block.buffer, GL_SHADER_STORAGE_BARRIER_BIT);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, state->global[i].resource->block.buffer->buffer);
+      if(count > 1) {
+        for(uint32_t j = 0; j < count; j++) {
+          barriers |= GL_flush_buffer(state->global[i].resource->block.buffers[j], GL_SHADER_STORAGE_BARRIER_BIT);
+          glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding + j, state->global[i].resource->block.buffers[j]->buffer);
+        }
+      } else {
+        barriers |= GL_flush_buffer(state->global[i].resource->block.buffer, GL_SHADER_STORAGE_BARRIER_BIT);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, state->global[i].resource->block.buffer->buffer);
+      }
     } else {
       GL_ShaderResource_prepare(state->global[i].resource);
       GL_apply_uniform(location, state->global[i].resource->type, state->global[i].resource->count,
@@ -908,9 +926,10 @@ void GL_ShaderResource_prepare(const struct GL_ShaderResource *resource) {
 void GL_initialize_compute_state(const struct GL_ComputeState *state) {
   if(state->shader != NULL && state->shader_object == 0) {
     script_builder_init();
-    script_builder_add(shader_prelude);
-    script_builder_add("layout(local_size_x=%i, local_size_y=%i, local_size_z=%i) in;\n", state->local_group_x || 1,
-                       state->local_group_y || 1, state->local_group_z || 1);
+    script_builder_add("%s", shader_prelude);
+    script_builder_add("layout(local_size_x=%i, local_size_y=%i, local_size_z=%i) in;\n",
+                       alias_max(state->local_group_x, 1), alias_max(state->local_group_y, 1),
+                       alias_max(state->local_group_z, 1));
     script_builder_add_uniform_format((const struct GL_PipelineState *)state, 0);
     script_builder_add_images_format((const struct GL_PipelineState *)state, 0);
     script_builder_add_shader_requisites((const struct GL_ShaderSnippet *)state->shader);

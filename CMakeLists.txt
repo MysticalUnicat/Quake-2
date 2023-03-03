@@ -123,6 +123,7 @@ target_link_libraries(server common)
 
 add_library(refresh STATIC
     ref_gl/gl_beam.c
+    ref_gl/gl_compute.c
     ref_gl/gl_draw.c
     ref_gl/gl_light.c
     ref_gl/gl_model.c
