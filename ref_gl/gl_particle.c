@@ -211,7 +211,7 @@ THIN_GL_SHADER(post_simulate,
     if(count >= RADIXSORT_WORKGROUP_SIZE * RADIXSORT_WORKGROUP_SIZE) {
       u_sort_parameters.size = uint(ceil(sqrt(count)));
 
-      u_sort_parameters.fill.num_groups_x = u_sort_parameters.size * u_sort_parameters.size - count;
+      u_sort_parameters.fill.num_groups_x = 1;
       u_sort_parameters.fill.num_groups_y = 1;
       u_sort_parameters.fill.num_groups_z = 1;
 
@@ -269,13 +269,16 @@ THIN_GL_SHADER(sort_particles_fill_pass,
   require(sort_key_uint),
   require(sort_key),
   main(
-    sort_store_key(0, u_sort_parameters.num_particles + gl_LocalInvocationID.x, 0xFFFFFFFF);
+    uint end = u_sort_parameters.size * u_sort_parameters.size;
+    for(uint i = u_sort_parameters.num_particles + gl_LocalInvocationID.x; i < end; i++) {
+      sort_store_key(0, i, 0xFFFFFFFF);
+    }
   )
 )
 // clang-format on
 
 static struct GL_ComputeState sort_particles_fill_pass_state = {.shader = &sort_particles_fill_pass_shader,
-                                                                .local_group_x = 1,
+                                                                .local_group_x = RADIXSORT_WORKGROUP_SIZE,
                                                                 .local_group_y = 1,
                                                                 .local_group_z = 1,
                                                                 .global[0] = {0, &sort_parameters_resource},
@@ -288,11 +291,23 @@ THIN_GL_SHADER(sort_particles_radix_pass_1,
   require(sort_value_uint),
   require(radixsort_key_value),
   main(
+    // debug
+    for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
+      sort_store_value(0, i + 10000, sort_load_value(0, i));
+    }
+    barrier();
+
     uint buffer_offset = gl_GlobalInvocationID.y * u_sort_parameters.size;
     uint buf = 0;
     for(uint bit_offset = 0; bit_offset < 32; bit_offset += RADIXSORT_BITS_PER_PASS) {
       radixsort_key_value(buf, buffer_offset, bit_offset, u_sort_parameters.size);
       buf = buf ^ 1;
+    }
+    barrier();
+
+    // debug
+    for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
+      sort_store_value(0, i, sort_load_value(0, i + 10000));
     }
   )
 )

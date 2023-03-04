@@ -212,66 +212,64 @@ THIN_GL_SNIPPET(radixsort_key_value,
   require(sort_key),
   require(sort_value),
   require(radixsort_defines),
+  require(workgroup_scratch_uint),
   require(workgroupExclusiveAdd_uint),
   code(
-    shared uint radixsort_table[RADIXSORT_WORKGROUP_SIZE * RADIXSORT_NUM_BINS];
-    shared uint radixsort_scratch[RADIXSORT_WORKGROUP_SIZE];
     shared uint radixsort_histogram[RADIXSORT_NUM_BINS];
+    shared uint radixsort_offsets[RADIXSORT_NUM_BINS];
+    // shared SORT_VALUE_TYPE radixsort_values[RADIXSORT_WORKGROUP_SIZE];
 
     void radixsort_key_value(uint rbuf, uint buffer_offset, uint bit_offset, uint length) {
+       uint wbuf = rbuf ^ 1;
+
       // count
-      for(uint bin = 0; bin < RADIXSORT_NUM_BINS; bin++) {
-        radixsort_table[bin * RADIXSORT_WORKGROUP_SIZE + gl_LocalInvocationID.x] = 0;
-      }
-      barrier();
-
-      uint buffer_end = buffer_offset + length;
-
-      for(uint src_index = buffer_offset + gl_LocalInvocationID.x; src_index < buffer_end; src_index += RADIXSORT_WORKGROUP_SIZE) {
-        uint key = sort_load_key(rbuf, buffer_offset + src_index);
-        uint bin = (key >> bit_offset) & 0xf;
-
-        atomicAdd(radixsort_table[bin * RADIXSORT_WORKGROUP_SIZE + gl_LocalInvocationID.x], 1);
-      }
-      barrier();
-
-      // scan
-      uint global_offset = 0;
-      for(uint bin = 0; bin < RADIXSORT_NUM_BINS; bin++) {
-        uint count = radixsort_table[bin * RADIXSORT_WORKGROUP_SIZE + gl_LocalInvocationID.x];
-        uint offset = global_offset + workgroupExclusiveAdd_uint(count);
-        radixsort_table[bin * RADIXSORT_WORKGROUP_SIZE + gl_LocalInvocationID.x] = buffer_offset + offset;
-        barrier();
-
-        global_offset = radixsort_table[bin * RADIXSORT_WORKGROUP_SIZE + (RADIXSORT_WORKGROUP_SIZE - 1)];
-      }
-
-      // scatter
-      uint wbuf = rbuf ^ 1;
-
       if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
         radixsort_histogram[gl_LocalInvocationID.x] = 0;
       }
       barrier();
 
+      for(uint src_index = gl_LocalInvocationID.x; src_index < length; src_index += RADIXSORT_WORKGROUP_SIZE) {
+        uint key = sort_load_key(rbuf, buffer_offset + src_index);
+        uint bin = (key >> bit_offset) & 0xf;
+        atomicAdd(radixsort_histogram[bin], 1);
+      }
+      barrier();
+
+      if(radixsort_histogram[0] == length) {
+        return;
+      }
+
+      // scan
+      uint histogram_prefix_sum = subgroupExclusiveAdd(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS ? radixsort_histogram[gl_LocalInvocationID.x] : 0);
+      if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
+        radixsort_offsets[gl_LocalInvocationID.x] = histogram_prefix_sum;
+      }
+      barrier();
+
+      // scatter
       for(uint src_index = gl_LocalInvocationID.x; src_index <= length + RADIXSORT_WORKGROUP_SIZE; src_index += RADIXSORT_WORKGROUP_SIZE) {
         uint key = src_index < length ? sort_load_key(rbuf, buffer_offset + src_index) : 0xFFFFFFFF;
-        // uint value = src_index < buffer_end ? sort_load_value(rbuf, buffer_offset + src_index) : 0;
+        // radixsort_values[gl_LocalInvocationID.x] = src_index < length ? sort_load_value(rbuf, buffer_offset + src_index) : 0x80808080;
+        // uint value = src_index;
 
-        // sort keys in block
+        if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
+          radixsort_histogram[gl_LocalInvocationID.x] = 0;
+        }
+
+        // sort keys in workgroup
         for(uint bit_shift = 0; bit_shift < RADIXSORT_BITS_PER_PASS; bit_shift += 2) {
           uint key_index = (key >> bit_offset) & 0xf;
           uint bit_key = (key_index >> bit_shift) & 0x3;
 
-          uint packed_histogram = 1 << (bit_key * 3);
+          uint packed_histogram = 1 << (bit_key * 8);
 
           uint local_sum = workgroupExclusiveAdd_uint(packed_histogram);
 
           if(gl_LocalInvocationID.x == (RADIXSORT_WORKGROUP_SIZE - 1)) {
-            radixsort_scratch[0] = local_sum + packed_histogram;
+            workgroup_scratch_uint[0] = local_sum + packed_histogram;
           }
           barrier();
-          packed_histogram = radixsort_scratch[0];
+          packed_histogram = workgroup_scratch_uint[0];
 
           packed_histogram = (packed_histogram << 8) + (packed_histogram << 16) + (packed_histogram << 24);
 
@@ -279,42 +277,41 @@ THIN_GL_SNIPPET(radixsort_key_value,
 
           uint key_offset = (local_sum >> (bit_key * 8)) & 0xff;
 
-          radixsort_scratch[key_offset] = key;
+          workgroup_scratch_uint[key_offset] = key;
           barrier();
-          key = radixsort_scratch[gl_LocalInvocationID.x];
+          key = workgroup_scratch_uint[gl_LocalInvocationID.x];
           barrier();
 
-          // radixsort_values[key_offset] = value;
+          // workgroup_scratch_uint[key_offset] = value;
           // barrier();
-          // value = radixsort_values[gl_LocalInvocationID.x];
+          // value = workgroup_scratch_uint[gl_LocalInvocationID.x];
           // barrier();
         }
 
         uint key_index = (key >> bit_offset) & 0xf;
-        atomicAdd(local_histogram[key_index], 1);
+        atomicAdd(radixsort_histogram[key_index], 1);
         barrier();
 
-        uint histogram_prefix_sum = subgroupExclusiveAdd(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS ? local_histogram[gl_LocalInvocationID.x] : 0);
-
+        histogram_prefix_sum = subgroupExclusiveAdd(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS ? radixsort_histogram[gl_LocalInvocationID.x] : 0);
         if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
-          radixsort_scratch[gl_LocalInvocationID.x] = histogram_prefix_sum;
+          workgroup_scratch_uint[gl_LocalInvocationID.x] = histogram_prefix_sum;
         }
 
-        uint global_offset = redixsort_table[key_index * RADIXSORT_WORKGROUP_SIZE + gl_LocalInvocationID.x];
+        uint global_offset = radixsort_offsets[key_index];
         barrier();
 
-        uint local_offset = gl_LocalInvocationID.x - radixsort_scratch[key_index];
+        uint local_offset = gl_LocalInvocationID.x - workgroup_scratch_uint[key_index];
 
         uint total_offset = global_offset + local_offset;
 
         if(total_offset < length) {
           sort_store_key(wbuf, buffer_offset + total_offset, key);
-          // sort_store_value(wbuf, buffer_offset + total_offset, value);
+          // sort_store_value(wbuf, buffer_offset + total_offset, radixsort_values[value]);
         }
         barrier();
 
         if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
-          atomicAdd(redixsort_table[gl_LocalInvocationID.x * RADIXSORT_WORKGROUP_SIZE], );
+          atomicAdd(radixsort_offsets[gl_LocalInvocationID.x], radixsort_histogram[gl_LocalInvocationID.x]);
         }
       }
       barrier();
