@@ -5,6 +5,48 @@
 
 #define NUM_PARTICLES 1000000
 
+/*
+
+in these diagrams, lower case numbers indicates uncertainty.
+each pass removes uncertainty between groups of elements.
+the final pass does this by locating the location the element belongs to
+
++------+------+
+| abcd | abcd |
++------+------+
+| abcd | abcd |
++------+------+
+
++-----+-----+
+| Bcd | Acd |
++-----+-----+
+| abD | abC |
++-----+-----+
+first sort (buffers 0 is the last written to, descending)
+
++-----+-----+
+| Acd | abC |
++-----+-----+
+| Bcd | abD |
++-----+-----+
+rotate (buffers 1 is the last written to)
+
++-----+----+
+| Ad | bC |
++----+----+
+| Bc | aD |
++----+----+
+second sort (buffers 1 is the last written to, ascending)
+
++----+---+
+| D | C |
++---+---+
+| B | A |
++--+---+
+quadrant enumeration (buffers 0 is the last written to, descending)
+
+*/
+
 THIN_GL_STRUCT(particle_Data, float32x4(origin_time), snorm16x4(velocity_alpha), snorm16x4(acceleration_alphaVelocity),
                unorm8x4(albedo), unorm8x4(emit), snorm16x2(incandescence_incandescenceVelocity))
 THIN_GL_BLOCK(particle_data, require(particle_Data), unsized_array(struct(particle_DataPacked, item)))
@@ -289,26 +331,26 @@ static struct GL_ComputeState sort_particles_fill_pass_state = {.shader = &sort_
 THIN_GL_SHADER(sort_particles_radix_pass_1,
   require(sort_key_uint),
   require(sort_value_uint),
+  require(sort_descending),
   require(radixsort_key_value),
   main(
-    // debug
-    // for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
-    //   sort_store_value(0, i + 10000, sort_load_value(0, i));
-    // }
-    // barrier();
-
     uint buffer_offset = gl_GlobalInvocationID.y * u_sort_parameters.size;
     uint buf = 0;
     for(uint bit_offset = 0; bit_offset < 32; bit_offset += RADIXSORT_BITS_PER_PASS) {
-      radixsort_key_value(buf, buffer_offset, bit_offset, u_sort_parameters.size);
-      buf = buf ^ 1;
+      buf ^= uint(radixsort_key_value(buf, buffer_offset, bit_offset, u_sort_parameters.size));
     }
     barrier();
 
-    // debug
-    // for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
-    //   sort_store_value(0, i, sort_load_value(0, i + 10000));
-    // }
+    // make sure most recently sorted data is placed in buffers 0
+    if(buf != 0) {
+      for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.size; i += gl_WorkGroupSize.x) {
+        uint key = sort_load_key(1, i);
+        uint value = sort_load_value(1, i);
+
+        sort_store_key(0, i, key);
+        sort_store_value(0, i, value);
+      }
+    }
   )
 )
 // clang-format on
@@ -331,8 +373,8 @@ THIN_GL_SHADER(sort_particles_rotate_pass,
     sort_key_xy_setup(0, octic_group_e, u_sort_parameters.size, u_sort_parameters.size);
     sort_value_xy_setup(0, octic_group_e, u_sort_parameters.size, u_sort_parameters.size);
 
-    sort_key_xy_setup(1, octic_group_r3, u_sort_parameters.size, u_sort_parameters.size);
-    sort_value_xy_setup(1, octic_group_r3, u_sort_parameters.size, u_sort_parameters.size);
+    sort_key_xy_setup(1, octic_group_r, u_sort_parameters.size, u_sort_parameters.size);
+    sort_value_xy_setup(1, octic_group_r, u_sort_parameters.size, u_sort_parameters.size);
 
     uint x = gl_GlobalInvocationID.x;
     uint y = gl_GlobalInvocationID.y;
@@ -358,13 +400,24 @@ static struct GL_ComputeState sort_particles_rotate_pass_state = {.shader = &sor
 THIN_GL_SHADER(sort_particles_radix_pass_2,
   require(sort_key_uint),
   require(sort_value_uint),
+  require(sort_ascending),
   require(radixsort_key_value),
   main(
     uint buffer_offset = gl_GlobalInvocationID.y * u_sort_parameters.size;
     uint buf = 1;
     for(uint bit_offset = 0; bit_offset < 32; bit_offset += RADIXSORT_BITS_PER_PASS) {
-      radixsort_key_value(buf, buffer_offset, bit_offset, u_sort_parameters.size);
-      buf = buf ^ 1;
+      buf ^= uint(radixsort_key_value(buf, buffer_offset, bit_offset, u_sort_parameters.size));
+    }
+
+    // make sure most recently sorted data is placed in buffers 1
+    if(buf == 0) {
+      for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.size; i += gl_WorkGroupSize.x) {
+        uint key = sort_load_key(0, i);
+        uint value = sort_load_value(0, i);
+
+        sort_store_key(1, i, key);
+        sort_store_value(1, i, value);
+      }
     }
   )
 )
@@ -383,10 +436,11 @@ static struct GL_ComputeState sort_particles_radix_pass_2_state = {.shader = &so
 THIN_GL_SHADER(sort_particles_sortedmatrix_pass,
   require(sort_key_uint),
   require(sort_value_uint),
+  require(sort_descending),
   require(sortedmatrix_key_value),
   main(
-    sort_key_xy_setup(1, octic_group_r3, u_sort_parameters.size, u_sort_parameters.size);
-    sort_value_xy_setup(1, octic_group_r3, u_sort_parameters.size, u_sort_parameters.size);
+    sort_key_xy_setup(1, octic_group_r, u_sort_parameters.size, u_sort_parameters.size);
+    sort_value_xy_setup(1, octic_group_r, u_sort_parameters.size, u_sort_parameters.size);
 
     sortedmatrix_key_value_drop_key(1, u_sort_parameters.size, u_sort_parameters.size, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
   )
@@ -417,10 +471,10 @@ THIN_GL_SHADER(vertex,
     gl_Position = u_view_projection_matrix * vec4(position, 1);
     float size = 40;
     float size_min = 2;
-    float size_max = 40;
+    float size_max = 80;
     float a = 0.01;
     float b = 0;
-    float c = 0.01;
+    float c = 0.001;
     float dist = length(u_view_matrix * vec4(position, 1));
     float dist_atten = 1 / (a + b * dist + c * dist * dist);
     float derived_size = size * sqrt(dist_atten);

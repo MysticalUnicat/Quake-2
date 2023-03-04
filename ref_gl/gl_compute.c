@@ -140,6 +140,22 @@ THIN_GL_SNIPPET(octic_group,
   )
 )
 
+THIN_GL_SNIPPET(sort_ascending,
+  code(
+    uint sort_write_index(uint element, uint length) {
+      return element;
+    }
+  )
+)
+
+THIN_GL_SNIPPET(sort_descending,
+  code(
+    uint sort_write_index(uint element, uint length) {
+      return length - element - 1;
+    }
+  )
+)
+
 THIN_GL_SNIPPET(sort_key_xy,
   require(sort_key),
   require(octic_group),
@@ -221,8 +237,8 @@ THIN_GL_SNIPPET(radixsort_key_value,
     shared uint radixsort_offsets[RADIXSORT_NUM_BINS];
     shared SORT_VALUE_TYPE radixsort_values[RADIXSORT_WORKGROUP_SIZE];
 
-    void radixsort_key_value(uint rbuf, uint buffer_offset, uint bit_offset, uint length) {
-       uint wbuf = rbuf ^ 1;
+    bool radixsort_key_value(uint rbuf, uint buffer_offset, uint bit_offset, uint length) {
+      uint wbuf = rbuf ^ 1;
 
       // count
       if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
@@ -238,7 +254,7 @@ THIN_GL_SNIPPET(radixsort_key_value,
       barrier();
 
       if(radixsort_histogram[0] == length) {
-        return;
+        return bool(0);
       }
 
       // scan
@@ -311,8 +327,8 @@ THIN_GL_SNIPPET(radixsort_key_value,
         uint total_offset = global_offset + local_offset;
 
         if(total_offset < length) {
-          sort_store_key(wbuf, buffer_offset + total_offset, key);
-          sort_store_value(wbuf, buffer_offset + total_offset, radixsort_values[value]);
+          sort_store_key(wbuf, buffer_offset + sort_write_index(total_offset, length), key);
+          sort_store_value(wbuf, buffer_offset + sort_write_index(total_offset, length), radixsort_values[value]);
         }
         barrier();
 
@@ -321,6 +337,8 @@ THIN_GL_SNIPPET(radixsort_key_value,
         }
       }
       barrier();
+
+      return bool(1);
     }
   )
 )
@@ -330,13 +348,13 @@ THIN_GL_SNIPPET(sortedmatrix_internal,
   require(sort_key),
   require(sort_key_xy),
   code(
-    uint sortedmatrix_locate(uint rbuf, uint width, uint height, uint x, uint y, SORT_KEY_TYPE key) {
+    uint sortedmatrix_locate(uint rbuf, uint size, uint x, uint y, SORT_KEY_TYPE key) {
       uint wbuf = rbuf ^ 1;
       uint p = x;
       uint q = y;
       int less = int(p * q) - 1;
 
-      while(p >= 1 && q <= height) {
+      while(p >= 1 && q <= size) {
         if(sort_key_lt(key, sort_load_key_xy(rbuf, p - 1, q + 1))) {
           p--;
         } else {
@@ -345,7 +363,7 @@ THIN_GL_SNIPPET(sortedmatrix_internal,
         }
       }
 
-      while(p >= width && q >= 1) {
+      while(p >= size && q >= 1) {
         if(sort_key_lt(key, sort_load_key_xy(rbuf, p + 1, q - 1))) {
           q--;
         } else {
@@ -364,27 +382,31 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
   require(sort_value_xy),
   require(sortedmatrix_internal),
   code(
-    void sortedmatrix_key_value(uint rbuf, uint width, uint height, uint x, uint y) {
+    void sortedmatrix_key_value(uint rbuf, uint size, uint length, uint x, uint y) {
       uint wbuf = rbuf ^ 1;
 
       SORT_KEY_TYPE key = sort_load_key_xy(rbuf, x, y);
       SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, x);
 
-      uint dst_index = sortedmatrix_locate(rbuf, width, height, x, y, key);
+      uint dst_index = sortedmatrix_locate(rbuf, size, x, y, key);
 
-      sort_store_key(wbuf, dst_index, key);
-      sort_store_value(wbuf, dst_index, value);
+      if(dst_index < length) {
+        sort_store_key(wbuf, sort_write_index(dst_index, length), key);
+        sort_store_value(wbuf, sort_write_index(dst_index, length), value);
+      }
     }
 
-    void sortedmatrix_key_value_drop_key(uint rbuf, uint width, uint height, uint x, uint y) {
+    void sortedmatrix_key_value_drop_key(uint rbuf, uint size, uint length, uint x, uint y) {
       uint wbuf = rbuf ^ 1;
 
       SORT_KEY_TYPE key = sort_load_key_xy(rbuf, x, y);
       SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, x);
 
-      uint dst_index = sortedmatrix_locate(rbuf, width, height, x, y, key);
+      uint dst_index = sortedmatrix_locate(rbuf, size, x, y, key);
 
-      sort_store_value(wbuf, dst_index, value);
+      if(dst_index < length) {
+        sort_store_value(wbuf, sort_write_index(dst_index, length), value);
+      }
     }
   )
 )
