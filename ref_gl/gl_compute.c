@@ -199,7 +199,9 @@ THIN_GL_SNIPPET(sort_value_xy,
 )
 
 // --------------------------------------------------------------------------------------------------------------------
-// a radix sort designed for a low amount of elements
+// algo from https://github.com/GPUOpen-Effects/FidelityFX-ParallelSort
+// changed to early exit, require no temporary buffer storage but processes fewer elements
+
 THIN_GL_SNIPPET(radixsort_defines,
   string(
     "#define RADIXSORT_BITS_PER_PASS " THIN_GL_TO_STRING(RADIXSORT_BITS_PER_PASS) "\n"
@@ -217,7 +219,7 @@ THIN_GL_SNIPPET(radixsort_key_value,
   code(
     shared uint radixsort_histogram[RADIXSORT_NUM_BINS];
     shared uint radixsort_offsets[RADIXSORT_NUM_BINS];
-    // shared SORT_VALUE_TYPE radixsort_values[RADIXSORT_WORKGROUP_SIZE];
+    shared SORT_VALUE_TYPE radixsort_values[RADIXSORT_WORKGROUP_SIZE];
 
     void radixsort_key_value(uint rbuf, uint buffer_offset, uint bit_offset, uint length) {
        uint wbuf = rbuf ^ 1;
@@ -247,10 +249,14 @@ THIN_GL_SNIPPET(radixsort_key_value,
       barrier();
 
       // scatter
-      for(uint src_index = gl_LocalInvocationID.x; src_index <= length + RADIXSORT_WORKGROUP_SIZE; src_index += RADIXSORT_WORKGROUP_SIZE) {
+      uint num_blocks = (length + RADIXSORT_WORKGROUP_SIZE - 1) / RADIXSORT_WORKGROUP_SIZE;
+
+      for(uint block = 0; block < num_blocks; block++) {
+        uint src_index = block * RADIXSORT_WORKGROUP_SIZE + gl_LocalInvocationID.x;
+
         uint key = src_index < length ? sort_load_key(rbuf, buffer_offset + src_index) : 0xFFFFFFFF;
-        // radixsort_values[gl_LocalInvocationID.x] = src_index < length ? sort_load_value(rbuf, buffer_offset + src_index) : 0x80808080;
-        // uint value = src_index;
+        radixsort_values[gl_LocalInvocationID.x] = src_index < length ? sort_load_value(rbuf, buffer_offset + src_index) : 0x80808080;
+        uint value = gl_LocalInvocationID.x;
 
         if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
           radixsort_histogram[gl_LocalInvocationID.x] = 0;
@@ -282,10 +288,10 @@ THIN_GL_SNIPPET(radixsort_key_value,
           key = workgroup_scratch_uint[gl_LocalInvocationID.x];
           barrier();
 
-          // workgroup_scratch_uint[key_offset] = value;
-          // barrier();
-          // value = workgroup_scratch_uint[gl_LocalInvocationID.x];
-          // barrier();
+          workgroup_scratch_uint[key_offset] = value;
+          barrier();
+          value = workgroup_scratch_uint[gl_LocalInvocationID.x];
+          barrier();
         }
 
         uint key_index = (key >> bit_offset) & 0xf;
@@ -306,7 +312,7 @@ THIN_GL_SNIPPET(radixsort_key_value,
 
         if(total_offset < length) {
           sort_store_key(wbuf, buffer_offset + total_offset, key);
-          // sort_store_value(wbuf, buffer_offset + total_offset, radixsort_values[value]);
+          sort_store_value(wbuf, buffer_offset + total_offset, radixsort_values[value]);
         }
         barrier();
 

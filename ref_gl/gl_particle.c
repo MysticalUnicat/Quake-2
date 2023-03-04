@@ -292,10 +292,10 @@ THIN_GL_SHADER(sort_particles_radix_pass_1,
   require(radixsort_key_value),
   main(
     // debug
-    for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
-      sort_store_value(0, i + 10000, sort_load_value(0, i));
-    }
-    barrier();
+    // for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
+    //   sort_store_value(0, i + 10000, sort_load_value(0, i));
+    // }
+    // barrier();
 
     uint buffer_offset = gl_GlobalInvocationID.y * u_sort_parameters.size;
     uint buf = 0;
@@ -306,9 +306,9 @@ THIN_GL_SHADER(sort_particles_radix_pass_1,
     barrier();
 
     // debug
-    for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
-      sort_store_value(0, i, sort_load_value(0, i + 10000));
-    }
+    // for(uint i = gl_LocalInvocationID.x; i < u_sort_parameters.num_particles; i += gl_WorkGroupSize.x) {
+    //   sort_store_value(0, i, sort_load_value(0, i + 10000));
+    // }
   )
 )
 // clang-format on
