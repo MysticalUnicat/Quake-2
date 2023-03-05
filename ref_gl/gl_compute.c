@@ -142,16 +142,16 @@ THIN_GL_SNIPPET(octic_group,
 
 THIN_GL_SNIPPET(sort_ascending,
   code(
-    uint sort_write_index(uint element, uint length) {
-      return element;
+    uint sort_apply_order(uint index, uint length) {
+      return index;
     }
   )
 )
 
 THIN_GL_SNIPPET(sort_descending,
   code(
-    uint sort_write_index(uint element, uint length) {
-      return length - element - 1;
+    uint sort_apply_order(uint index, uint length) {
+      return length - index - 1;
     }
   )
 )
@@ -240,6 +240,8 @@ THIN_GL_SNIPPET(radixsort_key_value,
     bool radixsort_key_value(uint rbuf, uint buffer_offset, uint bit_offset, uint length) {
       uint wbuf = rbuf ^ 1;
 
+      uint invalid_key = sort_apply_order(1, 2) * 0xFFFFFFFF;
+
       // count
       if(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS) {
         radixsort_histogram[gl_LocalInvocationID.x] = 0;
@@ -248,7 +250,7 @@ THIN_GL_SNIPPET(radixsort_key_value,
 
       for(uint src_index = gl_LocalInvocationID.x; src_index < length; src_index += RADIXSORT_WORKGROUP_SIZE) {
         uint key = sort_load_key(rbuf, buffer_offset + src_index);
-        uint bin = (key >> bit_offset) & 0xf;
+        uint bin = sort_apply_order((key >> bit_offset) & 0xf, RADIXSORT_NUM_BINS);
         atomicAdd(radixsort_histogram[bin], 1);
       }
       barrier();
@@ -270,7 +272,7 @@ THIN_GL_SNIPPET(radixsort_key_value,
       for(uint block = 0; block < num_blocks; block++) {
         uint src_index = block * RADIXSORT_WORKGROUP_SIZE + gl_LocalInvocationID.x;
 
-        uint key = src_index < length ? sort_load_key(rbuf, buffer_offset + src_index) : 0xFFFFFFFF;
+        uint key = src_index < length ? sort_load_key(rbuf, buffer_offset + src_index) : invalid_key;
         radixsort_values[gl_LocalInvocationID.x] = src_index < length ? sort_load_value(rbuf, buffer_offset + src_index) : 0x80808080;
         uint value = gl_LocalInvocationID.x;
 
@@ -280,7 +282,7 @@ THIN_GL_SNIPPET(radixsort_key_value,
 
         // sort keys in workgroup
         for(uint bit_shift = 0; bit_shift < RADIXSORT_BITS_PER_PASS; bit_shift += 2) {
-          uint key_index = (key >> bit_offset) & 0xf;
+          uint key_index = sort_apply_order((key >> bit_offset) & 0xf, RADIXSORT_NUM_BINS);
           uint bit_key = (key_index >> bit_shift) & 0x3;
 
           uint packed_histogram = 1 << (bit_key * 8);
@@ -310,7 +312,7 @@ THIN_GL_SNIPPET(radixsort_key_value,
           barrier();
         }
 
-        uint key_index = (key >> bit_offset) & 0xf;
+        uint key_index = sort_apply_order((key >> bit_offset) & 0xf, RADIXSORT_NUM_BINS);
         atomicAdd(radixsort_histogram[key_index], 1);
         barrier();
 
@@ -327,8 +329,8 @@ THIN_GL_SNIPPET(radixsort_key_value,
         uint total_offset = global_offset + local_offset;
 
         if(total_offset < length) {
-          sort_store_key(wbuf, buffer_offset + sort_write_index(total_offset, length), key);
-          sort_store_value(wbuf, buffer_offset + sort_write_index(total_offset, length), radixsort_values[value]);
+          sort_store_key(wbuf, buffer_offset + total_offset, key);
+          sort_store_value(wbuf, buffer_offset + total_offset, radixsort_values[value]);
         }
         barrier();
 
@@ -391,8 +393,8 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
       uint dst_index = sortedmatrix_locate(rbuf, size, x, y, key);
 
       if(dst_index < length) {
-        sort_store_key(wbuf, sort_write_index(dst_index, length), key);
-        sort_store_value(wbuf, sort_write_index(dst_index, length), value);
+        sort_store_key(wbuf, sort_apply_order(dst_index, length), key);
+        sort_store_value(wbuf, sort_apply_order(dst_index, length), value);
       }
     }
 
@@ -405,7 +407,7 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
       uint dst_index = sortedmatrix_locate(rbuf, size, x, y, key);
 
       if(dst_index < length) {
-        sort_store_value(wbuf, sort_write_index(dst_index, length), value);
+        sort_store_value(wbuf, sort_apply_order(dst_index, length), value);
       }
     }
   )
