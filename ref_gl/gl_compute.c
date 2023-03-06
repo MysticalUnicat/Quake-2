@@ -126,9 +126,9 @@ THIN_GL_SNIPPET(octic_group,
         y_stride = 1;
         break;
       case octic_group_r3:
-        offset = int(width * height) - 1;
-        x_stride = -int(width);
-        y_stride = 1;
+        offset = int(height) - 1;
+        x_stride = int(height);
+        y_stride = -1;
         break;
       case octic_group_Tac:
         offset = 0;
@@ -351,35 +351,42 @@ THIN_GL_SNIPPET(radixsort_key_value,
 )
 
 // --------------------------------------------------------------------------------------------------------------------
+
+
 THIN_GL_SNIPPET(sortedmatrix_internal,
   require(sort_key),
   require(sort_key_xy),
   code(
-    uint sortedmatrix_locate(uint rbuf, uint size, uint x, uint y, SORT_KEY_TYPE key) {
+    uint sortedmatrix_locate(uint rbuf, uint width, uint height, uint x, uint y, SORT_KEY_TYPE key) {
       uint wbuf = rbuf ^ 1;
+
       uint p = x;
       uint q = y;
-      int less = int(p * q) - 1;
+      uint less = (p - 1) * (q - 1) - 1;
 
-      while(p >= 1 && q <= size) {
-        if(sort_key_lt(key, sort_load_key_xy(rbuf, p - 1, q + 1))) {
+      while(p >= 1 && q < height) {
+        uint other = sort_load_key_xy(rbuf, p - 1, q + 1);
+
+        if(sort_key_lt(key, other)) {
           p--;
         } else {
-          less += int(p) - 1;
+          less += p;
           q++;
         }
       }
 
-      while(p >= size && q >= 1) {
-        if(sort_key_lt(key, sort_load_key_xy(rbuf, p + 1, q - 1))) {
+      while(p > width && q >= 1) {
+        uint other = sort_load_key_xy(rbuf, p + 1, q - 1);
+
+        if(sort_key_lt(key, other)) {
           q--;
         } else {
-          less += int(q) - 1;
+          less += q;
           p++;
         }
       }
 
-      return uint(less + 1);
+      return less;
     }
   )
 )
@@ -389,13 +396,15 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
   require(sort_value_xy),
   require(sortedmatrix_internal),
   code(
-    void sortedmatrix_key_value(uint rbuf, uint size, uint length, uint x, uint y) {
+    void sortedmatrix_key_value(uint rbuf, uint width, uint height, uint length, uint x, uint y) {
       uint wbuf = rbuf ^ 1;
 
       SORT_KEY_TYPE key = sort_load_key_xy(rbuf, x, y);
       SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, x);
 
-      uint dst_index = sortedmatrix_locate(rbuf, size, x, y, key);
+      uint dst_index = sortedmatrix_locate(rbuf, width, height, x, y, key);
+
+      sort_store_key(wbuf, x + y * u_sort_parameters.width, dst_index);
 
       if(dst_index < length) {
         sort_store_key(wbuf, sort_apply_order(dst_index, length), key);
@@ -403,13 +412,15 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
       }
     }
 
-    void sortedmatrix_key_value_drop_key(uint rbuf, uint size, uint length, uint x, uint y) {
+    void sortedmatrix_key_value_drop_key(uint rbuf, uint width, uint height, uint length, uint x, uint y) {
       uint wbuf = rbuf ^ 1;
 
       SORT_KEY_TYPE key = sort_load_key_xy(rbuf, x, y);
       SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, x);
 
-      uint dst_index = sortedmatrix_locate(rbuf, size, x, y, key);
+      uint dst_index = sortedmatrix_locate(rbuf, width, height, x, y, key);
+
+      sort_store_key(wbuf, x + y * u_sort_parameters.width, dst_index);
 
       if(dst_index < length) {
         sort_store_value(wbuf, sort_apply_order(dst_index, length), value);
