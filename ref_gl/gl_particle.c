@@ -250,8 +250,8 @@ THIN_GL_SHADER(post_simulate,
 
     u_sort_parameters.num_particles = count;
 
-    u_sort_parameters.width = uint(ceil(sqrt(count)));
-    u_sort_parameters.height = uint(ceil((count + u_sort_parameters.width - 1) / u_sort_parameters.width));
+    u_sort_parameters.height = uint(ceil(sqrt(count)));
+    u_sort_parameters.width = uint(ceil((count + u_sort_parameters.height - 1) / u_sort_parameters.height));
 
     u_sort_parameters.fill.num_groups_x = 1;
     u_sort_parameters.fill.num_groups_y = 1;
@@ -269,8 +269,8 @@ THIN_GL_SHADER(post_simulate,
     u_sort_parameters.radix_2.num_groups_y = u_sort_parameters.width;
     u_sort_parameters.radix_2.num_groups_z = 1;
 
-    u_sort_parameters.sortedmatrix.num_groups_x = u_sort_parameters.width;
-    u_sort_parameters.sortedmatrix.num_groups_y = u_sort_parameters.height;
+    u_sort_parameters.sortedmatrix.num_groups_x = 0;//u_sort_parameters.width;
+    u_sort_parameters.sortedmatrix.num_groups_y = 0;//u_sort_parameters.height;
     u_sort_parameters.sortedmatrix.num_groups_z = 1;
   )
 )

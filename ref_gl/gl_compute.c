@@ -351,38 +351,57 @@ THIN_GL_SNIPPET(radixsort_key_value,
 )
 
 // --------------------------------------------------------------------------------------------------------------------
+// https://www.sciencedirect.com/science/article/pii/S1877050923001461?ref=cra_js_challenge&fr=RR-1
 
+/*
+
+  6 10  3  8  |   3  6  8 10  |   0  2  4  5
+ 12  0  7 13  |   0  7 12 13  |   1  6  8 10
+  4  2  5  1  |   1  2  4  5  |   3  7 12 13
+ 14 15  9 11  |   9 11 14 15  |   9 11 14 15
+
+at 0,0:
+  less = (0 + 1) * (0 + 1) - 1 = 0
+  key = 0
+  return 0
+at 1,0:
+  less = (1 + 1) * (0 + 1) - 1 = 1
+  key = 2
+  other = 1
+    2 < 1?
+    less += 1 = 2
+    1,1
+  other = 3
+    2 < 3?
+    0,1
+  other =
+
+*/
 
 THIN_GL_SNIPPET(sortedmatrix_internal,
   require(sort_key),
   require(sort_key_xy),
   code(
-    uint sortedmatrix_locate(uint rbuf, uint width, uint height, uint x, uint y, SORT_KEY_TYPE key) {
-      uint wbuf = rbuf ^ 1;
+    uint sortedmatrix_enumerate_swap(uint rbuf, uint width, uint height, uint x, uint y, SORT_KEY_TYPE key) {
+      uint less = (x + 1) * (y + 1) - 1;
 
-      uint p = x;
-      uint q = y;
-      uint less = (p - 1) * (q - 1) - 1;
-
-      while(p >= 1 && q < height) {
-        uint other = sort_load_key_xy(rbuf, p - 1, q + 1);
-
+      while(x < width && y > 0) {
+        SORT_KEY_TYPE other = sort_load_key_xy(rbuf, x + 1, y - 1);
         if(sort_key_lt(key, other)) {
-          p--;
+          y--;
         } else {
-          less += p;
-          q++;
+          less += y;
+          x++;
         }
       }
 
-      while(p > width && q >= 1) {
-        uint other = sort_load_key_xy(rbuf, p + 1, q - 1);
-
+      while(x > 0 && y < height) {
+        SORT_KEY_TYPE other = sort_load_key_xy(rbuf, x - 1, y + 1);
         if(sort_key_lt(key, other)) {
-          q--;
+          x--;
         } else {
-          less += q;
-          p++;
+          less += x;
+          y++;
         }
       }
 
@@ -400,15 +419,17 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
       uint wbuf = rbuf ^ 1;
 
       SORT_KEY_TYPE key = sort_load_key_xy(rbuf, x, y);
-      SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, x);
+      barrier();
 
-      uint dst_index = sortedmatrix_locate(rbuf, width, height, x, y, key);
-
-      sort_store_key(wbuf, x + y * u_sort_parameters.width, dst_index);
+      uint dst_index = sortedmatrix_enumerate_swap(rbuf, width, height, x, y, key);
 
       if(dst_index < length) {
-        sort_store_key(wbuf, sort_apply_order(dst_index, length), key);
-        sort_store_value(wbuf, sort_apply_order(dst_index, length), value);
+        dst_index = sort_apply_order(dst_index, length);
+
+        SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, y);
+
+        sort_store_key(wbuf, dst_index, key);
+        sort_store_value(wbuf, dst_index, value);
       }
     }
 
@@ -416,14 +437,18 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
       uint wbuf = rbuf ^ 1;
 
       SORT_KEY_TYPE key = sort_load_key_xy(rbuf, x, y);
-      SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, x);
+      barrier();
 
-      uint dst_index = sortedmatrix_locate(rbuf, width, height, x, y, key);
+      uint dst_index = sortedmatrix_enumerate_swap(rbuf, width, height, x, y, key);
+      barrier();
 
-      sort_store_key(wbuf, x + y * u_sort_parameters.width, dst_index);
+      sort_store_key(wbuf, Indexer2D_apply(sort_key_indexer[rbuf], x, y), dst_index);
 
       if(dst_index < length) {
-        sort_store_value(wbuf, sort_apply_order(dst_index, length), value);
+        dst_index = sort_apply_order(dst_index, length);
+
+        SORT_VALUE_TYPE value = sort_load_value_xy(rbuf, x, y);
+        sort_store_value(wbuf, dst_index, value);
       }
     }
   )
