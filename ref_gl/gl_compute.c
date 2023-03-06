@@ -121,14 +121,19 @@ THIN_GL_SNIPPET(octic_group,
         y_stride = int(width);
         break;
       case octic_group_r:
+        offset = int(height * (width - 1));
+        x_stride = -int(height);
+        y_stride = 1;
+        break;
+      case octic_group_r3:
         offset = int(width * height) - 1;
         x_stride = -int(width);
         y_stride = 1;
         break;
-      case octic_group_r3:
-        offset = int(width) - 1;
+      case octic_group_Tac:
+        offset = 0;
         x_stride = int(width);
-        y_stride = -1;
+        y_stride = 1;
         break;
       }
       return Indexer2D(offset, x_stride, y_stride);

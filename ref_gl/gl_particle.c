@@ -250,54 +250,28 @@ THIN_GL_SHADER(post_simulate,
 
     u_sort_parameters.num_particles = count;
 
-    // if(count >= RADIXSORT_WORKGROUP_SIZE * RADIXSORT_WORKGROUP_SIZE) {
-    if(bool(1)) {
-      u_sort_parameters.width = uint(ceil(sqrt(count)));
-      u_sort_parameters.height = uint(ceil((count + u_sort_parameters.width - 1) / u_sort_parameters.width));
+    u_sort_parameters.width = uint(ceil(sqrt(count)));
+    u_sort_parameters.height = uint(ceil((count + u_sort_parameters.width - 1) / u_sort_parameters.width));
 
-      u_sort_parameters.fill.num_groups_x = 1;
-      u_sort_parameters.fill.num_groups_y = 1;
-      u_sort_parameters.fill.num_groups_z = 1;
+    u_sort_parameters.fill.num_groups_x = 1;
+    u_sort_parameters.fill.num_groups_y = 1;
+    u_sort_parameters.fill.num_groups_z = 1;
 
-      u_sort_parameters.radix_1.num_groups_x = 1;
-      u_sort_parameters.radix_1.num_groups_y = u_sort_parameters.height;
-      u_sort_parameters.radix_1.num_groups_z = 1;
+    u_sort_parameters.radix_1.num_groups_x = 1;
+    u_sort_parameters.radix_1.num_groups_y = u_sort_parameters.height;
+    u_sort_parameters.radix_1.num_groups_z = 1;
 
-      u_sort_parameters.rotate.num_groups_x = 0; // u_sort_parameters.width;
-      u_sort_parameters.rotate.num_groups_y = 0; // u_sort_parameters.height;
-      u_sort_parameters.rotate.num_groups_z = 1;
+    u_sort_parameters.rotate.num_groups_x = 1;
+    u_sort_parameters.rotate.num_groups_y = u_sort_parameters.height;
+    u_sort_parameters.rotate.num_groups_z = 1;
 
-      u_sort_parameters.radix_2.num_groups_x = 0; // 1;
-      u_sort_parameters.radix_2.num_groups_y = u_sort_parameters.width;
-      u_sort_parameters.radix_2.num_groups_z = 1;
+    u_sort_parameters.radix_2.num_groups_x = 1;
+    u_sort_parameters.radix_2.num_groups_y = u_sort_parameters.width;
+    u_sort_parameters.radix_2.num_groups_z = 1;
 
-      u_sort_parameters.sortedmatrix.num_groups_x = 0; // u_sort_parameters.width;
-      u_sort_parameters.sortedmatrix.num_groups_y = 0; // u_sort_parameters.height;
-      u_sort_parameters.sortedmatrix.num_groups_z = 1;
-    } else {
-      u_sort_parameters.width = count;
-      u_sort_parameters.height = 1;
-
-      u_sort_parameters.fill.num_groups_x = 0;
-      u_sort_parameters.fill.num_groups_y = 0;
-      u_sort_parameters.fill.num_groups_z = 0;
-
-      u_sort_parameters.radix_1.num_groups_x = uint(count > 0);
-      u_sort_parameters.radix_1.num_groups_y = 1;
-      u_sort_parameters.radix_1.num_groups_z = 1;
-
-      u_sort_parameters.rotate.num_groups_x = 0;
-      u_sort_parameters.rotate.num_groups_y = 0;
-      u_sort_parameters.rotate.num_groups_z = 0;
-
-      u_sort_parameters.radix_2.num_groups_x = 0;
-      u_sort_parameters.radix_2.num_groups_y = 0;
-      u_sort_parameters.radix_2.num_groups_z = 0;
-
-      u_sort_parameters.sortedmatrix.num_groups_x = 0;
-      u_sort_parameters.sortedmatrix.num_groups_y = 0;
-      u_sort_parameters.sortedmatrix.num_groups_z = 0;
-    }
+    u_sort_parameters.sortedmatrix.num_groups_x = 0; // u_sort_parameters.width;
+    u_sort_parameters.sortedmatrix.num_groups_y = 0; // u_sort_parameters.height;
+    u_sort_parameters.sortedmatrix.num_groups_z = 1;
   )
 )
 // clang-format on
@@ -317,6 +291,7 @@ THIN_GL_SHADER(sort_particles_fill_pass,
     uint end = u_sort_parameters.width * u_sort_parameters.height;
     for(uint i = u_sort_parameters.num_particles + gl_LocalInvocationID.x; i < end; i++) {
       sort_store_key(0, i, 0xFFFFFFFF);
+      sort_store_key(1, i, 0xFFFFFFFF);
     }
   )
 )
@@ -334,11 +309,11 @@ static struct GL_ComputeState sort_particles_fill_pass_state = {.shader = &sort_
 THIN_GL_SHADER(sort_particles_radix_pass_1,
   require(sort_key_uint),
   require(sort_value_uint),
-  require(sort_descending),
+  require(sort_ascending),
   require(radixsort_key_value),
   main(
     uint buffer_offset = gl_GlobalInvocationID.y * u_sort_parameters.width;
-    uint buffer_length = min(u_sort_parameters.width, u_sort_parameters.num_particles - buffer_offset);
+    uint buffer_length = u_sort_parameters.width;
     uint buffer_end = buffer_offset + buffer_length;
 
     uint buf = 0;
@@ -382,14 +357,15 @@ THIN_GL_SHADER(sort_particles_rotate_pass,
     sort_key_xy_setup(1, octic_group_r, u_sort_parameters.width, u_sort_parameters.height);
     sort_value_xy_setup(1, octic_group_r, u_sort_parameters.width, u_sort_parameters.height);
 
-    uint x = gl_GlobalInvocationID.x;
     uint y = gl_GlobalInvocationID.y;
 
-    SORT_KEY_TYPE key = sort_load_key_xy(0, x, y);
-    SORT_VALUE_TYPE value = sort_load_value_xy(0, x, y);
+    for(uint x = gl_LocalInvocationID.x; x < u_sort_parameters.width; x += RADIXSORT_WORKGROUP_SIZE) {
+      SORT_KEY_TYPE key = sort_load_key_xy(0, x, y);
+      SORT_VALUE_TYPE value = sort_load_value_xy(0, x, y);
 
-    sort_store_key_xy(1, x, y, key);
-    sort_store_value_xy(1, x, y, value);
+      sort_store_key_xy(1, x, y, key);
+      sort_store_value_xy(1, x, y, value);
+    }
   )
 )
 // clang-format on
@@ -410,7 +386,7 @@ THIN_GL_SHADER(sort_particles_radix_pass_2,
   require(radixsort_key_value),
   main(
     uint buffer_offset = gl_GlobalInvocationID.y * u_sort_parameters.height;
-    uint buffer_length = min(u_sort_parameters.height, u_sort_parameters.num_particles - buffer_offset);
+    uint buffer_length = u_sort_parameters.height;
     uint buffer_end = buffer_offset + buffer_length;
 
     uint buf = 1;
