@@ -1323,7 +1323,6 @@ void CL_AddEntities(void) {
 	CL_AddProjectiles ();
 #endif
   CL_AddTEnts();
-  CL_AddParticles();
   CL_AddDLights();
   CL_AddLightStyles();
 }

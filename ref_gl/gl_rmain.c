@@ -32,6 +32,8 @@ extern void GL_draw_sprite(entity_t *e);
 extern void GL_draw_2d_quad(GLuint image, float x1, float y1, float x2, float y2, float s1, float t1, float s2,
                             float t2, float r, float g, float b, float a);
 
+// THIN_GL_IMPL_BLOCK(FrameMetrics, uint32(num_live_particles), uint32(num_dead_particles))
+
 THIN_GL_IMPL_BLOCK(Frame, float32(time), float32x3(viewOrigin))
 
 THIN_GL_IMPL_BLOCK(View, float32x3(origin))

@@ -22,7 +22,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define MAX_DLIGHTS 32
 #define MAX_ENTITIES 128
-#define MAX_PARTICLES 4096
 #define MAX_LIGHTSTYLES 256
 
 #define POWERSUIT_SCALE 4.0F
@@ -93,16 +92,6 @@ typedef struct {
 } dlight_t;
 
 typedef struct {
-  vec3_t origin;
-
-  int albedo;
-  int emit;
-
-  float alpha;
-  float incandescence;
-} particle_t;
-
-typedef struct {
   float rgb[3]; // 0.0 - 2.0
   float white;  // highest of rgb
 } lightstyle_t;
@@ -126,9 +115,6 @@ typedef struct {
 
   int num_dlights;
   dlight_t *dlights;
-
-  int num_particles;
-  particle_t *particles;
 } refdef_t;
 
 #define API_VERSION 3

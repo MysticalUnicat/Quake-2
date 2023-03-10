@@ -4,6 +4,7 @@
 #include "gl_compute.h"
 
 #define NUM_PARTICLES 1000000
+#define PARTICLE_WORKGROUP_SIZE 128
 
 /*
 
@@ -85,7 +86,7 @@ static struct GL_ShaderResource emitted_resource = {.type = GL_Type_ShaderStorag
                                                     .block.buffer = &emitted_buffer,
                                                     .block.snippet = &GL_particle_emitted_snippet};
 
-THIN_GL_BLOCK(particle_counter, uint32(alive), int32(dead))
+THIN_GL_BLOCK(particle_counter, uint32(alive), int32(dead), uint32(simulate))
 static struct GL_Buffer counter_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(struct GL_particle_counter)};
 static struct GL_ShaderResource counter_resource = {.type = GL_Type_ShaderStorageBuffer,
                                                     .name = "particle_counter",
@@ -206,7 +207,9 @@ struct GL_ComputeState emit_single_compute_state = {.shader = &emit_single_shade
 
 // clang-format off
 THIN_GL_SHADER(pre_simulate, main(
-  u_particle_indirect.simulate.num_groups_x = u_particle_counter.alive;
+  // u_particle_indirect.simulate.num_groups_x = u_particle_counter.alive;
+  u_particle_indirect.simulate.num_groups_x = uint(u_particle_counter.alive > 1);
+  u_particle_counter.simulate = u_particle_counter.alive;
   u_particle_counter.alive = 0;
 ))
 // clang-format on
@@ -216,23 +219,32 @@ struct GL_ComputeState presimulate_compute_state = {
 
 // clang-format off
 THIN_GL_SHADER(simulate, main(
-  uint index = u_particle_alive.item[gl_GlobalInvocationID.x];
-  particle_Data data = particle_Data_unpack(u_particle_data.item[index]);
-  float time = u_frame.time - data.origin_time.w;
-  float alpha = data.velocity_alpha.w * 256 + data.acceleration_alphaVelocity.w * 256 * time;
-  if(alpha > 0) {
+  uint num_simulate = u_particle_counter.simulate;
+
+  for(uint i = gl_LocalInvocationID.x; i < num_simulate; i += gl_WorkGroupSize.x) {
+    uint index = u_particle_alive.item[i];
+
+    particle_Data data = particle_Data_unpack(u_particle_data.item[index]);
+
+    float time = u_frame.time - data.origin_time.w;
+    float alpha = data.velocity_alpha.w * 256 + data.acceleration_alphaVelocity.w * 256 * time;
     vec3 position = data.origin_time.xyz + data.velocity_alpha.xyz * 256 * time + data.acceleration_alphaVelocity.xyz * 256 * time * time;
-    uint emitted_index = atomicAdd(u_particle_counter.alive, 1);
-    u_particle_distance.item[emitted_index] = uint(length(position - u_frame.viewOrigin));
-    u_particle_emitted.item[emitted_index] = index;
-  } else {
-    uint dead_index = atomicAdd(u_particle_counter.dead, 1);
-    u_particle_dead.item[dead_index] = index;
+    uint distance = uint(length(position - u_frame.viewOrigin) * 4096);
+
+    if(alpha > 0) {
+      uint emitted_index = atomicAdd(u_particle_counter.alive, 1);
+      u_particle_distance.item[emitted_index] = distance;
+      u_particle_emitted.item[emitted_index] = index;
+    } else {
+      uint dead_index = atomicAdd(u_particle_counter.dead, 1);
+      u_particle_dead.item[dead_index] = index;
+    }
   }
 ))
 // clang-format on
 
 struct GL_ComputeState simulate_compute_state = {.shader = &simulate_shader,
+                                                 .local_group_x = PARTICLE_WORKGROUP_SIZE,
                                                  .global[0] = {0, &alive_resource},
                                                  .global[1] = {0, &data_resource},
                                                  .global[2] = {0, &distance_resource},

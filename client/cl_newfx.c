@@ -21,9 +21,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "client.h"
 
-extern cparticle_t *active_particles, *free_particles;
-extern cparticle_t particles[MAX_PARTICLES];
-extern int cl_numparticles;
 extern cvar_t *vid_ref;
 
 extern void MakeNormalVectors(vec3_t forward, vec3_t right, vec3_t up);
@@ -219,9 +216,6 @@ void CL_ForceWall(vec3_t start, vec3_t end, int color) {
   // FIXME: this is a really silly way to have a loop
   while(len > 0) {
     len -= 4;
-
-    if(!free_particles)
-      return;
 
     if(frand() > 0.3) {
       VectorClear(p.accel);

@@ -31,7 +31,6 @@ struct model_s *gun_model;
 //=============
 
 cvar_t *crosshair;
-cvar_t *cl_testparticles;
 cvar_t *cl_testentities;
 cvar_t *cl_testlights;
 cvar_t *cl_testblend;
@@ -43,9 +42,6 @@ dlight_t r_dlights[MAX_DLIGHTS];
 
 int r_numentities;
 entity_t r_entities[MAX_ENTITIES];
-
-int r_numparticles;
-particle_t r_particles[MAX_PARTICLES];
 
 lightstyle_t r_lightstyles[MAX_LIGHTSTYLES];
 
@@ -62,7 +58,6 @@ Specifies the model that will be used as the world
 void V_ClearScene(void) {
   r_numdlights = 0;
   r_numentities = 0;
-  r_numparticles = 0;
 }
 
 /*
@@ -75,25 +70,6 @@ void V_AddEntity(entity_t *ent) {
   if(r_numentities >= MAX_ENTITIES)
     return;
   r_entities[r_numentities++] = *ent;
-}
-
-/*
-=====================
-V_AddParticle
-
-=====================
-*/
-void V_AddParticle(vec3_t org, int albedo, int emit, float alpha, float incandescence) {
-  particle_t *p;
-
-  if(r_numparticles >= MAX_PARTICLES)
-    return;
-  p = &r_particles[r_numparticles++];
-  VectorCopy(org, p->origin);
-  p->albedo = albedo;
-  p->emit = emit;
-  p->alpha = alpha;
-  p->incandescence = incandescence;
 }
 
 /*
@@ -132,35 +108,6 @@ void V_AddLightStyle(int style, float r, float g, float b) {
   ls->rgb[0] = r;
   ls->rgb[1] = g;
   ls->rgb[2] = b;
-}
-
-/*
-================
-V_TestParticles
-
-If cl_testparticles is set, create 4096 particles in the view
-================
-*/
-void V_TestParticles(void) {
-  particle_t *p;
-  int i, j;
-  float d, r, u;
-
-  r_numparticles = MAX_PARTICLES;
-  for(i = 0; i < r_numparticles; i++) {
-    d = i * 0.25;
-    r = 4 * ((i & 7) - 3.5);
-    u = 4 * (((i >> 3) & 7) - 3.5);
-    p = &r_particles[i];
-
-    for(j = 0; j < 3; j++)
-      p->origin[j] = cl.refdef.vieworg[j] + cl.v_forward[j] * d + cl.v_right[j] * r + cl.v_up[j] * u;
-
-    p->albedo = 8;
-    p->emit = rand() & 255;
-    p->alpha = cl_testparticles->value;
-    p->incandescence = frand();
-  }
 }
 
 /*
@@ -463,8 +410,6 @@ void V_RenderView(float stereo_separation) {
     // v_forward, etc.
     CL_AddEntities();
 
-    if(cl_testparticles->value)
-      V_TestParticles();
     if(cl_testentities->value)
       V_TestEntities();
     if(cl_testlights->value)
@@ -503,8 +448,6 @@ void V_RenderView(float stereo_separation) {
 
     if(!cl_add_entities->value)
       r_numentities = 0;
-    if(!cl_add_particles->value)
-      r_numparticles = 0;
     if(!cl_add_lights->value)
       r_numdlights = 0;
     if(!cl_add_blend->value) {
@@ -513,8 +456,6 @@ void V_RenderView(float stereo_separation) {
 
     cl.refdef.num_entities = r_numentities;
     cl.refdef.entities = r_entities;
-    cl.refdef.num_particles = r_numparticles;
-    cl.refdef.particles = r_particles;
     cl.refdef.num_dlights = r_numdlights;
     cl.refdef.dlights = r_dlights;
     cl.refdef.lightstyles = r_lightstyles;
@@ -528,9 +469,9 @@ void V_RenderView(float stereo_separation) {
 
   re.RenderFrame(&cl.refdef);
   if(cl_stats->value)
-    Com_Printf("ent:%i  lt:%i  part:%i\n", r_numentities, r_numdlights, r_numparticles);
+    Com_Printf("ent:%i  lt:%i\n", r_numentities, r_numdlights);
   if(log_stats->value && (log_stats_file != 0))
-    fprintf(log_stats_file, "%i,%i,%i,", r_numentities, r_numdlights, r_numparticles);
+    fprintf(log_stats_file, "%i,%i,", r_numentities, r_numdlights);
 
   SCR_AddDirtyPoint(scr_vrect.x, scr_vrect.y);
   SCR_AddDirtyPoint(scr_vrect.x + scr_vrect.width - 1, scr_vrect.y + scr_vrect.height - 1);
@@ -563,7 +504,6 @@ void V_Init(void) {
   crosshair = Cvar_Get("crosshair", "0", CVAR_ARCHIVE);
 
   cl_testblend = Cvar_Get("cl_testblend", "0", 0);
-  cl_testparticles = Cvar_Get("cl_testparticles", "0", 0);
   cl_testentities = Cvar_Get("cl_testentities", "0", 0);
   cl_testlights = Cvar_Get("cl_testlights", "0", 0);
 

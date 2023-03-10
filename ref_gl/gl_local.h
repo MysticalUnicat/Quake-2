@@ -61,8 +61,11 @@ extern struct GL_ShaderResource u_view_projection_matrix;
 extern struct GL_ShaderResource u_model_view_projection_matrix;
 
 extern struct GL_ShaderResource u_frame;
+extern struct GL_ShaderResource u_frame_metrics;
 extern struct GL_ShaderResource u_view;
 extern struct GL_ShaderResource u_draw;
+
+// THIN_GL_DELCARE_BLOCK(FrameMetrics, uint32(num_live_particles), uint32(num_dead_particles))
 
 THIN_GL_DECLARE_BLOCK(Frame, float32(time), float32x3(viewOrigin))
 

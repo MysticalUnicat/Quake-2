@@ -51,7 +51,6 @@ cvar_t *cl_predict;
 cvar_t *cl_maxfps;
 cvar_t *cl_gun;
 
-cvar_t *cl_add_particles;
 cvar_t *cl_add_lights;
 cvar_t *cl_add_entities;
 cvar_t *cl_add_blend;
@@ -1331,7 +1330,6 @@ void CL_InitLocal(void) {
 
   cl_add_blend = Cvar_Get("cl_blend", "1", 0);
   cl_add_lights = Cvar_Get("cl_lights", "1", 0);
-  cl_add_particles = Cvar_Get("cl_particles", "1", 0);
   cl_add_entities = Cvar_Get("cl_entities", "1", 0);
   cl_gun = Cvar_Get("cl_gun", "1", 0);
   cl_footsteps = Cvar_Get("cl_footsteps", "1", 0);

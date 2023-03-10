@@ -306,7 +306,12 @@ struct GL_ComputeState {
 // asset
 
 struct GL_Buffer {
-  enum { GL_Buffer_Static, GL_Buffer_Temporary, GL_Buffer_GPU, GL_Buffer_CPU } kind;
+  enum {
+    GL_Buffer_Static,    // never changes, lives on the GPU
+    GL_Buffer_Temporary, // The buffer used to send information from the CPU to GPU once
+    GL_Buffer_GPU,       // only lives on the GPU
+    GL_Buffer_CPU,       // A buffer persantly mapped and bound, updated by the CPU many times
+  } kind;
   GLuint buffer;
   GLsizei size;
   void *mapping;

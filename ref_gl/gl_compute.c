@@ -296,7 +296,13 @@ THIN_GL_SNIPPET(radixsort_key_value,
       }
       barrier();
 
-      if(radixsort_histogram[0] == length) {
+      uint max_count = subgroupMax(gl_LocalInvocationID.x < RADIXSORT_NUM_BINS ? radixsort_histogram[gl_LocalInvocationID.x] : 0);
+      if(gl_LocalInvocationID.x == 0) {
+        workgroup_scratch_uint[0] = max_count;
+      }
+      barrier();
+
+      if(workgroup_scratch_uint[0] == length) {
         return bool(0);
       }
 
@@ -489,6 +495,7 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
 
       SORT_KEY_TYPE key;
       uint dst_index = sortedmatrix_enumerate(rbuf, width, height, x, y, key);
+      barrier();
 
       if(dst_index < length) {
         dst_index = sort_apply_order(dst_index, length);
@@ -506,8 +513,6 @@ THIN_GL_SNIPPET(sortedmatrix_key_value,
       SORT_KEY_TYPE key;
       uint dst_index = sortedmatrix_enumerate(rbuf, width, height, x, y, key);
       barrier();
-
-      sort_store_key(wbuf, Indexer2D_apply(sort_key_indexer[rbuf], x, y), dst_index);
 
       if(dst_index < length) {
         dst_index = sort_apply_order(dst_index, length);

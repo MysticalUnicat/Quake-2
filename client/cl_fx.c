@@ -938,61 +938,13 @@ PARTICLE MANAGEMENT
 ==============================================================
 */
 
-cparticle_t *active_particles, *free_particles;
-
-cparticle_t particles[MAX_PARTICLES];
-int cl_numparticles = MAX_PARTICLES;
-
-/*
-===============
-CL_ClearParticles
-===============
-*/
-void CL_ClearParticles(void) {
-  int i;
-
-  free_particles = &particles[0];
-  active_particles = NULL;
-
-  for(i = 0; i < cl_numparticles; i++)
-    particles[i].next = &particles[i + 1];
-  particles[cl_numparticles - 1].next = NULL;
-}
-
 void CL_AddParticle(const vec3_t origin, const vec3_t velocity, const vec3_t acceleration, int albedo, int emit,
                     float alpha, float alphavel, float incandescence, float incandescencevel) {
-#if 1
   void GL_AddParticle(float time, const vec3_t origin, const vec3_t velocity, const vec3_t acceleration, int albedo,
                       int emit, float alpha, float alphavel, float incandescence, float incandescencevel);
 
   GL_AddParticle(cl.time * 0.001, origin, velocity, acceleration, albedo, emit, alpha, alphavel, incandescence,
                  incandescencevel);
-#else
-  cparticle_t *p;
-
-  if(!free_particles)
-    return;
-
-  p = free_particles;
-  free_particles = p->next;
-  p->next = active_particles;
-  active_particles = p;
-
-  p->time = cl.time;
-
-  p->albedo = albedo;
-  p->emit = emit;
-
-  VectorCopy(origin, p->org);
-  VectorCopy(velocity, p->vel);
-  VectorCopy(acceleration, p->accel);
-
-  p->alpha = alpha;
-  p->alphavel = alphavel;
-
-  p->incandescence = incandescence;
-  p->incandescencevel = incandescencevel;
-#endif
 }
 
 /*
@@ -1104,13 +1056,15 @@ void CL_TeleporterParticles(entity_state_t *ent) {
   memset(&p, 0, sizeof(p));
 
   for(i = 0; i < 80; i++) {
-    p.albedo = 0xdb;
-    p.emit = 0xdb;
+    p.albedo = (i & 3) * 0x20 + (rand() & 2);
+    p.emit = p.albedo;
 
     for(j = 0; j < 2; j++) {
       p.org[j] = ent->origin[j] - 16 + (rand() & 31);
-      p.vel[j] = crand() * 14;
+      p.vel[j] = frand() * 8 + 8;
     }
+
+    p.vel[i & 1] *= ((i >> 1) & 1) ? 4 : -4;
 
     p.org[2] = ent->origin[2] - 16 + (rand() & 7);
     p.vel[2] = 80 + (rand() & 31);
@@ -1120,8 +1074,8 @@ void CL_TeleporterParticles(entity_state_t *ent) {
     p.alpha = 1.0;
 
     p.alphavel = -0.5;
-    p.incandescence = 0.75;
-    p.incandescencevel = p.alphavel;
+    p.incandescence = 2;
+    p.incandescencevel = 0;
 
     CL_AddParticle(p.org, p.vel, p.accel, p.albedo, p.emit, p.alpha, p.alphavel, p.incandescence, p.incandescencevel);
   }
@@ -2070,73 +2024,6 @@ void CL_TeleportParticles(vec3_t org) {
 }
 
 /*
-===============
-CL_AddParticles
-===============
-*/
-void CL_AddParticles(void) {
-  cparticle_t *p, *next;
-  float alpha, incandescence;
-  float time, time2;
-  vec3_t org;
-  int albedo, emit;
-  cparticle_t *active, *tail;
-
-  active = NULL;
-  tail = NULL;
-
-  for(p = active_particles; p; p = next) {
-    next = p->next;
-
-    // PMM - added INSTANT_PARTICLE handling for heat beam
-    if(p->alphavel != INSTANT_PARTICLE) {
-      time = (cl.time - p->time) * 0.001;
-      alpha = p->alpha + time * p->alphavel;
-      incandescence = p->incandescence + time * p->incandescencevel;
-      if(alpha <= 0) { // faded out
-        p->next = free_particles;
-        free_particles = p;
-        continue;
-      }
-    } else {
-      alpha = p->alpha;
-      incandescence = p->incandescence;
-    }
-
-    p->next = NULL;
-    if(!tail)
-      active = tail = p;
-    else {
-      tail->next = p;
-      tail = p;
-    }
-
-    if(alpha > 1.0)
-      alpha = 1;
-    incandescence = incandescence < 0 ? 0 : incandescence > 1 ? 1 : incandescence;
-
-    albedo = p->albedo;
-    emit = p->emit;
-
-    time2 = time * time;
-
-    org[0] = p->org[0] + p->vel[0] * time + p->accel[0] * time2;
-    org[1] = p->org[1] + p->vel[1] * time + p->accel[1] * time2;
-    org[2] = p->org[2] + p->vel[2] * time + p->accel[2] * time2;
-
-    V_AddParticle(org, albedo, emit, alpha, incandescence);
-
-    // PMM
-    if(p->alphavel == INSTANT_PARTICLE) {
-      p->alphavel = 0.0;
-      p->alpha = 0.0;
-    }
-  }
-
-  active_particles = active;
-}
-
-/*
 ==============
 CL_EntityEvent
 
@@ -2180,7 +2067,6 @@ CL_ClearEffects
 ==============
 */
 void CL_ClearEffects(void) {
-  CL_ClearParticles();
   CL_ClearDlights();
   CL_ClearLightStyles();
 }
