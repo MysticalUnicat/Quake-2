@@ -43,9 +43,6 @@ bool scr_initialized; // ready to draw
 
 int scr_draw_loading;
 
-vrect_t scr_vrect; // position of render window on screen
-
-cvar_t *scr_viewsize;
 cvar_t *scr_conspeed;
 cvar_t *scr_centertime;
 cvar_t *scr_showturtle;
@@ -58,13 +55,6 @@ cvar_t *scr_debuggraph;
 cvar_t *scr_graphheight;
 cvar_t *scr_graphscale;
 cvar_t *scr_graphshift;
-cvar_t *scr_drawall;
-
-typedef struct {
-  int x1, y1, x2, y2;
-} dirty_t;
-
-dirty_t scr_dirty, scr_old_dirty[2];
 
 char crosshair_pic[MAX_QPATH];
 int crosshair_width, crosshair_height;
@@ -144,10 +134,10 @@ void SCR_DrawDebugGraph(void) {
   //
   // draw the graph
   //
-  w = scr_vrect.width;
+  w = viddef.width;
 
-  x = scr_vrect.x;
-  y = scr_vrect.y + scr_vrect.height;
+  x = 0;
+  y = viddef.height;
   re.DrawFill(x, y - scr_graphheight->value, w, scr_graphheight->value, 8);
 
   for(a = 0; a < w; a++) {
@@ -261,13 +251,11 @@ void SCR_DrawCenterString(void) {
       if(start[l] == '\n' || !start[l])
         break;
     x = (viddef.width - l * 8) / 2;
-    SCR_AddDirtyPoint(x, y);
     for(j = 0; j < l; j++, x += 8) {
       re.DrawChar(x, y, start[j]);
       if(!remaining--)
         return;
     }
-    SCR_AddDirtyPoint(x, y + 8);
 
     y += 8;
 
@@ -290,52 +278,6 @@ void SCR_CheckDrawCenterString(void) {
 }
 
 //=============================================================================
-
-/*
-=================
-SCR_CalcVrect
-
-Sets scr_vrect, the coordinates of the rendered window
-=================
-*/
-static void SCR_CalcVrect(void) {
-  int size;
-
-  // bound viewsize
-  if(scr_viewsize->value < 40)
-    Cvar_Set("viewsize", "40");
-  if(scr_viewsize->value > 100)
-    Cvar_Set("viewsize", "100");
-
-  size = scr_viewsize->value;
-
-  scr_vrect.width = viddef.width * size / 100;
-  scr_vrect.width &= ~7;
-
-  scr_vrect.height = viddef.height * size / 100;
-  scr_vrect.height &= ~1;
-
-  scr_vrect.x = (viddef.width - scr_vrect.width) / 2;
-  scr_vrect.y = (viddef.height - scr_vrect.height) / 2;
-}
-
-/*
-=================
-SCR_SizeUp_f
-
-Keybinding command
-=================
-*/
-void SCR_SizeUp_f(void) { Cvar_SetValue("viewsize", scr_viewsize->value + 10); }
-
-/*
-=================
-SCR_SizeDown_f
-
-Keybinding command
-=================
-*/
-void SCR_SizeDown_f(void) { Cvar_SetValue("viewsize", scr_viewsize->value - 10); }
 
 /*
 =================
@@ -377,7 +319,6 @@ SCR_Init
 ==================
 */
 void SCR_Init(void) {
-  scr_viewsize = Cvar_Get("viewsize", "100", CVAR_ARCHIVE);
   scr_conspeed = Cvar_Get("scr_conspeed", "3", 0);
   scr_showturtle = Cvar_Get("scr_showturtle", "0", 0);
   scr_showpause = Cvar_Get("scr_showpause", "1", 0);
@@ -389,15 +330,12 @@ void SCR_Init(void) {
   scr_graphheight = Cvar_Get("graphheight", "32", 0);
   scr_graphscale = Cvar_Get("graphscale", "1", 0);
   scr_graphshift = Cvar_Get("graphshift", "0", 0);
-  scr_drawall = Cvar_Get("scr_drawall", "0", 0);
 
   //
   // register our commands
   //
   Cmd_AddCommand("timerefresh", SCR_TimeRefresh_f);
   Cmd_AddCommand("loading", SCR_Loading_f);
-  Cmd_AddCommand("sizeup", SCR_SizeUp_f);
-  Cmd_AddCommand("sizedown", SCR_SizeDown_f);
   Cmd_AddCommand("sky", SCR_Sky_f);
 
   scr_initialized = true;
@@ -412,7 +350,7 @@ void SCR_DrawNet(void) {
   if(cls.netchan.outgoing_sequence - cls.netchan.incoming_acknowledged < CMD_BACKUP - 1)
     return;
 
-  re.DrawPic(scr_vrect.x + 64, scr_vrect.y, "net");
+  re.DrawPic(64, 0, "net");
 }
 
 /*
@@ -602,106 +540,6 @@ void SCR_TimeRefresh_f(void) {
   Com_Printf("%f seconds (%f fps)\n", time, 128 / time);
 }
 
-/*
-=================
-SCR_AddDirtyPoint
-=================
-*/
-void SCR_AddDirtyPoint(int x, int y) {
-  if(x < scr_dirty.x1)
-    scr_dirty.x1 = x;
-  if(x > scr_dirty.x2)
-    scr_dirty.x2 = x;
-  if(y < scr_dirty.y1)
-    scr_dirty.y1 = y;
-  if(y > scr_dirty.y2)
-    scr_dirty.y2 = y;
-}
-
-void SCR_DirtyScreen(void) {
-  SCR_AddDirtyPoint(0, 0);
-  SCR_AddDirtyPoint(viddef.width - 1, viddef.height - 1);
-}
-
-/*
-==============
-SCR_TileClear
-
-Clear any parts of the tiled background that were drawn on last frame
-==============
-*/
-void SCR_TileClear(void) {
-  int i;
-  int top, bottom, left, right;
-  dirty_t clear;
-
-  if(scr_drawall->value)
-    SCR_DirtyScreen(); // for power vr or broken page flippers...
-
-  if(scr_con_current == 1.0)
-    return; // full screen console
-  if(scr_viewsize->value == 100)
-    return; // full screen rendering
-  if(cl.cinematictime > 0)
-    return; // full screen cinematic
-
-  // erase rect will be the union of the past three frames
-  // so tripple buffering works properly
-  clear = scr_dirty;
-  for(i = 0; i < 2; i++) {
-    if(scr_old_dirty[i].x1 < clear.x1)
-      clear.x1 = scr_old_dirty[i].x1;
-    if(scr_old_dirty[i].x2 > clear.x2)
-      clear.x2 = scr_old_dirty[i].x2;
-    if(scr_old_dirty[i].y1 < clear.y1)
-      clear.y1 = scr_old_dirty[i].y1;
-    if(scr_old_dirty[i].y2 > clear.y2)
-      clear.y2 = scr_old_dirty[i].y2;
-  }
-
-  scr_old_dirty[1] = scr_old_dirty[0];
-  scr_old_dirty[0] = scr_dirty;
-
-  scr_dirty.x1 = 9999;
-  scr_dirty.x2 = -9999;
-  scr_dirty.y1 = 9999;
-  scr_dirty.y2 = -9999;
-
-  // don't bother with anything convered by the console)
-  top = scr_con_current * viddef.height;
-  if(top >= clear.y1)
-    clear.y1 = top;
-
-  if(clear.y2 <= clear.y1)
-    return; // nothing disturbed
-
-  top = scr_vrect.y;
-  bottom = top + scr_vrect.height - 1;
-  left = scr_vrect.x;
-  right = left + scr_vrect.width - 1;
-
-  if(clear.y1 < top) { // clear above view screen
-    i = clear.y2 < top - 1 ? clear.y2 : top - 1;
-    re.DrawTileClear(clear.x1, clear.y1, clear.x2 - clear.x1 + 1, i - clear.y1 + 1, "backtile");
-    clear.y1 = top;
-  }
-  if(clear.y2 > bottom) { // clear below view screen
-    i = clear.y1 > bottom + 1 ? clear.y1 : bottom + 1;
-    re.DrawTileClear(clear.x1, i, clear.x2 - clear.x1 + 1, clear.y2 - i + 1, "backtile");
-    clear.y2 = bottom;
-  }
-  if(clear.x1 < left) { // clear left of view screen
-    i = clear.x2 < left - 1 ? clear.x2 : left - 1;
-    re.DrawTileClear(clear.x1, clear.y1, i - clear.x1 + 1, clear.y2 - clear.y1 + 1, "backtile");
-    clear.x1 = left;
-  }
-  if(clear.x2 > right) { // clear left of view screen
-    i = clear.x1 > right + 1 ? clear.x1 : right + 1;
-    re.DrawTileClear(i, clear.y1, clear.x2 - i + 1, clear.y2 - clear.y1 + 1, "backtile");
-    clear.x2 = right;
-  }
-}
-
 //===============================================================
 
 #define STAT_MINUS 10 // num frame for '-' stats digit
@@ -791,9 +629,6 @@ void SCR_DrawField(int x, int y, int color, int width, int value) {
   // draw number string
   if(width > 5)
     width = 5;
-
-  SCR_AddDirtyPoint(x, y);
-  SCR_AddDirtyPoint(x + width * CHAR_WIDTH + 2, y + 23);
 
   Com_sprintf(num, sizeof(num), "%i", value);
   l = strlen(num);
@@ -904,8 +739,6 @@ void SCR_ExecuteLayoutString(const char *s) {
       if(value >= MAX_IMAGES)
         Com_Error(ERR_DROP, "Pic >= MAX_IMAGES");
       if(cl.configstrings[CS_IMAGES + value]) {
-        SCR_AddDirtyPoint(x, y);
-        SCR_AddDirtyPoint(x + 23, y + 23);
         re.DrawPic(x, y, cl.configstrings[CS_IMAGES + value]);
       }
       continue;
@@ -918,8 +751,6 @@ void SCR_ExecuteLayoutString(const char *s) {
       x = viddef.width / 2 - 160 + atoi(token);
       token = COM_Parse(&s);
       y = viddef.height / 2 - 120 + atoi(token);
-      SCR_AddDirtyPoint(x, y);
-      SCR_AddDirtyPoint(x + 159, y + 31);
 
       token = COM_Parse(&s);
       value = atoi(token);
@@ -956,8 +787,6 @@ void SCR_ExecuteLayoutString(const char *s) {
       x = viddef.width / 2 - 160 + atoi(token);
       token = COM_Parse(&s);
       y = viddef.height / 2 - 120 + atoi(token);
-      SCR_AddDirtyPoint(x, y);
-      SCR_AddDirtyPoint(x + 159, y + 31);
 
       token = COM_Parse(&s);
       value = atoi(token);
@@ -984,8 +813,6 @@ void SCR_ExecuteLayoutString(const char *s) {
 
     if(!strcmp(token, "picn")) { // draw a pic from a name
       token = COM_Parse(&s);
-      SCR_AddDirtyPoint(x, y);
-      SCR_AddDirtyPoint(x + 23, y + 23);
       re.DrawPic(x, y, token);
       continue;
     }
@@ -1300,9 +1127,6 @@ void SCR_UpdateScreen(void) {
       re.CinematicSetPalette(NULL);
       cl.cinematicpalette_active = false;
     }
-
-    // do 3D refresh drawing, and then update the screen
-    SCR_CalcVrect();
 
     // clear any dirty part of the background
     // SCR_TileClear();

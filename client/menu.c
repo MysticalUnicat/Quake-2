@@ -163,7 +163,6 @@ const char *(*m_keyfunc)(int key);
 extern cvar_t *vid_ref;
 extern cvar_t *vid_fullscreen;
 extern cvar_t *vid_gamma;
-extern cvar_t *scr_viewsize;
 
 static cvar_t *gl_mode;
 static cvar_t *gl_driver;
@@ -194,7 +193,6 @@ static int s_current_menu_index;
 static menulist_s s_mode_list[2];
 static menulist_s s_ref_list[2];
 static menuslider_s s_tq_slider;
-static menuslider_s s_screensize_slider[2];
 static menuslider_s s_brightness_slider[2];
 static menulist_s s_fs_box[2];
 static menulist_s s_stipple_box;
@@ -360,12 +358,6 @@ void VID_MenuInit(void) {
   s_mode_list[SOFTWARE_MENU].curvalue = sw_mode->value;
   s_mode_list[OPENGL_MENU].curvalue = gl_mode->value;
 
-  if(!scr_viewsize)
-    scr_viewsize = Cvar_Get("viewsize", "100", CVAR_ARCHIVE);
-
-  s_screensize_slider[SOFTWARE_MENU].curvalue = scr_viewsize->value / 10;
-  s_screensize_slider[OPENGL_MENU].curvalue = scr_viewsize->value / 10;
-
   if(strcmp(vid_ref->string, "soft") == 0) {
     s_current_menu_index = SOFTWARE_MENU;
     s_ref_list[0].curvalue = s_ref_list[1].curvalue = REF_SOFT;
@@ -400,14 +392,6 @@ void VID_MenuInit(void) {
     s_mode_list[i].generic.x = 0;
     s_mode_list[i].generic.y = 10;
     s_mode_list[i].itemnames = resolutions;
-
-    s_screensize_slider[i].generic.type = MTYPE_SLIDER;
-    s_screensize_slider[i].generic.x = 0;
-    s_screensize_slider[i].generic.y = 20;
-    s_screensize_slider[i].generic.name = "screen size";
-    s_screensize_slider[i].minvalue = 3;
-    s_screensize_slider[i].maxvalue = 12;
-    s_screensize_slider[i].generic.callback = ScreenSizeCallback;
 
     s_brightness_slider[i].generic.type = MTYPE_SLIDER;
     s_brightness_slider[i].generic.x = 0;
@@ -469,15 +453,11 @@ void VID_MenuInit(void) {
 
   Menu_AddItem(&s_software_menu, (void *)&s_ref_list[SOFTWARE_MENU]);
   Menu_AddItem(&s_software_menu, (void *)&s_mode_list[SOFTWARE_MENU]);
-  Menu_AddItem(&s_software_menu, (void *)&s_screensize_slider[SOFTWARE_MENU]);
-  Menu_AddItem(&s_software_menu, (void *)&s_brightness_slider[SOFTWARE_MENU]);
   Menu_AddItem(&s_software_menu, (void *)&s_fs_box[SOFTWARE_MENU]);
   Menu_AddItem(&s_software_menu, (void *)&s_stipple_box);
 
   Menu_AddItem(&s_opengl_menu, (void *)&s_ref_list[OPENGL_MENU]);
   Menu_AddItem(&s_opengl_menu, (void *)&s_mode_list[OPENGL_MENU]);
-  Menu_AddItem(&s_opengl_menu, (void *)&s_screensize_slider[OPENGL_MENU]);
-  Menu_AddItem(&s_opengl_menu, (void *)&s_brightness_slider[OPENGL_MENU]);
   Menu_AddItem(&s_opengl_menu, (void *)&s_fs_box[OPENGL_MENU]);
   Menu_AddItem(&s_opengl_menu, (void *)&s_tq_slider);
   Menu_AddItem(&s_opengl_menu, (void *)&s_paletted_texture_box);
@@ -4072,9 +4052,6 @@ M_Draw
 void M_Draw(void) {
   if(cls.key_dest != key_menu)
     return;
-
-  // repaint everything next frame
-  SCR_DirtyScreen();
 
   // dim everything behind it down
   if(cl.cinematictime > 0)

@@ -483,11 +483,6 @@ void Con_DrawNotify(void) {
     re.DrawChar((x + skip) << 3, v, 10 + ((cls.realtime >> 8) & 1));
     v += 8;
   }
-
-  if(v) {
-    SCR_AddDirtyPoint(0, 0);
-    SCR_AddDirtyPoint(viddef.width - 1, v);
-  }
 }
 
 /*
@@ -515,8 +510,6 @@ void Con_DrawConsole(float frac) {
 
   // draw the background
   re.DrawStretchPic(0, -viddef.height + lines, viddef.width, viddef.height, "conback");
-  SCR_AddDirtyPoint(0, 0);
-  SCR_AddDirtyPoint(viddef.width - 1, lines - 1);
 
   Com_sprintf(version, sizeof(version), "v%4.2f", VERSION);
   for(x = 0; x < 5; x++)

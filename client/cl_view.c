@@ -188,9 +188,6 @@ void CL_PrepRefresh(void) {
   if(!cl.configstrings[CS_MODELS + 1][0])
     return; // no map loaded
 
-  SCR_AddDirtyPoint(0, 0);
-  SCR_AddDirtyPoint(viddef.width - 1, viddef.height - 1);
-
   // let the render dll load the map
   strcpy(mapname, cl.configstrings[CS_MODELS + 1] + 5); // skip "maps/"
   *strchr(mapname, ';') = 0;                            // remove checksum
@@ -373,8 +370,7 @@ void SCR_DrawCrosshair(void) {
   if(!crosshair_pic[0])
     return;
 
-  re.DrawPic(scr_vrect.x + ((scr_vrect.width - crosshair_width) >> 1),
-             scr_vrect.y + ((scr_vrect.height - crosshair_height) >> 1), crosshair_pic);
+  re.DrawPic(0 + ((viddef.width - crosshair_width) >> 1), 0 + ((viddef.height - crosshair_height) >> 1), crosshair_pic);
 }
 
 /*
@@ -437,10 +433,10 @@ void V_RenderView(float stereo_separation) {
     cl.refdef.vieworg[2] += 1.0 / 16;
 
     cl.refdef.cmodel_index = cl.frame.playerstate.cmodel_index;
-    cl.refdef.x = scr_vrect.x;
-    cl.refdef.y = scr_vrect.y;
-    cl.refdef.width = scr_vrect.width;
-    cl.refdef.height = scr_vrect.height;
+    cl.refdef.x = 0;
+    cl.refdef.y = 0;
+    cl.refdef.width = viddef.width;
+    cl.refdef.height = viddef.height;
     cl.refdef.fov_y = CalcFov(cl.refdef.fov_x, cl.refdef.width, cl.refdef.height);
     cl.refdef.time = cl.time * 0.001;
 
@@ -472,9 +468,6 @@ void V_RenderView(float stereo_separation) {
     Com_Printf("ent:%i  lt:%i\n", r_numentities, r_numdlights);
   if(log_stats->value && (log_stats_file != 0))
     fprintf(log_stats_file, "%i,%i,", r_numentities, r_numdlights);
-
-  SCR_AddDirtyPoint(scr_vrect.x, scr_vrect.y);
-  SCR_AddDirtyPoint(scr_vrect.x + scr_vrect.width - 1, scr_vrect.y + scr_vrect.height - 1);
 
   SCR_DrawCrosshair();
 }
