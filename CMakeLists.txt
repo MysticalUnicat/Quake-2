@@ -5,7 +5,8 @@ add_subdirectory(ext/alias)
 add_subdirectory(ext/alias/ext/glfw)
 add_subdirectory(ext/libuv)
 add_subdirectory(ext/mir)
-add_library(sqlite3 ext/sqlite3.c)
+add_library(sqlite3 STATIC ext/sqlite3.c)
+target_include_directories(sqlite3 INTERFACE ext)
 add_subdirectory(tools)
 
 add_library(shared STATIC
@@ -83,7 +84,7 @@ add_library(common STATIC
 target_link_libraries(common shared uv_a)
 
 add_library(client STATIC
-    client/cl_cin.C
+    client/cl_cin.c
     client/cl_ents.c
     client/cl_fx.c
     client/cl_input.c
@@ -174,3 +175,11 @@ if(WIN32)
 
     target_link_libraries(quake2 winmm wsock32)
 endif()
+
+if(LINIX)
+	target_sources(quake2
+		PRIVATE
+			
+	)
+endif()
+

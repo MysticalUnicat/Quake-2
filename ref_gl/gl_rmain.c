@@ -38,7 +38,7 @@ THIN_GL_IMPL_BLOCK(Frame, float32(time), float32x3(viewOrigin))
 
 THIN_GL_IMPL_BLOCK(View, float32x3(origin))
 
-THIN_GL_IMPL_SNIPPET(Frame_random, require(random_squares32), code(uint random_uint() { return random_xy(); }))
+//THIN_GL_IMPL_SNIPPET(Frame_random, require(random_squares32), code(uint random_uint() { return random_xy(); }))
 
 // -------------------------------------------------
 

@@ -60,10 +60,10 @@ static struct GL_ShaderResource indirect_resource = {.type = GL_Type_ShaderStora
                                                      .block.buffer = &indirect_buffer,
                                                      .block.snippet = &GL_particle_indirect_snippet};
 
-THIN_GL_STRUCT(particle_EmitParameters, float32x4(velocity_x), float32x4(velocity_y), float32x4(velocity_z),
-               float32x4(albedo_r), float32x4(albedo_g), float32x4(albedo_b), float32x4(emit_r), float32x4(emit_g),
-               float32x4(emit_b), float32x2(alpha), float32x2(alpha_velocity), float32x2(incandescence),
-               float32x2(incandescence_velocity), float32x2(size), float32x2(size_velocity), float(weight))
+// THIN_GL_STRUCT(particle_EmitParameters, float32x4(velocity_x), float32x4(velocity_y), float32x4(velocity_z),
+//                float32x4(albedo_r), float32x4(albedo_g), float32x4(albedo_b), float32x4(emit_r), float32x4(emit_g),
+//                float32x4(emit_b), float32x2(alpha), float32x2(alpha_velocity), float32x2(incandescence),
+//                float32x2(incandescence_velocity), float32x2(size), float32x2(size_velocity), float(weight))
 
 THIN_GL_BLOCK(sort_parameters, require(DispatchIndirectCommand), uint32(num_particles), uint32(width), uint32(height),
               struct(DispatchIndirectCommand, fill), struct(DispatchIndirectCommand, radix_1),
@@ -149,6 +149,7 @@ THIN_GL_SNIPPET(emit_particle, require(particle_Data), code(
 ))
 // clang-format on
 
+#if 0
 // done on subgroup size
 //
 // treat the emit upper as target indexes into workgroup_scratch_uint that are scanned over
@@ -252,6 +253,7 @@ THIN_GL_SHADER(emit_on_mesh,
   )
 )
 // clang-format on
+#endif
 
 // clang-format off
 THIN_GL_SHADER(emit_single, require(emit_particle), main(

@@ -924,19 +924,23 @@ void GL_ShaderResource_prepare(const struct GL_ShaderResource *resource) {
   }
 }
 
+#ifndef GL_SUBGROUP_SIZE
+#define GL_SUBGROUP_SIZE 0x9532
+#endif
+
 void GL_initialize_compute_state(const struct GL_ComputeState *state) {
   if(state->shader != NULL && state->shader_object == 0) {
     script_builder_init();
     script_builder_add("%s", shader_prelude);
 
     if(state->local_group_x == THIN_GL_LOCAL_GROUP_SIZE_SUBGROUP_SIZE) {
-      glGetIntegerv(GL_SUBGROUP_SIZE_KHR, &state->local_group_x);
+      glGetIntegerv(GL_SUBGROUP_SIZE, (GLint *)&state->local_group_x);
     }
     if(state->local_group_y == THIN_GL_LOCAL_GROUP_SIZE_SUBGROUP_SIZE) {
-      glGetIntegerv(GL_SUBGROUP_SIZE_KHR, &state->local_group_y);
+      glGetIntegerv(GL_SUBGROUP_SIZE, (GLint *)&state->local_group_y);
     }
     if(state->local_group_z == THIN_GL_LOCAL_GROUP_SIZE_SUBGROUP_SIZE) {
-      glGetIntegerv(GL_SUBGROUP_SIZE_KHR, &state->local_group_z);
+      glGetIntegerv(GL_SUBGROUP_SIZE, (GLint *)&state->local_group_z);
     }
 
     script_builder_add("layout(local_size_x=%i, local_size_y=%i, local_size_z=%i) in;\n",
