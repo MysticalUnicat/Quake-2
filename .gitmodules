@@ -7,3 +7,6 @@
 [submodule "tools"]
 	path = tools
 	url = https://github.com/MysticalUnicat/q2tools-220.git
+[submodule "ext/mir"]
+	path = ext/mir
+	url = https://github.com/vnmakarov/mir.git

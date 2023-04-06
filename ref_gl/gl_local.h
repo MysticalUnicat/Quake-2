@@ -67,7 +67,9 @@ extern struct GL_ShaderResource u_draw;
 
 // THIN_GL_DELCARE_BLOCK(FrameMetrics, uint32(num_live_particles), uint32(num_dead_particles))
 
-THIN_GL_DECLARE_BLOCK(Frame, float32(time), float32x3(viewOrigin))
+THIN_GL_DECLARE_BLOCK(Frame, uint32(index), float32(time), float32x3(viewOrigin))
+
+THIN_GL_DECLARE_SNIPPET(Frame_utils)
 
 THIN_GL_DECLARE_BLOCK(View, float32x3(origin))
 

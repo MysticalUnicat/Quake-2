@@ -4,6 +4,7 @@ project(alias_q2 LANGUAGES C)
 add_subdirectory(ext/alias)
 add_subdirectory(ext/alias/ext/glfw)
 add_subdirectory(ext/libuv)
+add_subdirectory(ext/mir)
 add_library(sqlite3 ext/sqlite3.c)
 add_subdirectory(tools)
 

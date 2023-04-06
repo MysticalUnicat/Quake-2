@@ -35,6 +35,57 @@ THIN_GL_SNIPPET(workgroupExclusiveAdd_uint,
   )
 )
 
+// -------------------------------------
+// random
+THIN_GL_SNIPPET(random,
+  code(
+    // forward
+    void random_init(uint x, uint y, uint z);
+    void random_advance(uint count);
+    uint uint_random();
+
+    float float_random_u() {
+      return (uint_random() >> 9) * 0x1.0p-24;
+    }
+
+    float float_random_s() {
+      return (uint_random() >> 9) * 0x1.0p-23 - 0.5f;
+    }
+  )
+)
+
+// https://arxiv.org/pdf/2004.06278.pdf
+THIN_GL_SNIPPET(random_squares32,
+  require(random),
+  code(
+    const uint64_t random_squares32_default_key = 0xEA3742C76BF95D47;
+
+    uint random_squares32(uint64_t counter, uint64_t key) {
+      uint64_t x = (counter + 1) * key;
+      uint64_t y = x;
+      uint64_t z = y + key;
+      x = x*x + y; x = (x >> 32) | (x << 32);
+      x = x*x + z; x = (x >> 32) | (x << 32);
+      x = x*x + y; x = (x >> 32) | (x << 32);
+      return uint((x*x + z) >> 32);
+    }
+
+    uint64_t global_random_squares32_counter = 0;
+
+    void random_init(uint x, uint y, uint z) {
+      global_random_squares32_counter = (uint64_t(x) * 3 + uint64_t(y) * 5 + uint64_t(z) * 7) << 32;
+    }
+
+    void random_advance(uint count) {
+      global_random_squares32_counter += count;
+    }
+
+    uint uint_random() {
+      return random_squares32(global_random_squares32_counter++, random_squares32_default_key);
+    }
+  )
+)
+
 // --------------------------------------------------------------------------------------------------------------------
 // sort primitives
 THIN_GL_SNIPPET(sort_key_float,
@@ -394,8 +445,6 @@ THIN_GL_SNIPPET(radixsort_key_value,
 
 // --------------------------------------------------------------------------------------------------------------------
 // https://www.sciencedirect.com/science/article/pii/S1877050923001461?ref=cra_js_challenge&fr=RR-1
-
-
 THIN_GL_SNIPPET(sortedmatrix_internal,
   require(sort_key),
   require(sort_key_xy),

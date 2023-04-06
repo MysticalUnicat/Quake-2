@@ -19,6 +19,8 @@
 #define THIN_GL_TESSE_BIT 0x08
 #define THIN_GL_FRAGMENT_BIT 0x10
 
+#define THIN_GL_LOCAL_GROUP_SIZE_SUBGROUP_SIZE 0xFFFFFFFF
+
 typedef void (*GL_VoidFn)(void);
 
 // --------------------------------------------------------------------------------------------------------------------

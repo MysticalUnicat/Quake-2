@@ -6,50 +6,9 @@
 #define NUM_PARTICLES 1000000
 #define PARTICLE_WORKGROUP_SIZE 128
 
-/*
-
-in these diagrams, lower case numbers indicates uncertainty.
-each pass removes uncertainty between groups of elements.
-the final pass does this by locating the location the element belongs to
-
-+------+------+
-| abcd | abcd |
-+------+------+
-| abcd | abcd |
-+------+------+
-
-+-----+-----+
-| Bcd | Acd |
-+-----+-----+
-| abD | abC |
-+-----+-----+
-first sort (buffers 0 is the last written to, descending)
-
-+-----+-----+
-| Acd | abC |
-+-----+-----+
-| Bcd | abD |
-+-----+-----+
-rotate (buffers 1 is the last written to)
-
-+-----+----+
-| Ad | bC |
-+----+----+
-| Bc | aD |
-+----+----+
-second sort (buffers 1 is the last written to, ascending)
-
-+----+---+
-| D | C |
-+---+---+
-| B | A |
-+--+---+
-quadrant enumeration (buffers 0 is the last written to, descending)
-
-*/
-
 THIN_GL_STRUCT(particle_Data, float32x4(origin_time), snorm16x4(velocity_alpha), snorm16x4(acceleration_alphaVelocity),
-               unorm8x4(albedo), unorm8x4(emit), snorm16x2(incandescence_incandescenceVelocity))
+               unorm8x4(albedo), unorm8x4(emit), snorm16x2(incandescence_incandescenceVelocity),
+               snorm16x2(size_sizeVelocity))
 THIN_GL_BLOCK(particle_data, require(particle_Data), unsized_array(struct(particle_DataPacked, item)))
 static struct GL_Buffer data_buffer = {.kind = GL_Buffer_GPU, .size = sizeof(struct GL_particle_Data) * NUM_PARTICLES};
 static struct GL_ShaderResource data_resource = {.type = GL_Type_ShaderStorageBuffer,
@@ -100,6 +59,11 @@ static struct GL_ShaderResource indirect_resource = {.type = GL_Type_ShaderStora
                                                      .name = "particle_indirect",
                                                      .block.buffer = &indirect_buffer,
                                                      .block.snippet = &GL_particle_indirect_snippet};
+
+THIN_GL_STRUCT(particle_EmitParameters, float32x4(velocity_x), float32x4(velocity_y), float32x4(velocity_z),
+               float32x4(albedo_r), float32x4(albedo_g), float32x4(albedo_b), float32x4(emit_r), float32x4(emit_g),
+               float32x4(emit_b), float32x2(alpha), float32x2(alpha_velocity), float32x2(incandescence),
+               float32x2(incandescence_velocity), float32x2(size), float32x2(size_velocity), float(weight))
 
 THIN_GL_BLOCK(sort_parameters, require(DispatchIndirectCommand), uint32(num_particles), uint32(width), uint32(height),
               struct(DispatchIndirectCommand, fill), struct(DispatchIndirectCommand, radix_1),
@@ -180,7 +144,113 @@ THIN_GL_SNIPPET(emit_particle, require(particle_Data), code(
       u_particle_alive.item[atomicAdd(u_particle_counter.alive, 1)] = index;
     }
   }
+
+
 ))
+// clang-format on
+
+// done on subgroup size
+//
+// treat the emit upper as target indexes into workgroup_scratch_uint that are scanned over
+// on those we add one
+// for example if we have a count of `1 2 3 4` we expect `0 1 1 2 2 2 3 3 3 3` back
+// assuming a workgroup size of 4, we expect to see `0 1 1 2` first, then `2 3 3 3`, then `3`
+// from the count we get were each section ends `1 3 6 10`
+// then add to a scratch a 1 where each section ends (if within this group)
+//
+// clang-format off
+THIN_GL_SHADER(emit_on_mesh,
+  require(random_squares32),
+  require(emit_particle),
+  require(particle_EmitParameters),
+  code(
+    shared uint s_scratch_uint[gl_WorkGroupSize.x];
+  ),
+  main(
+    // buffer Positions { vec3 position[]; } u_positions
+    // buffer Triangles { uvec3 triangle[]; } u_triangles;
+    // uniform float weight;
+
+    uint num_positions = len(u_positions.position);
+    uint num_triangles = len(u_triangles.triangle);
+
+    random_init(u_frame.index, u_particle_counter.dead, gl_SubgroupInvocationID);
+
+    // work in blocks to keep all invocations active
+    uint num_blocks = (num_triangles + gl_SubgroupSize - 1) / gl_SubgroupSize;
+    for(uint block = 0; block < num_blocks; block++) {
+      uint base_triangle_index = block * gl_SubgroupSize;
+
+      //  load one workgroup worth of indices, instead of being inactive invocations at the
+      // end of the list get degenerate triangles and always emit 0 particles.
+      uint triangle_index = base_triangle_index + gl_SubgroupInvocationID;
+      uvec3 indices = triangle_index < num_triangles ? u_triangles.triangle[triangle_index] : uvec3(0);
+      subgroupMemoryBarrierBuffer();
+
+      // random load :(
+      vec3 a = u_positions.position[indices.x];
+      vec3 b = u_positions.position[indices.y];
+      vec3 c = u_positions.position[indices.z];
+      subgroupMemoryBarrierBuffer();
+
+      vec3 ab = b - a;
+      vec3 ac = c - a;
+      vec3 cross = cross_product(ab, ac);
+      vec3 normal = normalize(cross);
+
+      float area = length(cross) * 0.5;
+
+      uint count = uint(float_random_u() * area * weight);
+
+      uint upper = subgroupInclusiveAdd(count);
+      uint total = subgroupBroadcast(upper, gl_SubgroupSize - 1);
+
+      uint num_indices_blocks = (total + gl_SubgoupSize - 1) / gl_SubgroupSize;
+      for(uint indices_block = 0; indices_block < num_indices_blocks; indices_block++) {
+        uint offset = indices_block * gl_SubgroupSize;
+
+        s_scratch_uint[gl_SubgroupInvocationID] = 0;
+        subgroupMemoryBarrierShared();
+
+        uint target = upper;
+        if(target >= offset) {
+          target -= offset;
+          if(target < gl_WorkGroupSize.x) {
+            atomicAdd(s_scratch_uint[target], 1);
+          }
+        } else {
+          atomicAdd(s_scratch_uint[0], 1);
+        }
+        subgroupBarrier();
+
+        uint bits = s_scratch_uint[gl_SubgroupInvocationID];
+        uint subgroup_triangle_index = subgroupInclusiveAdd(bits);
+
+        // use `subgroupShuffle` to not load positions again
+        vec3 emit_a = subgroupShuffle(a, subgroup_triangle_index);
+        vec3 emit_b = subgroupShuffle(b, subgroup_triangle_index);
+        vec3 emit_c = subgroupShuffle(c, subgroup_triangle_index);
+
+        if(base_triangle_index + subgroup_triangle_index < num_triangles) {
+          float p = float_random_u();
+          float q = float_random_u();
+          if(p + q > 1) {
+            p = 1 - p;
+            q = 1 - q;
+          }
+
+          vec3 emit_ab = emit_b - emit_a;
+          vec3 emit_ac = emit_c - emit_a;
+          vec3 emit_cross = cross_product(emit_ab, emit_ac);
+          vec3 emit_normal = normalize(emit_cross);
+          vec3 emit_position = emit_a + emit_ab*p + emit_ac*q;
+
+
+        }
+      }
+    }
+  )
+)
 // clang-format on
 
 // clang-format off

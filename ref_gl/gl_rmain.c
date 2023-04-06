@@ -38,6 +38,8 @@ THIN_GL_IMPL_BLOCK(Frame, float32(time), float32x3(viewOrigin))
 
 THIN_GL_IMPL_BLOCK(View, float32x3(origin))
 
+THIN_GL_IMPL_SNIPPET(Frame_random, require(random_squares32), code(uint random_uint() { return random_xy(); }))
+
 // -------------------------------------------------
 
 // projection * view * model * vertex
@@ -569,8 +571,11 @@ R_RenderFrame
 @@@@@@@@@@@@@@@@@@@@@
 */
 void R_RenderFrame(refdef_t *fd) {
+  static uint32_t frame_index = 0;
+
   struct GL_Frame *frame = (struct GL_Frame *)GL_update_buffer_begin(&u_frame_buffer, 0, sizeof(*frame));
   frame->time = fd->time;
+  frame->index = frame_index++;
   VectorCopy(fd->vieworg, frame->viewOrigin);
   GL_update_buffer_end(&u_frame_buffer, 0, sizeof(*frame));
 

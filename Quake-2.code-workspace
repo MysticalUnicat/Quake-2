@@ -58,7 +58,10 @@
 			"win.h": "c",
 			"warpsin.h": "c",
 			"q_shared.h": "c",
-			"cmath": "cpp"
+			"cmath": "cpp",
+			"concepts": "c",
+			"ostream": "c",
+			"bitset": "c"
 		}
 	}
 }

@@ -12,6 +12,7 @@ THIN_GL_IMPL_STRUCT(DispatchIndirectCommand, uint32(num_groups_x), uint32(num_gr
 
 const char shader_prelude[] = "#version 460 core\n"
                               "#extension GL_KHR_shader_subgroup_arithmetic : enable\n"
+                              "#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable\n"
                               "#define _Bool bool\n";
 
 struct GL_TypeInfo {
@@ -927,6 +928,17 @@ void GL_initialize_compute_state(const struct GL_ComputeState *state) {
   if(state->shader != NULL && state->shader_object == 0) {
     script_builder_init();
     script_builder_add("%s", shader_prelude);
+
+    if(state->local_group_x == THIN_GL_LOCAL_GROUP_SIZE_SUBGROUP_SIZE) {
+      glGetIntegerv(GL_SUBGROUP_SIZE_KHR, &state->local_group_x);
+    }
+    if(state->local_group_y == THIN_GL_LOCAL_GROUP_SIZE_SUBGROUP_SIZE) {
+      glGetIntegerv(GL_SUBGROUP_SIZE_KHR, &state->local_group_y);
+    }
+    if(state->local_group_z == THIN_GL_LOCAL_GROUP_SIZE_SUBGROUP_SIZE) {
+      glGetIntegerv(GL_SUBGROUP_SIZE_KHR, &state->local_group_z);
+    }
+
     script_builder_add("layout(local_size_x=%i, local_size_y=%i, local_size_z=%i) in;\n",
                        alias_max(state->local_group_x, 1), alias_max(state->local_group_y, 1),
                        alias_max(state->local_group_z, 1));
