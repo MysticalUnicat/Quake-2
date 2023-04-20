@@ -3,7 +3,10 @@ services:
     entrypoint:
     - sleep
     - infinity
-    image: archlinux:latest
+    #image: archlinux:latest
+    build:
+      context: .
+      target: development
     init: true
     volumes:
     - type: bind
